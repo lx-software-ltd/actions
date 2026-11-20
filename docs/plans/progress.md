@@ -84,7 +84,7 @@ The owner approved copying the 31 digests shared by `evolvesprouts` and `siutind
 
 That commit is still an ancestor of `main`. Force-push is blocked. The gates in this repository still pin it. Fixture jobs still use `uses: ./require-jobs`.
 
-One repository uses one actions SHA. The SA-301 rollout pin is `c850872471a02a3f6112a9c5321b485e7f181443` (`#11`, on `main`). It contains `require-jobs`, `setup-node`, and `setup-python`, and `setup-node` fails unless `cache` is empty or `npm`. A product pull request moves `require-jobs` from `1a3cca7` to that commit in the same change as the setup actions.
+One repository uses one actions SHA. `c850872471a02a3f6112a9c5321b485e7f181443` (`#11`) is where `setup-node` started failing on a cache value other than empty or `npm`. `61d2a581a1d880533982bada88923ad1b6431700` (`#13`) is that commit plus `verify-rulesets`. A product pull request that is still open on `c850872` moves to `61d2a58` before it merges. SA-304 callers pin `61d2a58`.
 
 ## Dependabot
 
@@ -92,9 +92,7 @@ Unchanged from the earlier note. `cooldown.exclude` for `lx-software-ltd/actions
 
 ## SA-103 — next `verify-rulesets` run
 
-Not edited. Pair A warns when the approving-review count is below one and does not fail on that warning. The next weekly run passes, with that warning.
-
-Pair B treats a count below one as an error. The live ruleset asks for zero, and zero is intended (O4). Gate G1 is approved. SA-304 replaces the script and checks for exactly 0. Until that pull request is on `main`, Monday 23 Nov 2026 at 09:00 UTC still fails with `main ruleset does not require at least 1 approving review.` Pair A still only warns.
+The action is on `actions` `main` at `61d2a58`. It fails unless the approving-review count is exactly 0 and the required checks are exactly `lint` and `test`. The four product workflows still run their local scripts. Pair A still warns and passes. Pair B still fails on Monday 23 Nov 2026 at 09:00 UTC until the rollout is on `main`.
 
 ## Measured commits, 20 Nov 2026, 23:20 Hong Kong
 
@@ -104,7 +102,7 @@ Pair B treats a count below one as an error. The live ruleset asks for zero, and
 | `lx-software` | `326acc85fd7f80079b3fefb4551260590c6ef6aa` | SA-205 merge, #657. |
 | `evolvesprouts` | `bdf7b0f22518361c0f79d27d35c53e29758b6cab` | SA-205 merge, #2270. |
 | `siutindei` | `fe2c76663d4d26a5fb4409ca73ad4bf3ba543e58` | SA-205 merge, #920. |
-| `actions` | `c850872471a02a3f6112a9c5321b485e7f181443` | #11. Unknown `cache` values fail. SA-301 rollout pin. |
+| `actions` | `61d2a581a1d880533982bada88923ad1b6431700` | #13. `verify-rulesets` is on `main`. |
 
 ## Steps
 
@@ -122,6 +120,6 @@ Pair B treats a count below one as an error. The live ruleset asks for zero, and
 | SA-205 | Merged. `lx-software` #657, `evolvesprouts` #2270, `siutindei` #920. |
 | SA-301 | Merged. `actions` #9 at `c55e210`, then #11 at `c850872`. |
 | SA-204 | Waiting on a `v*` release. The tag rulesets are measured above. Dependabot has nothing to move until a release exists. |
-| SA-301 rollout | `findingalpha` #73 is open at `ace427e`. `lint` and `test` succeeded. The eight github-actions names from path-filtered `main` `d924cc4` are still there, and the `lint.yml` and `test.yml` jobs appear because that push skipped them. The other three repositories are not started. |
-| SA-304 | Not started. Gate G1 is approved. Needed before Monday 23 Nov 2026, 09:00 UTC, or pair B's weekly run fails on the review count. |
+| SA-301 rollout | `findingalpha` #73 is open at `ace427e` and still pins `c850872`. `lint` and `test` succeeded. Move that pin to `61d2a58` before merge. The other three repositories are not started. |
+| SA-304 | Merged. `actions` #13 at `61d2a58`. `lint`, `test`, and both fixtures passed. The findingalpha trial is next. `evolvesprouts` and `siutindei` still fail on Monday until their rollout is on `main`. |
 | Later | SA-302 and SA-307 are allowed under the G2 approval above. SA-303, SA-305, SA-306, SA-308, and SA-309 are not started. G3, G4, and G5 stay closed. |
