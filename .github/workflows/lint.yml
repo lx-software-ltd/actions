@@ -1,0 +1,45 @@
+name: Lint
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  lint-python:
+    name: Lint Python
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Compile Python
+        run: python3 -m compileall -q -f require-jobs scripts tests
+
+      - name: Check action layout
+        run: python3 scripts/check_action_layout.py
+
+  lint:
+    name: lint
+    runs-on: ubuntu-26.04
+    needs:
+      - lint-python
+    if: always()
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Require every lint job
+        uses: ./require-jobs
+        with:
+          needs-json: ${{ toJson(needs) }}
