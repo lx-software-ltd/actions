@@ -9,9 +9,9 @@ Named approvals, 20 Nov 2026:
 
 - Gate G1 is approved for SA-304. The expected approving-review count is 0.
 - Gate G2 is approved for SA-302 and for SA-307. The earlier approval for `findingalpha` `scripts/pii-denylist.sha256`, and for that file in this repository, still stands.
-- The O3 tag split is approved and not applied. This file's "O3, what the owner applies" is the procedure. The agent does not edit organisation rulesets and does not run `gh release create`.
-- O5 is approved and not started. It is before Stage 5. Narrow the role trust to the four product repositories and remove the account id from the public `lx-software` trust-policy document. Do not copy the account id into this file.
-- O6 is changed. `AWS_ACCOUNT_ID` stays a variable. Do not add it as a secret. That change is before Stage 5 and is not started.
+- The O3 tag split was edited on 20 Nov 2026. See the measurement below. The agent does not edit organisation rulesets and does not run `gh release create`.
+- O5 is approved. The IAM trust narrowing is the owner's and blocks only Stage 5. The account id in the public `lx-software` trust-policy document is a separate one-file change. Do not copy the account id into this file.
+- O6 stays a variable. Stage 5 reads `vars.AWS_ACCOUNT_ID` only. Do not assert or write `secrets.AWS_ACCOUNT_ID || vars.AWS_ACCOUNT_ID`. That line overrides decision D8 and the SA-501 sentence in the plan copy.
 
 Gates G3, G4, and G5 stay closed.
 
@@ -23,10 +23,10 @@ Numbers are the approved plan's numbers.
 | --- | --- | --- |
 | O1 | Public `actions` repository, agent can push | Confirmed |
 | O2 | Actions policy allows `lx-software-ltd/*` | Not read. The policy API returns 403. Observed: this repository's own gates resolved `lx-software-ltd/actions/require-jobs@1a3cca7` and the runs were green. |
-| O3 | How `v*` tags get created | Approved, not applied. Only the owner creates one. Nobody can move or delete one. The split below is still not on the organisation. Do not tag until it is. |
+| O3 | How `v*` tags get created | Measured 20 Nov 2026, 23:40 Hong Kong. See below. The agent does not create the tag. |
 | O4 | Is zero approving reviews intended? | Decided. Yes. SA-304 checks for exactly 0. |
 | O5 | Narrow `GitHubActionsRole` trust to the four product repositories | Approved, before Stage 5. Not started. Also remove the account id from the public trust-policy document. |
-| O6 | `AWS_ACCOUNT_ID` | Changed. It stays a variable. Do not add the secret. Before Stage 5. Not started. |
+| O6 | `AWS_ACCOUNT_ID` | A variable. Stage 5 uses `vars.AWS_ACCOUNT_ID` only. Not started. |
 | O7 | Hand-run each deploy workflow after its pull request merges | Open. Cannot start early. |
 | O8 | Attach `main-protection` and `release-tags` to `actions` | Done. Both rulesets are returned for this repository. `main-protection` was updated `2026-11-20T13:17:29Z`. |
 
@@ -42,9 +42,15 @@ Node 26 and `macos-26` are the answers to the open questions, not owner tasks. T
 - Pull request required. `required_approving_review_count` is 0. That is intended (O4).
 - Required checks are exactly `lint` and `test`, strict.
 
-`release-tags`: creation, update, and deletion of `refs/tags/v*` are all blocked, with no bypass. A tag cannot be created, and a tag cannot be moved. The O3 split is still to do. Until the owner applies it, this repository stays untagged and callers use `# main <yyyy-mm-dd>`.
+Measured again 20 Nov 2026, 23:40 Hong Kong.
 
-The same two rulesets are on the four product repositories.
+`release-tags` (id `27712299`, updated `2026-11-20T15:37:16Z`) includes `refs/tags/v*` and has rules `deletion` and `update` only. `bypass_actors` is empty. Creation is no longer on this ruleset.
+
+`release-tags-create` (id `27737981`, updated `2026-11-20T15:36:32Z`) is active. Its include is `refs/tags/refs/tags/v*`, which does not match `refs/tags/v*`. Its rules are `non_fast_forward` and `creation`. `bypass_actors` is empty and `current_user_can_bypass` is `never`.
+
+Updates and deletes of `refs/tags/v*` stay blocked. The create ruleset does not match those tags, so it does not restrict who creates one. Callers still pin commit SHAs until a release exists. The agent does not run `gh release create`.
+
+The same organisation rulesets apply to the four product repositories.
 
 ### O3, what the owner applies
 
@@ -76,11 +82,9 @@ The owner approved copying the 31 digests shared by `evolvesprouts` and `siutind
 | --- | --- |
 | Merge that put `require-jobs` on `main` | `1a3cca7c38163f8164c262323601c34a4df5b7a4` |
 
-That commit is still an ancestor of `main`. Force-push is blocked. The gates in this repository pin it. Fixture jobs still use `uses: ./require-jobs`.
+That commit is still an ancestor of `main`. Force-push is blocked. The gates in this repository still pin it. Fixture jobs still use `uses: ./require-jobs`.
 
-One repository uses one actions SHA. `c55e210150528a8e334d95e3ca6ef950f2e83068` is the first commit that contains `require-jobs`, `setup-node`, and `setup-python`. The SA-301 rollout moves each product repository's `require-jobs` pin from `1a3cca7` to that same commit, in the same pull request as the setup actions. Pre-commit `rev` will use that commit too.
-
-`c55e210` treats a `cache` value other than `npm` as no cache. The next change on this repository fails that call. If that change is on `main` before the pilot merges, the pilot pins the newer commit. Still one SHA.
+One repository uses one actions SHA. The SA-301 rollout pin is `c850872471a02a3f6112a9c5321b485e7f181443` (`#11`, on `main`). It contains `require-jobs`, `setup-node`, and `setup-python`, and `setup-node` fails unless `cache` is empty or `npm`. A product pull request moves `require-jobs` from `1a3cca7` to that commit in the same change as the setup actions.
 
 ## Dependabot
 
@@ -100,7 +104,7 @@ Pair B treats a count below one as an error. The live ruleset asks for zero, and
 | `lx-software` | `326acc85fd7f80079b3fefb4551260590c6ef6aa` | SA-205 merge, #657. |
 | `evolvesprouts` | `bdf7b0f22518361c0f79d27d35c53e29758b6cab` | SA-205 merge, #2270. |
 | `siutindei` | `fe2c76663d4d26a5fb4409ca73ad4bf3ba543e58` | SA-205 merge, #920. |
-| `actions` | `c55e210150528a8e334d95e3ca6ef950f2e83068` | SA-301 merge, #9. |
+| `actions` | `c850872471a02a3f6112a9c5321b485e7f181443` | #11. Unknown `cache` values fail. SA-301 rollout pin. |
 
 ## Steps
 
@@ -116,8 +120,8 @@ Pair B treats a count below one as an error. The live ruleset asks for zero, and
 | Denylist copy | Merged. #7 writes the 31 digests here. |
 | SA-203 | Merged. `findingalpha` #72, merge `d924cc4`. |
 | SA-205 | Merged. `lx-software` #657, `evolvesprouts` #2270, `siutindei` #920. |
-| SA-301 | Merged. `actions` #9 at `c55e210`. No product caller yet. |
-| SA-204 | Waiting. The tag split is approved and not applied, so Dependabot has no `v*` release to move. |
-| SA-301 rollout | Not started. `findingalpha` first. One actions SHA per repository, the commit named in the gate-pin section. Callers pass the versions they use today. |
+| SA-301 | Merged. `actions` #9 at `c55e210`, then #11 at `c850872`. |
+| SA-204 | Waiting on a `v*` release. The tag rulesets are measured above. Dependabot has nothing to move until a release exists. |
+| SA-301 rollout | `findingalpha` #73 is open at `ace427e`. `lint` and `test` succeeded. The eight github-actions names from path-filtered `main` `d924cc4` are still there, and the `lint.yml` and `test.yml` jobs appear because that push skipped them. The other three repositories are not started. |
 | SA-304 | Not started. Gate G1 is approved. Needed before Monday 23 Nov 2026, 09:00 UTC, or pair B's weekly run fails on the review count. |
 | Later | SA-302 and SA-307 are allowed under the G2 approval above. SA-303, SA-305, SA-306, SA-308, and SA-309 are not started. G3, G4, and G5 stay closed. |
