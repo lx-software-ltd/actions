@@ -1,6 +1,6 @@
 # Plan: Pin the merge gates at the main SHA
 
-**Status**: In progress
+**Status**: Merged as pull request #4 (`b1d436a`). This is not an open pull request. Ruleset sentences below were the measurement when this note was written. The current measurement is the preface of `docs/plans/shared-actions-and-ci-convergence.md`.
 **Zone**: yellow
 
 ## Goal

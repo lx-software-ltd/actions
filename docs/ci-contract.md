@@ -67,7 +67,7 @@ Hosting, mobile workflows, extra triggers (`repository_dispatch`, `board-*`, Fig
 | Yes | `pull_request` on `lint.yml` and `test.yml` has no path filter. |
 | No | `check-lockfiles.yml`, `semgrep.yml`, `verify-rulesets.yml`, `cdk-diff.yml`, deploy workflows, and the product job ids (`checkov`, `bandit`, `validate-agent-harness`, and the rest). |
 | No | `allow-skipped`. Nothing in this repository is skipped as cost control. |
-| No | A `v*` tag, until `release-tags` applies. A tag created here can move. |
+| No | A `v*` tag. `release-tags` applies, and this token cannot create or move one. Who creates a release is still owner task O3. |
 
 Workflows and jobs:
 
@@ -79,7 +79,7 @@ Workflows and jobs:
 
 The `lint`, `test`, and `security-summary` gates pin `lx-software-ltd/actions/require-jobs@1a3cca7c38163f8164c262323601c34a4df5b7a4` (`# main 2026-11-20`). They must not use `uses: ./require-jobs`. A local action is loaded from the pull request, so a change that always exits 0 would turn the required check green while the fail fixture goes red. Fixture jobs may use `uses: ./require-jobs` to test the pull request's copy. The layout check rejects a local action on a gate job. The calling job needs `python3` on `PATH`.
 
-`security-summary` aggregates `security.yml` only. No ruleset is attached to this repository, so neither that job nor `lint` and `test` block a merge until the owner adds `actions` to `main-protection` and requires those check names. PII and Gitleaks also run inside `lint-python`, so the `lint` check fails when they fail once that ruleset exists.
+`security-summary` aggregates `security.yml` only. `main-protection` requires `lint` and `test`, not `security-summary`. PII and Gitleaks also run inside `lint-python`, so a failure there fails `lint`. A pull request can still edit a gate's `needs` list or its pin, because the workflow file comes from the pull request. Nothing in this repository stops that.
 
 `scripts/pii-denylist.sha256` has no digests. The PII job checks nothing until the owner adds organisation-level hashes.
 

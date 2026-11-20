@@ -8,6 +8,6 @@ Callers pin a full commit SHA:
 uses: lx-software-ltd/actions/require-jobs@<40-hex> # main <yyyy-mm-dd>
 ```
 
-Do not pin a tag from this repository. `release-tags` does not apply here, so a `v*` tag can be created and can be moved. `main-protection` does not apply either, so a force-push can drop a commit callers have pinned. Both gaps are written up in `docs/plans/progress.md`.
+`main-protection` and `release-tags` both apply. A force-push is blocked, and this token cannot create or move a `v*` tag. Callers pin a commit SHA. The current `require-jobs` pin is in `docs/plans/progress.md`.
 
 The CI contract is `docs/ci-contract.md`. The plan copy is `docs/plans/shared-actions-and-ci-convergence.md`. Progress is `docs/plans/progress.md`.

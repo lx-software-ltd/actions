@@ -1,6 +1,6 @@
 # Plan: Scaffold the actions repository
 
-**Status**: In progress
+**Status**: Merged as pull request #1. Ruleset sentences below were the measurement when this note was written. The current measurement is the preface of `docs/plans/shared-actions-and-ci-convergence.md`.
 **Zone**: yellow
 
 ## Goal

@@ -1,9 +1,8 @@
 name: Security Scanning
 
-# The security-summary job aggregates this workflow. It is not a required
-# check, and no ruleset is attached, so a red result here does not block a
-# merge. PII and Gitleaks also run inside lint.yml so the lint check fails
-# when they fail, once the owner requires that check.
+# security-summary aggregates this workflow. main-protection requires
+# lint and test, not this job. PII and Gitleaks also run inside lint.yml,
+# so a failure there fails the required lint check.
 
 on:
   workflow_dispatch:

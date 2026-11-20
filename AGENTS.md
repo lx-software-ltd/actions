@@ -16,7 +16,7 @@ Nothing private goes in this repository: no secret, account id, internal hostnam
 
 No workflow here requests `id-token: write` or calls AWS.
 
-`main-protection` and `release-tags` do not apply to this repository. Do not create a `v*` tag. Do not treat a green `lint` or `test` check as merge protection. The plan copy and the corrections live in `docs/plans/shared-actions-and-ci-convergence.md`.
+`main-protection` and `release-tags` apply. Do not create a `v*` tag: this token cannot. The hand-off plan, with its original numbers, is `docs/plans/shared-actions-and-ci-convergence.md`. Corrections that override a measured sentence are at the top of that file.
 
 The `lint`, `test`, and `security-summary` gates pin `lx-software-ltd/actions/require-jobs` at the merge SHA in `docs/plans/progress.md`. They must not use `uses: ./require-jobs`.
 

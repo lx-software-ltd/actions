@@ -1,7 +1,8 @@
 name: Test
 
-# main-protection does not apply to this repository. A green test check
-# does not block a merge until the owner attaches that ruleset.
+# main-protection applies and requires this check. The workflow file
+# still comes from the pull request, so an edit to this gate's needs
+# list or pin is outside what this repository can stop.
 
 on:
   workflow_dispatch:

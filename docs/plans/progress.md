@@ -11,22 +11,20 @@ The plan copy is `docs/plans/shared-actions-and-ci-convergence.md`. Where that f
 | --- | --- |
 | O1. Public `actions` repository | Confirmed. The repository exists and this agent can push to it. The first commit was a README only. The Apache-2.0 licence is added in the scaffold pull request. |
 | O2. Actions policy allows `lx-software-ltd/*` | Not re-verified. The owner said this was done. The policy API still returns 403 for this token, so this file does not record it as confirmed. |
-| O3. Tag decision | Open. No decision is recorded. See the ruleset section: a `v*` tag here can be created and can move, so this repository will not create one. |
+| O3. Tag decision | Open as a choice of who creates a release. `release-tags` now applies, and this token cannot create or move a `v*` tag. |
 | O4. Is zero approving reviews intended? | Open. Not answered. The live product ruleset asks for zero. SA-103 below says what the next weekly run will do with that ruleset. It is not an owner decision. |
 | O5. Trust policy for deploy roles | Open. Not changed here. |
 | O6. Node default and macOS label (C04, C03) | Open. Not answered. |
 | O7. Hand-run each deploy workflow after its pull request merges | Open. This cannot be done ahead of those merges. None of those pull requests exist yet. |
-| O8. Attach `main-protection` and `release-tags` to `actions` | Open. The agent cannot edit organisation rulesets, and the repository condition is hidden from this token. |
+| O8. Attach `main-protection` and `release-tags` to `actions` | Confirmed on 20 Nov 2026 at 13:17 UTC. Both rulesets are on this repository. Details are below. |
 
 The kickoff said owner tasks were done. That is not recorded as fact. O7 cannot have been done, and O3 and O4 were not answered.
 
-## Rulesets, measured again on 20 Nov 2026
+## Rulesets, measured 20 Nov 2026 at 13:17 UTC
 
-`GET /repos/lx-software-ltd/actions/rulesets` returns `[]`. No ruleset is attached.
+`GET /repos/lx-software-ltd/actions/rulesets` returns `main-protection` and `release-tags`. The same pair is on `findingalpha`, `lx-software`, `evolvesprouts`, and `siutindei`. Earlier the same day the `actions` list was empty. Live problems item 4 in the hand-off plan is true as of this measurement.
 
-`GET /repos/lx-software-ltd/findingalpha/rulesets` returns both organisation rulesets. The same pair is attached to `lx-software`, `evolvesprouts`, and `siutindei`.
-
-`main-protection` (id `27712218`, updated `2026-11-20T10:19:28Z`, source Organisation):
+`main-protection` (id `27712218`, updated `2026-11-20T13:17:29Z`, source Organisation):
 
 - Targets `~DEFAULT_BRANCH`, enforcement active.
 - Required checks are exactly `lint` and `test`, strict.
@@ -34,22 +32,17 @@ The kickoff said owner tasks were done. That is not recorded as fact. O7 cannot 
 - Blocks deletion and force-push.
 - `bypass_actors` is null in the payload this token can read. `current_user_can_bypass` is `never`.
 
-`release-tags` (id `27712299`) blocks creation, update, and deletion of `refs/tags/v*`. No bypass actor is visible on the product repositories.
+`release-tags` (id `27712299`, updated `2026-11-20T13:17:45Z`) blocks creation, update, and deletion of `refs/tags/v*`. Same bypass result.
 
-The organisation ruleset list itself is 403 for this token. The repository condition that selects the product repositories and not `actions` is hidden. Do not read an empty ruleset list on a product repository the same way: a 403 on the organisation endpoint is not "no ruleset".
+The organisation ruleset list itself is 403 for this token. A 403 on that endpoint is not "no ruleset". Read the repository's own ruleset list.
 
-### What the missing ruleset means
-
-The plan's old "Live problems" item 4 said `actions` inherits both rulesets. That is wrong.
-
-- Nothing requires `lint` or `test` before a merge into `actions`. The workflows run, and a failing check does not block the merge.
-- A force-push to `main` can orphan a commit. The rollback promise that old SHAs stay valid because a ruleset blocks force-pushes is void until O8 is done. Callers must not pin this repository until then.
-- `release-tags` does not apply here. A `v*` tag can be created, and it can also be moved. The earlier reason for not tagging ("the ruleset blocks tags") was backwards. Do not tag, because a tag would not be immovable.
-- `security-summary` is not a required check anywhere. PII and Gitleaks also run as steps of `lint-python`, so they fail the `lint` check, and that still does not block a merge until O8.
+Old SHAs stay reachable: the ruleset blocks force-pushes. This token cannot create or move a `v*` tag. `security-summary` is still not a required check. PII and Gitleaks also run inside `lint-python`, so they fail the `lint` check, and that check now blocks a merge.
 
 ## PII denylist
 
 `scripts/pii-denylist.sha256` contains no digests. `scripts/check_pii.py` exits 0 and prints that the run checks nothing. The job stays, so the owner can add organisation-level hashes without a new workflow. This file does not invent hashes.
+
+That script is not the product copy. The four product copies of `scripts/check_pii.py` match each other (`d7dd4c7405105dc9568f1e8f1df3f54aee7e875512c80eb7d539ed442fe5c41f`). This copy (`97409722de37ffaddcf21040d960649f03d3c3c9056e3b93bc1fbb1206c85d99`) adds an early return when the denylist is empty. SA-302 chooses which file is the source. It does not treat them as the same script.
 
 ## Gate pin
 
@@ -61,7 +54,9 @@ Those three gates pin `lx-software-ltd/actions/require-jobs` at the merge SHA be
 | --- | --- |
 | Merge that put `require-jobs` on `main` | `1a3cca7c38163f8164c262323601c34a4df5b7a4` |
 
-That commit is the merge of #2 onto the previous `main` (`a4f81f0`), with parent `e9c01fe`. Its tree matches `e9c01fe`. GitHub reports the same merge commit for #1 and #2. `main-protection` still does not apply, so a force-push can orphan it. Product callers wait for owner task O8.
+That commit is the merge of #2 onto the previous `main` (`a4f81f0`), with parent `e9c01fe`. Its tree matches `e9c01fe`. GitHub reports the same merge commit for #1 and #2. Pull request #4, merge `b1d436a`, points the three gates at it.
+
+A pull request can still edit a gate's `needs` list or its pin. The workflow file comes from the pull request, and nothing in this repository can stop that edit. Review and `main-protection` are what stand outside the repository. The ruleset requires the check names and blocks a force-push. It asks for zero approving reviews, so it does not itself require a person to approve the edit.
 
 ## Dependabot
 
@@ -77,7 +72,7 @@ Not edited. Pair A (`findingalpha`, `lx-software`) warns when the approving-revi
 
 Pair B (`evolvesprouts`, `siutindei`) treats a review count below one as an error. The live ruleset asks for zero. The next weekly run fails with `main ruleset does not require at least 1 approving review.` The lint and test context checks pass, because those contexts are on the ruleset. SA-304 replaces this script and is behind gate G1.
 
-Whether zero approving reviews is intended is O4, and it is unanswered. `actions` has no `verify-rulesets` workflow and no ruleset, so there is nothing to run here.
+Whether zero approving reviews is intended is O4, and it is unanswered. `actions` has no `verify-rulesets` workflow, so there is nothing to run here. The ruleset itself is now attached.
 
 ## Measured commits on 20 Nov 2026
 
@@ -87,7 +82,7 @@ Whether zero approving reviews is intended is O4, and it is unanswered. `actions
 | `lx-software` | `186d7fb` | Unchanged from the plan. |
 | `evolvesprouts` | `c1d4686` | Unchanged from the plan. |
 | `siutindei` | `87b1915` | Unchanged from the plan. |
-| `actions` | `1a3cca7` | No rulesets. #1 and #2 are merged. This pull request pins the gates at that SHA. |
+| `actions` | `b1d436a` | Both organisation rulesets are attached. #4 pins the gates at `1a3cca7`. |
 
 ## Steps
 
@@ -98,5 +93,5 @@ Whether zero approving reviews is intended is O4, and it is unanswered. `actions
 | SA-103 | Reported above. No edit. |
 | SA-201 | Merged. #1, included in `1a3cca7`. |
 | SA-202 | Merged. #2, merge commit `1a3cca7`. Fixture jobs use `uses: ./require-jobs`. |
-| SA-202 pin | This pull request. The SHA above is recorded, and the three gates pin `require-jobs` at it. |
-| SA-203 onward | Not started. The pin SHA is on `main`. Still waits on O8 and on red gates G1 to G5. |
+| SA-202 pin | Merged. #4, merge commit `b1d436a`. The gates pin `require-jobs` at `1a3cca7`. |
+| SA-203 onward | Not started. The pin SHA is on `main` and O8 is done. Red gates G1 to G5 are still closed. |
