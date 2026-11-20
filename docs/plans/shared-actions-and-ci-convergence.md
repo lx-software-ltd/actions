@@ -1,223 +1,682 @@
 # Plan: Shared actions repository and CI convergence
 
-**Status**: In progress. Measured facts below were checked on 20 Nov 2026.
-**Zone**: red for the program (it reaches deploy and rulesets). A single pull request uses the zone of the files it touches. G1 to G5 are closed.
+**Read this first.** `docs/plans/progress.md` records the decisions the owner confirmed after approving the plan below, and the facts that were measured again on 20 Nov 2026 at 21:30 Hong Kong time. Where that file and this one conflict, `progress.md` wins. The rest of this file is the approved plan, verbatim. Decision numbers D1–D10, owner tasks O1–O7, rows C01–C28, gates G1–G5, and step numbers keep the meanings below. Do not renumber them. O8, in `progress.md`, is the ruleset attachment this plan did not list because it assumed `actions` already inherited both rulesets.
 
-This is the copy SA-201 required under `docs/plans/`. Executing agents correct a measured fact here when it no longer holds, then act on the corrected text. `docs/plans/progress.md` is the status page. Where they disagree, this file wins.
+An earlier copy of this file was a shortened rewrite. It dropped the catalog, the target shape, and most of the steps, and it reused D and O numbers for different things. That copy is replaced.
 
-## Corrections that override the original draft
+---
 
-These were wrong in the draft this file replaces. Do not reintroduce them.
+**Status**: Draft
+**Zone**: red
 
-1. **`actions` does not inherit the organisation rulesets.** `GET /repos/lx-software-ltd/actions/rulesets` returns `[]`. The product repositories return `main-protection` and `release-tags`. The organisation ruleset list is 403 for the agent token, and the repository condition is hidden, so the agent cannot attach the rulesets. Owner task O8 is that attachment. Until it is done:
-   - A force-push to `actions` `main` can orphan a SHA a caller has pinned. Rollback text that says old SHAs stay valid because the ruleset blocks force-pushes is void.
-   - Nothing requires `lint` or `test` before a merge. The workflows are still worth running. They do not gate the merge.
-   - `release-tags` does not apply, so a `v*` tag can be created and can be moved. Do not create one. The draft's reason ("the ruleset blocks tags, and no bypass is visible") described the product repositories, not this one.
-2. **Owner tasks are not done as a set.** Confirmed: O1, the public repository exists and the agent can push. O2 was stated by the owner and was not re-verified (policy API 403). O3, O4, O5, O6, and O7 are open. O7 is a hand-run of each deploy workflow after its pull request merges, so it cannot be done early. O4 (whether zero approving reviews is intended) is unanswered. SA-103 reports the live ruleset. It does not answer O4.
-3. **`allow-skipped: true` is allowed** on `security-summary`, and on pair B's `lint` and `test` gates, when a `changes` job is in `needs` and the gate lists every job. That is C07. The contract must not forbid it. Pair A does not use it. This repository does not use it.
-4. **Do not point a gate at `uses: ./require-jobs`.** The spec's self-test does that, and it is a hole: the pull request's copy of `require_jobs.py` is the code that decides the required check. A copy that always returns 0 turns `test` green while the fail fixture, which is not required, goes red. Fixture jobs may use `./`. The `lint`, `test`, and `security-summary` gates pin `lx-software-ltd/actions/require-jobs@1a3cca7c38163f8164c262323601c34a4df5b7a4`. That is the merge of #2 and the tip of `main` on 20 Nov 2026. One concern per pull request. SA-201 and SA-202 were not the same pull request.
-5. **The PII denylist has no digests.** The job checks nothing until the owner supplies organisation-level hashes. Say so. Do not invent hashes.
-6. **`findingalpha` `main` is `11e6caa`**, not `2cbc059`. The two later merges are Cognito work. They did not change workflow files. The other three product tips are unchanged: `lx-software` `186d7fb`, `evolvesprouts` `c1d4686`, `siutindei` `87b1915`.
+This is a hand-off plan. An agent can execute it across five
+repositories of the `lx-software-ltd` organisation: `findingalpha`,
+`lx-software`, `evolvesprouts`, `siutindei`, and a new `actions`.
+
+The owner approved the direction in chat on 20 Nov 2026. That approval
+covers the design in this file. It does not cover writes to red paths.
+Each of those waits at an approval gate listed under
+[Approval gates](#approval-gates).
+
+Facts marked "measured" come from these commits. Measure again if
+`main` has moved.
+
+| Repository | Commit read |
+| --- | --- |
+| `findingalpha` | `2cbc059` |
+| `lx-software` | `186d7fb` |
+| `evolvesprouts` | `c1d4686` |
+| `siutindei` | `87b1915` |
 
 ## Goal
 
-One public composite-action repository, `lx-software-ltd/actions`. The four product repositories call those actions and delete their copies. Workflows converge on the same checks, tool versions, and failure behaviour, with the same job names, except for declared inputs and the differences that stay. `workflow-conformance` fails when a repository drifts from `docs/ci-contract.md`.
+1. One public repository, `lx-software-ltd/actions`, holds every CI and
+   deploy building block that more than one repository uses. The blocks
+   are composite actions. The harness scripts are also published from
+   it as pre-commit hooks.
+2. The four product repositories call those actions and delete their
+   own copies.
+3. The four repositories' workflows do the same thing: the same checks,
+   the same tool versions, the same failure behaviour, the same job
+   names. A remaining difference is either a declared input (app
+   directories, stack names, parameters) or is listed under
+   [Differences that stay](#differences-that-stay).
+4. A check in each repository fails when its workflows drift from the
+   shared shape.
 
 ## Non-goals
 
-- No reusable workflows. `workflow_call` renames checks, and the product ruleset requires checks named exactly `lint` and `test`.
-- No deploy or hosting change in the secret-free stages. Pair A stays S3 and CloudFront. Pair B stays Amplify.
-- The agent does not change organisation rulesets, IAM, secrets, or repository settings.
-- Triggers stay per repository.
-- `ai-cxo` is out of scope. It has no workflows and is under the same product ruleset. The owner should know that.
-- Do not create a `v*` tag on `actions`.
-- Do not print an AWS account id.
-- Do not write a red path unless the gate named for that path was approved in chat.
+- No reusable workflows (`workflow_call`). They rename check runs to
+  `caller / job`, and the organisation ruleset requires checks named
+  exactly `lint` and `test`.
+- No change to what is deployed. Stacks, parameters, and the hosting
+  model stay. `findingalpha` and `lx-software` keep S3 and CloudFront.
+  `evolvesprouts` and `siutindei` keep Amplify.
+- No change by the agent to organisation rulesets, IAM, secrets, or
+  repository settings. Those are [owner tasks](#owner-tasks).
+- Triggers stay per repository. That includes `repository_dispatch`
+  and the `board-*` workflows in `siutindei`.
+- `ai-cxo` is not onboarded. It has no workflows yet.
 
-## Repositories
+## Decisions
 
-| Pair | Repository | Hosting | Notes |
-| --- | --- | --- | --- |
-| A | `findingalpha` | S3 and CloudFront | `ubuntu-26.04`. Actions were pinned by tag. |
-| A | `lx-software` | S3 and CloudFront | Same shape as `findingalpha`. |
-| B | `evolvesprouts` | Amplify, Flutter, Postgres | SHA pins. `ubuntu-24.04`. |
-| B | `siutindei` | Amplify, Flutter, Postgres | SHA pins. `ubuntu-latest`. |
-| | `actions` | none | This repository. Not covered by the organisation rulesets. |
+"Approved" means the owner accepted it in chat. "Defaulted" means the
+plan author chose it because the owner left it open. The owner can
+overrule a defaulted row before work starts.
 
-## Decisions that still stand
-
-- D1. One public repository `lx-software-ltd/actions`, composite actions, not reusable workflows.
-- D2. Callers pin a full commit SHA and a version comment. A tag is not a pin until `release-tags` applies here and the tag cannot move.
-- D3. Required check names stay `lint` and `test` in the product repositories.
-- D4. Pair A and pair B keep their hosting. Convergence does not merge those workflows into one.
-- D5. Versions that are not agreed (Node, the macOS label) are inputs. The action default is the target once the owner chooses.
-- D6. Python payload is the standard library on 3.12. Tests are `unittest` in `tests/test_*.py`.
-- D7. An action does not read `secrets` or `vars`, does not set `permissions`, and does not set a job container. Callers pass inputs. The README states the caller's permissions.
-- D8. An action does not call another action. `uses: ./x` inside an action resolves to the caller's checkout.
-- D9. Nothing private in `actions`: no secret, account id, internal hostname, or personal data.
-- D10. One concern per pull request. `findingalpha` is first when a change is proved in one product repository.
+| # | Decision | Source |
+| --- | --- | --- |
+| D1 | Composite actions, not reusable workflows | Approved |
+| D2 | A public repository `lx-software-ltd/actions` | Approved |
+| D3 | Callers pin by full commit SHA with a version comment. Each repository's weekly Dependabot `github-actions` group bumps the pin | Approved |
+| D4 | Secret-free CI pieces first, deploy pieces last. `findingalpha` is the pilot for every step | Approved |
+| D5 | Pre-commit hooks are published from `actions` | Approved |
+| D6 | Apache-2.0 licence, as in the other five repositories | Defaulted |
+| D7 | The AWS role trust is narrowed from the organisation wildcard to the named repositories. `actions` is not in the list | Defaulted |
+| D8 | The account id is read as `secrets.AWS_ACCOUNT_ID \|\| vars.AWS_ACCOUNT_ID` and masked in every repository, as `findingalpha` does today | Defaulted |
+| D9 | When repositories differ, the target is the strictest variant in use today, unless the [convergence register](#convergence-register) says otherwise | Defaulted |
+| D10 | An action implements the target behaviour from its first version. A repository that is not there yet passes an explicit input. Convergence is deleting that input | Defaulted |
 
 ## Current state
 
-Measured 20 Nov 2026. See the corrections for the commits.
+Measured.
 
-Product `main-protection` (id `27712218`, updated `2026-11-20T10:19:28Z`): branch target `~DEFAULT_BRANCH`, enforcement active, deletion and non-fast-forward blocked, pull request required, `required_approving_review_count` 0, stale reviews dismissed, extra approval for unattributed changes, merge methods merge squash and rebase, required status checks exactly `lint` and `test`, strict, `bypass_actors` null, `current_user_can_bypass` `never`.
-
-Product `release-tags` (id `27712299`): tag target `refs/tags/v*`, rules deletion, creation, and update.
-
-`actions` has neither. O8 asks the owner to add it to both, or to an equivalent pair. The agent does not edit rulesets.
-
-Check names are the job `name` when set, otherwise the job id. Gates that the ruleset requires must be named exactly `lint` and `test`.
+- 66 workflow files, about 10,400 lines, 134 jobs. `findingalpha` has
+  10 files, `lx-software` 14, `evolvesprouts` 20, `siutindei` 22.
+- No repository has `.github/actions` or a `workflow_call` workflow.
+- The repositories form two pairs. This plan calls them pair A and
+  pair B.
+  - **Pair A** is `findingalpha` and `lx-software`. Web apps on S3 and
+    CloudFront. Actions pinned by tag. Runner `ubuntu-26.04`.
+  - **Pair B** is `evolvesprouts` and `siutindei`. Amplify, Flutter,
+    Postgres-backed tests. Actions pinned by SHA.
+- Inside a pair, whole files are close. `security.yml` is 98% the same
+  in pair A, `amplify-promote.yml` 97% in pair B. Across pairs, most
+  whole files match 17% to 55%, but single steps match. That is why
+  the unit of sharing is a step-level action.
+- `scripts/check_pii.py` and `scripts/check-pii.sh` are byte-identical
+  in all four. `verify_github_rulesets.py` has two variants.
+  `validate_agent_rules.py` has four, which differ mostly in their
+  required-file lists.
+- All five existing repositories are public.
 
 ## Live problems
 
-1. Pair B has no jobs named `lint` and `test`, so the required checks never run. SA-101 adds them. Pair A already has them.
-2. Several workflows have no top-level `permissions`. SA-102 sets `contents: read` on the files the stage names.
-3. Pair B's `verify-rulesets` fails the weekly run because the review count is zero. Pair A's script warns. SA-103 reports that. SA-304, behind G1, replaces the pair B script. Do not edit those scripts in the secret-free stages.
-4. **`actions` is outside both organisation rulesets.** The draft said it inherited them. It does not. Consequences are in the corrections section. Do not call a SHA on `actions` `main` immutable, and do not tell callers to pin one, until O8 is done.
-5. Copies of the same composite steps differ by pin style, runner label, and whether a gate exists.
-6. `findingalpha` moved from `2cbc059` to `11e6caa` after the draft was written. Re-measure before editing that repository.
-7. The PII denylist in `actions` has no digests. The job checks nothing.
+Found during the inventory. Stage 1 fixes the ones an agent can fix.
+
+1. **Pair B has no `lint` or `test` job.** The organisation ruleset
+   `main-protection` (created 20 Nov 2026, 16:40 Hong Kong time)
+   requires status checks named `test` and `lint` on the default
+   branch of every repository. Pair B's `lint.yml` and `test.yml` have
+   neither job, and both filter `pull_request` by path. Unless the
+   ruleset has a bypass the agent's token cannot see, the next pull
+   request to `main` in either repository waits on checks that nothing
+   reports. Not observed yet: no pull request has merged in pair B
+   since the ruleset was created.
+2. **`verify-rulesets` fails every week** in `lx-software`,
+   `evolvesprouts`, and `siutindei` (runs of 9 and 16 Nov). On 16 Nov
+   `lx-software` and `siutindei` failed because the repository ruleset
+   was disabled. That ruleset is gone and the organisation ruleset is
+   active. Pair B's script treats fewer than one approving review as
+   an error, and the organisation ruleset asks for zero. Reading the
+   code, pair B will keep failing on 23 Nov. `findingalpha` has no
+   recorded run.
+3. **`ai-cxo` has no workflows** and is under the same ruleset. Out of
+   scope. The owner should know.
+4. **The new `actions` repository inherits both organisation
+   rulesets.** It needs `lint` and `test` jobs from its first pull
+   request, and nobody without a bypass can create a `v*` tag in it.
+5. **`lx-software/docs/architecture/github-actions-trust-policy.json`
+   prints the AWS account id** in a public repository.
+6. **`lint.yml`, `test.yml`, and `check-lockfiles.yml` have no
+   `permissions` block** in any of the four. Neither has
+   `e2e-admin-web.yml` in `siutindei`. Those jobs run with the
+   repository's default token permissions.
+7. **`role-session-name` is missing** on 2 of 5 credential steps in
+   `findingalpha` and 1 of 6 in `lx-software`.
 
 ## Owner tasks
 
-| Id | Task | State on 20 Nov 2026 |
+Only the owner can do these. Stage 2 needs O1 to O3. The others block
+the stage named in the last column.
+
+| # | Task | Blocks |
 | --- | --- | --- |
-| O1 | Create the public `actions` repository | Confirmed |
-| O2 | Actions policy allows `lx-software-ltd/*` | Stated, not re-verified |
-| O3 | Decide how `actions` is tagged | Open. Do not tag meanwhile |
-| O4 | Say whether zero approving reviews is intended | Open. SA-103 does not decide this |
-| O5 | Trust policy for the deploy roles | Open |
-| O6 | Node default (C04) and macOS label (C03) | Open |
-| O7 | After each deploy pull request merges, run that deploy workflow by hand | Open. Cannot start early |
-| O8 | Attach `main-protection` and `release-tags` to `actions` | Open. Agent cannot do this |
+| O1 | Create the public repository `lx-software-ltd/actions` with an initial commit (README and the Apache-2.0 licence). Give the executing agent write access to it and to the four product repositories | Stage 2 |
+| O2 | Confirm the organisation's Actions policy lets workflows use actions from `lx-software-ltd/*`. The agent's token gets a 403 on that setting | Stage 2 |
+| O3 | Decide how `v*` tags get created in `actions`: the owner tags each release, or a named actor gets a bypass on the `release-tags` ruleset for that repository | Stage 2, soft |
+| O4 | Say whether `main-protection` has a bypass list, and whether zero approving reviews is intended | Stage 1 |
+| O5 | Narrow the `GitHubActionsRole` trust to the four named repositories (D7). Replace the account id in the `lx-software` trust-policy document with a placeholder | Stage 5 |
+| O6 | Add `AWS_ACCOUNT_ID` as a secret where it is only a variable today (D8). Optional: the variable keeps working | Stage 5 |
+| O7 | Run each deploy workflow by hand after its pull request merges. The agent's `gh` is read-only and it must not trigger deploys | Stages 5, 6 |
 
-## Action rules
+About O3. Tags are not on the critical path. Until tags exist, callers
+pin the SHA with the comment `# main <yyyy-mm-dd>` and the agent bumps
+pins by hand in one pull request per repository. Do not pick a tag
+pattern that avoids the `refs/tags/v*` rule.
 
-- `runs.using` is `composite`. Every `run` step sets `shell`.
-- No expression inside `run`. Pass inputs through `env`. An `env:` key after `run:` is not part of the run body.
-- Payload via `$GITHUB_ACTION_PATH`. Shared payload via `$GITHUB_ACTION_PATH/../lib`.
-- Third-party actions are pinned by 40-character SHA plus a version comment on the same line.
-- `tests/test_*.py` only. A test under `scripts/` does not count.
-- The calling job needs `python3` on `PATH`. Say so in the action README. Container jobs, including a Semgrep-style job, do not have it unless the image provides it.
-- Each action directory has a `README.md` that states the caller's permissions.
-- The layout check enforces the rules above, including a step indent other than four spaces, and it rejects `uses: ./` inside an action and on the gate jobs `lint`, `test`, and `security-summary`.
+## The `actions` repository
 
-## CI contract
+### Layout
 
-`docs/ci-contract.md` is the written form. `workflow-conformance` (SA-309) checks a repository against it, including this repository. Mode stays `warn` until that repository has no open convergence row.
+```text
+actions/
+  <action-name>/action.yml      one top-level directory per action
+  <action-name>/README.md       inputs, outputs, permissions, example
+  <action-name>/*.py|*.sh       payload scripts for that action
+  lib/                          payload shared by several actions
+  hooks/                        entry scripts for pre-commit
+  .pre-commit-hooks.yaml
+  fixtures/                     sample trees the self-tests run on
+  tests/test_*.py               unittest
+  docs/ci-contract.md           the shared workflow shape (see below)
+  docs/plans/                   this plan, then per-step plans
+  .github/workflows/            lint.yml, test.yml, security.yml
+  .github/dependabot.yml
+  AGENTS.md, docs/architecture/zones.md, .github/PULL_REQUEST_TEMPLATE.md
+```
 
-The contract says which rules apply to `actions` itself. CodeQL in this repository scans Python and GitHub Actions (`languages: actions`), because the workflows and action files are the main content.
+### Rules for every action
+
+- `runs.using: composite`. Every `run` step names its `shell`.
+- An action cannot read `secrets` or `vars`. The caller passes them as
+  inputs. Mask a sensitive input with `::add-mask::` before any other
+  use, and never echo it.
+- Inputs reach scripts through `env:`. Do not write
+  `${{ inputs.x }}` inside a `run:` block. That is script injection.
+- Payload is addressed as `"$GITHUB_ACTION_PATH/file"`, and shared
+  payload as `"$GITHUB_ACTION_PATH/../lib/file"`. Use the environment
+  variable, not the `github.action_path` expression, so the path is
+  right inside a job container.
+- An action does not call another action in this repository.
+  `uses: ./x` resolves to the caller's checkout, and the full form
+  needs a SHA that does not exist yet. Share code through `lib/`.
+- Third-party actions used inside a composite are pinned by full SHA
+  with a version comment.
+- Python payload uses the standard library only and runs on
+  Python 3.12. Tests use `unittest` in `tests/test_*.py`.
+- A composite action cannot set `permissions` or a job `container`.
+  Each README states what the calling job must grant.
+- The repository is public. No secret, account id, internal hostname,
+  or personal data goes in it. Its own `pii-denylist` and `gitleaks`
+  jobs run on every pull request.
+- No workflow in `actions` requests `id-token: write` or calls AWS.
+  Actions that touch AWS are tested only in the product repositories.
+
+### Self-test
+
+`actions/.github/workflows/test.yml` runs the unit tests, then runs
+each secret-free action with `uses: ./<action-name>` against
+`fixtures/`. Inside this repository `./` is the right path. Each
+action has at least one passing fixture and one fixture that must
+fail. The job `test` is a gate built with `require-jobs`. `lint.yml`
+has a `lint` gate the same way.
+
+### Releases and pins
+
+- Versions are `vMAJOR.MINOR.PATCH`. A breaking change to an input is
+  a major version. Tags never move.
+- Callers write
+  `uses: lx-software-ltd/actions/<action-name>@<40-hex> # vX.Y.Z`.
+- Each product repository's Dependabot `github-actions` entry already
+  groups all action updates weekly. `actions` gets its own
+  `github-actions` entry that covers the action subdirectories.
+- Pre-commit `rev:` in a product repository equals the SHA its
+  workflows pin. The conformance check enforces that.
+
+### CI contract
+
+`docs/ci-contract.md` in `actions` is the written form of "they do the
+same thing". It lists the workflow files every repository has, the job
+ids in each, which job is the gate, the triggers that are fixed and
+the ones that are free, and the allowed runner labels. The
+`workflow-conformance` action checks a repository against it. Draft
+it from the [target shape](#target-workflow-shape) below.
+
+## Action catalog
+
+"Source" is the copy to start from. "Callers" are the repositories
+that end up using it.
+
+### Gates and harness
+
+| Action | What it does | Main inputs | Source | Callers |
+| --- | --- | --- | --- | --- |
+| `require-jobs` | Fails unless every job in `needs` succeeded. Writes a result table to the step summary | `needs-json`, `allow-skipped` (default `false`) | `findingalpha` `lint.yml`, job `lint` | All four, in `lint`, `test`, `security-summary` |
+| `agent-harness` | Runs the harness validators on the caller's checkout: agent rules, file length, test focus | `config` (default `.github/harness.json`) | `findingalpha` scripts, with the per-repository lists moved to the config file | All four |
+| `workflow-conformance` | Checks workflows against the CI contract: SHA pins, runner labels, top-level `permissions`, gate jobs, no `pull_request` path filter on a gated workflow, pre-commit `rev` equals the pinned SHA | `mode` (`warn` or `enforce`) | New | All four and `actions` |
+| `pii-denylist` | Runs `check_pii.py` from the action against the caller's hash list | `denylist-path` (default `scripts/pii-denylist.sha256`) | Any (identical) | All four |
+| `verify-rulesets` | Checks that the rules on `main` require the gate jobs this repository defines | `token`, `required-checks` (default `lint test`) | `findingalpha` | All four |
+
+### Security scanning
+
+| Action | What it does | Main inputs | Source | Callers |
+| --- | --- | --- | --- | --- |
+| `gitleaks` | Downloads the pinned Gitleaks with checksum and retry, then scans | `config-path` | `findingalpha` | All four |
+| `checkov-cloudformation` | Runs Checkov on a synthesised template directory, drops findings suppressed in source, uploads SARIF without failing on upload errors | `directory`, `skip-if-missing` | `findingalpha` | All four |
+| `codeql` | `init` then `analyze` for one interpreted language, with a fixed category | `language`, `config-file` | `evolvesprouts` | All four |
+| `semgrep` | `semgrep scan` with rule packs, an empty-SARIF fallback, the suppression filter, and upload with category `semgrep`. Steps use `shell: sh` because the calling job runs in the Semgrep container | `rules`, `exclude-rules` | `siutindei` `semgrep.yml` | All four |
+| `pip-audit` | Audits requirements files | `requirements`, `ignore-vulns` | `siutindei` | All four |
+| `bandit` | Runs Bandit | `paths`, `skip` | `siutindei` | All four |
+| `npm-audit` | `npm audit` with a retry on registry 503 | `directories`, `audit-level` (default `high`), `omit` (default `dev`) | `evolvesprouts` `lint.yml` | All four |
+
+The SARIF suppression filter lives in `lib/` and is used by
+`checkov-cloudformation` and `semgrep`.
+
+### Setup and lockfiles
+
+| Action | What it does | Main inputs | Source | Callers |
+| --- | --- | --- | --- | --- |
+| `setup-node` | `actions/setup-node` with the npm cache, then `npm ci`. The default Node version for the organisation is set here | `working-directory`, `node-version`, `install` | `findingalpha` | All four |
+| `setup-python` | `actions/setup-python` with the pip cache. Default 3.12 | `python-version`, `requirements` | `findingalpha` | All four |
+| `node-lockfiles` | Fails when `npm ci` or the lockfile drifts in any listed directory | `directories` | `findingalpha` | All four |
+| `python-requirements-pins` | Fails on an unpinned requirement, following `-r` includes | `files` | `siutindei` | All four |
+| `flutter-lockfiles`, `pod-lockfiles` | Lockfile drift for Flutter and CocoaPods | `working-directory`, `flutter-version` | `siutindei` | Pair B |
+| `playwright-install` | Installs browsers, with the apt fallback | `working-directory`, `browsers` | `siutindei` `test.yml` | `findingalpha`, `lx-software`, `siutindei` |
+
+### AWS and deploy
+
+These need credentials, so they are proven in a product repository,
+never in `actions`.
+
+| Action | What it does | Main inputs | Source | Callers |
+| --- | --- | --- | --- | --- |
+| `aws-oidc` | Checks the account id and region are set, masks the account id, assumes `GitHubActionsRole` with a session name. Output `ready` | `account-id`, `region`, `role-name`, `required` | `findingalpha` `cdk-diff.yml` and `deploy-backend.yml` | All four, 29 call sites |
+| `cdk-bootstrap-check` | Reads the bootstrap version from SSM and fails with a hint when it is missing | `qualifier` | `findingalpha` | All four |
+| `cfn-stack-outputs` | Reads named stack outputs into step outputs | `stack`, `outputs` | `findingalpha` `deploy-admin-web.yml` | All four |
+| `cdk-diff` | Runs `cdk diff`, removes the account id, writes the step summary | `working-directory`, `stacks`, `args` | `findingalpha` | All four |
+| `s3-cloudfront-deploy` | Syncs a build to S3 and invalidates CloudFront | `bucket`, `distribution-id`, `source` | `findingalpha` `scripts/deploy/` | Pair A |
+| `amplify-release` | Starts an Amplify job and waits for it, and promotes a release | `app-id`, `branch`, `mode` | `evolvesprouts` | Pair B |
+| `lighthouse-ci` | Runs Lighthouse CI on a built site and uploads the report | `working-directory`, `urls`, `budget` | `lx-software` | `lx-software`, pair B |
+| `cdk-deploy` | Deploys stacks with parameters from a file, retries, and recovers from `UPDATE_ROLLBACK_FAILED` | `stacks`, `parameters-file`, `attempts` | `siutindei` `deploy-backend.yml` | All four |
+
+### Leftover duplication
+
+After the catalog is in use, pair B's mobile and promote workflows
+(`deploy-ios.yml`, `deploy-mobile.yml`, `promote-public-www.yml`,
+`smoke-public-www-staging.yml`) still share code. The rule for those:
+extract a block when it is ten lines or more and is the same in both
+repositories after project names are replaced with inputs. Do not
+extract a wrapper around a single `uses:`.
 
 ## Convergence register
 
-Rows the secret-free stages touch:
+Each row is one difference and its target. "Changes" names the
+repositories whose behaviour changes. A row is done when no caller
+passes the input that kept the old behaviour.
 
-| Row | Subject | Notes |
+| # | Topic | Today (measured) | Target | Changes |
+| --- | --- | --- | --- | --- |
+| C01 | Action pins | Tags in pair A, SHAs in pair B | Full SHA with a version comment | Pair A |
+| C02 | Linux runner | `ubuntu-26.04` in pair A, `ubuntu-24.04` in `evolvesprouts`, `ubuntu-latest` in `siutindei` | `ubuntu-26.04` | Pair B |
+| C03 | macOS runner | `macos-latest` in pair B | One pinned label | Pair B |
+| C04 | Node version | `lts/*` in pair A and parts of pair B, `22.22.2` in two `evolvesprouts` workflows, `24` in `siutindei` | One default, set in `setup-node`. Callers pass their current value until the owner picks | All four |
+| C05 | Python version | 3.12 everywhere, except 3.13 in three `siutindei` jobs. `siutindei`'s Lambdas run 3.12 | 3.12 | `siutindei` |
+| C06 | Flutter version | Floats on `stable` in `evolvesprouts`, pinned in `siutindei` | Pinned, a required input | `evolvesprouts` |
+| C07 | Merge gates | Pair A has gate jobs `lint` and `test` and no `pull_request` path filter. Pair B has neither | Gate jobs in all four, no `pull_request` path filter on `lint.yml` and `test.yml` | Pair B |
+| C08 | Token permissions | No `permissions` block on `lint.yml`, `test.yml`, `check-lockfiles.yml` | `permissions: contents: read` at the top of every workflow, more only per job | All four |
+| C09 | Checkout ref | `evolvesprouts` checks out the pull request head SHA. The others use the default merge ref | The default merge ref, unless the `evolvesprouts` history shows a reason to keep the head SHA | `evolvesprouts` |
+| C10 | Gitleaks | Same version and checksum. Retry only in pair A | Retry everywhere | Pair B |
+| C11 | Checkov | Two pins. `siutindei` uploads unfiltered SARIF | One pin, findings suppressed in source filtered out, upload errors do not fail the job | `siutindei`, pin in all |
+| C12 | CodeQL | `javascript` and `python` in pair A. `python` and `javascript-typescript` with a config file in `evolvesprouts`. `python` only in `siutindei` | `python` and `javascript-typescript` in all four | Pair A, `siutindei` |
+| C13 | Semgrep | A job in `security.yml` running `semgrep ci` in pair A and `evolvesprouts`. A dedicated `semgrep.yml` running `semgrep scan` in `siutindei` | Dedicated `semgrep.yml`, job `semgrep/ci`, `semgrep scan`, packs `p/python p/javascript p/security-audit p/secrets p/owasp-top-ten` | Pair A, `evolvesprouts` |
+| C14 | Semgrep image | `semgrep/semgrep` with no tag or digest in all four | Pinned by digest | All four |
+| C15 | Python dependency audit | `pip-audit` and Bandit only in pair B | Both in all four | Pair A |
+| C16 | npm audit | Only in `evolvesprouts`, inside `lint.yml` | Job `npm-audit` in `security.yml` in all four | All four |
+| C17 | PII check in CI | A `pii-denylist` job in `security.yml` in pair A and `siutindei` (and again in its `test.yml`). `evolvesprouts` runs it only through pre-commit | One `pii-denylist` job in `security.yml` in all four | Pair B |
+| C18 | Lockfile checks | Node only in pair A. Flutter, Node, iOS, and Python requirements in pair B, with two requirements checkers | Node and Python requirements in all four. Flutter and iOS in pair B | All four |
+| C19 | Rulesets check | Pair A matches required checks exactly and warns on review count. Pair B matches by substring and fails below one review | Pair A's behaviour | Pair B |
+| C20 | Harness validators | Four variants of `validate_agent_rules.py`, two each of the file-length and test-focus checks | One implementation, configured by `.github/harness.json` | All four |
+| C21 | Pre-commit | `repo: local` hooks that run each repository's own script copies | Hooks from `actions` at the SHA the workflows pin | All four |
+| C22 | Security summary | Hand-written per repository | `require-jobs` over `needs` | All four |
+| C23 | AWS credentials | Session name missing on three steps. Account id is a plain variable outside `findingalpha` | `aws-oidc` everywhere (D8) | All four |
+| C24 | CDK bootstrap | Pair A checks the bootstrap version and stops. Pair B runs `cdk bootstrap` on every deploy | Check only. Bootstrapping is the manual `cdk-bootstrap.yml`, which `findingalpha` gains | Pair B, `findingalpha` |
+| C25 | CDK diff | Runs on pull requests with a masked summary in `findingalpha`. Manual in the other three | Runs on pull requests that touch infrastructure paths, masked summary | `lx-software`, pair B |
+| C26 | Backend deploy | Pair A deploys once with a parameter script. Pair B retries three times, detects errors that cannot be retried, and recovers a failed rollback | One `cdk-deploy` with pair B's recovery and a per-repository parameters file | All four |
+| C27 | Playwright install | The apt fallback only in `siutindei` | The fallback wherever Playwright runs | Pair A |
+| C28 | Dependabot | A 7-day cooldown only in pair B | The cooldown in all four, with `lx-software-ltd/actions` excluded from it | All four |
+
+Notes on rows that carry risk:
+
+- **C07** removes path filters, so pair B runs Flutter and Postgres
+  jobs on every pull request. Record CI minutes before and after. If
+  the cost matters, add a `changes` job and pass
+  `allow-skipped: true`. That is safe only when the gate lists every
+  job in `needs`.
+- **C12** renames CodeQL categories. Old alerts under the old category
+  stay open until they are dismissed by hand. `siutindei` gets
+  JavaScript findings for the first time.
+- **C13** exists because GitHub's code-scanning setup for Semgrep looks
+  for a file named `semgrep.yml`. Rule exclusions start as a
+  per-repository input and each carries its reason in a comment.
+- **C15** and **C16** add checks to repositories that never ran them.
+  Run them first, fix or record each finding with a reason, then turn
+  the job on.
+- **C24**, **C25**, and **C26** change deploy behaviour. Each has its
+  own gate.
+
+## Target workflow shape
+
+Every product repository ends with these files and job ids. A
+repository adds its own stack jobs under `lint.yml` and `test.yml`.
+
+| File | Jobs | Notes |
 | --- | --- | --- |
-| C02 | Runner label | Pair B keeps `ubuntu-24.04` (`evolvesprouts`) and `ubuntu-latest` (`siutindei`) until a later row. Do not change them in SA-101. |
-| C03 | macOS label | Open. O6. |
-| C04 | Node default | Open. O6. Callers pass their current version. |
-| C07 | `changes` job and `allow-skipped` | Pair B's `lint` and `test` gates may set `allow-skipped: true` when a `changes` job is in `needs`. The contract allows this. |
-| C09 | Checkout ref | Pair B often checks out `github.event.pull_request.head.sha`. Do not change that in SA-101 or SA-102. |
-| C14 | Container image digests | Dependabot's options reference does not document digest bumps inside a workflow. Manual until a Dependabot run shows otherwise. |
-| C28 | Dependabot cooldown | The options reference says `cooldown.exclude` can exclude `lx-software-ltd/actions/*`. That is documentation, not a measured Dependabot run. Do not mark C28 done until a run updates such a pin inside the cooldown window. |
+| `lint.yml` | Per-stack lint jobs, `validate-agent-harness`, `workflow-conformance`, gate `lint` | No `pull_request` path filter |
+| `test.yml` | Per-stack test jobs, gate `test` | No `pull_request` path filter |
+| `security.yml` | `checkov`, `codeql`, `pii-denylist`, `secrets-scan`, `dependency-audit`, `bandit`, `npm-audit`, `security-summary` | Push, pull request, weekly |
+| `semgrep.yml` | `semgrep/ci` | Skips Dependabot |
+| `check-lockfiles.yml` | `node-lockfiles`, `python-requirements`, and in pair B `flutter-lockfiles`, `ios-lockfiles` | |
+| `verify-rulesets.yml` | `verify-branch-protection` | Weekly, Monday |
+| `cdk-diff.yml` | `diff` | Pull requests on infrastructure paths |
+| `cdk-bootstrap.yml` | `bootstrap` | Manual only |
+| `deploy-backend.yml` | `deploy` | `environment: production`, `main` only |
+| Web deploy workflows | Per repository | Per hosting model |
 
 ## Differences that stay
 
-Hosting, mobile workflows, extra triggers (`repository_dispatch`, `board-*`, Figma sync, key management, the legacy import, the apex redirect probe), stack names, parameters, app directories, and rule exclusions. `findingalpha` has no Lighthouse run.
-
-Push path filters stay. `pull_request` path filters on `lint.yml` and `test.yml` come off, with the `findingalpha` comment that a skipped required check blocks the pull request. That comment describes the product repositories, where the ruleset exists. It does not describe `actions` today.
+- Hosting: S3 and CloudFront in pair A, Amplify in pair B.
+- Mobile workflows exist only in pair B.
+- Extra triggers: `repository_dispatch`, `board-*`, Figma sync, key
+  management, the legacy import, the apex redirect probe.
+- Stack names, parameters, app directories, and rule exclusions. They
+  are inputs.
+- `findingalpha` has no Lighthouse run. Its public site is a logo
+  page.
 
 ## Approval gates
 
-Do not edit these paths unless the named gate was approved in chat.
+A red step needs the owner to say go in chat, to the agent doing the
+work, naming the gate. Approving this plan is not approving a gate.
 
-| Gate | Paths |
-| --- | --- |
-| G1 | `verify-rulesets` scripts and workflows |
-| G2 | PII scripts, pre-commit, Cursor hooks, in the product repositories |
-| G3 | Credential and AWS steps |
-| G4 | Web deploy workflows |
-| G5 | `cdk-deploy` and the deploy role |
-
-`scripts/pii-denylist.sha256` in this repository is red on the zone map. Adding hashes is an owner action. The empty file and the sentence that the job checks nothing are the recorded state, not a new denylist.
-
-## Stages
-
-Secret-free stages may proceed. Later stages wait on the gates and on O5, O7, and O8.
-
-| Stage | What | State |
+| Gate | Covers | Red in |
 | --- | --- | --- |
-| SA-101 | Add `lint` and `test` gates on `evolvesprouts` and `siutindei`. Pair B runners stay. | Pull requests open |
-| SA-102 | `permissions: contents: read` on `lint.yml`, `test.yml`, `check-lockfiles.yml` in all four, plus `siutindei` `e2e-admin-web.yml`. No job overrides. | Pull requests open. Pair B stacked on SA-101 |
-| SA-103 | Report the next `verify-rulesets` run. No edit. | Reported in `progress.md`. Pair A passes with a warning. Pair B fails on the review count only |
-| SA-201 | Scaffold `actions`: licence, contract, zone map, this plan, workflows, Dependabot, inline `lint` and `test` gates. | Merged in #1 |
-| SA-202 | Add `require-jobs`, unit tests, pass and fail fixtures. Fixture jobs may use `uses: ./require-jobs`. Gates stay inline until the pin below. | Merged in #2 |
-| SA-202 pin | Record merge SHA `1a3cca7c38163f8164c262323601c34a4df5b7a4`. Point the gates at `require-jobs` at that SHA. | This follow-up |
-| SA-203 | Pilot `require-jobs` in `findingalpha` only. | After a SHA is on `main` and O8 is done. A squash merge orphans a pre-merge pin |
-| SA-302, SA-307 | Product PII and hooks | Behind G2 |
-| SA-304 | Replace pair B `verify-rulesets` | Behind G1 |
-| SA-309 | `workflow-conformance`, mode `warn` until no open row, including this repository | After the contract is the source of truth |
-| Stage 5 and 6 | Deploy and credentials | Behind G3, G4, G5, O5, O7 |
+| G1 | `verify-rulesets.yml` and the rulesets script | `lx-software`, `evolvesprouts`, `siutindei` |
+| G2 | The PII script trio, `.pre-commit-config.yaml`, and `.cursor/hooks*` where a hook calls a moved script | All four for the PII trio. `findingalpha`, `lx-software`, `siutindei` for pre-commit |
+| G3 | Credential and read-only AWS steps inside `deploy-*.yml` and `promote-*.yml`: `aws-oidc`, `cdk-bootstrap-check`, `cfn-stack-outputs`. Also C24 | All four |
+| G4 | Web deploy actions: `s3-cloudfront-deploy`, `amplify-release`. Includes `scripts/deploy/**` | All four |
+| G5 | `cdk-deploy` (C26). Needs its own design note first | All four |
 
-SA-101 copies the `findingalpha` inline gate. `if: always()`, `needs` every other job, fail unless every result is `success`. Remove `pull_request` path filters. Keep push path filters. Keep pair B runners.
+Workflows that no zone map lists (`lint.yml`, `test.yml`,
+`security.yml`, `check-lockfiles.yml`, `cdk-diff.yml`) are treated as
+yellow. `siutindei`'s board policy refuses `.github/**` to board
+agents, so this work is done there by a normal agent session.
 
-SA-102 inserts, after the `name:` line, with a blank line above and below:
+## Steps
 
-```yaml
-permissions:
-  contents: read
-```
+Do the stages in order. Inside a stage, do the steps in order unless
+one says otherwise. Every step that changes a product repository
+follows the [rollout procedure](#rollout-procedure).
 
-Those files did not reference `GITHUB_TOKEN`. `upload-artifact` needs no broader token.
+### Stage 1. Repairs that need no new repository
+
+- **SA-101** Add gate jobs to pair B. In `evolvesprouts` and
+  `siutindei`, add a job `lint` to `lint.yml` and a job `test` to
+  `test.yml`. Each has `if: always()`, `needs` every other job in the
+  file, and fails unless all succeeded. Copy the step from
+  `findingalpha` `lint.yml`. Remove `paths` from `pull_request` in
+  both files and keep it on `push`. Yellow. Evidence: the pull request
+  itself shows check runs named `lint` and `test`.
+- **SA-102** Add `permissions: contents: read` to `lint.yml`,
+  `test.yml`, and `check-lockfiles.yml` in all four, and to
+  `e2e-admin-web.yml` in `siutindei`. Grant more per job only where a
+  job fails without it. Yellow.
+- **SA-103** Report to the owner what the next `verify-rulesets` run
+  does in each repository. Do not edit it here. SA-304 replaces it.
+
+### Stage 2. Create `actions` and prove the path
+
+Needs O1 and O2.
+
+- **SA-201** Scaffold `actions`: layout, `AGENTS.md`, zone map, pull
+  request template, Dependabot for `github-actions`, `lint.yml` and
+  `test.yml` with gate jobs,
+  `security.yml` with `pii-denylist`, `secrets-scan`, and `codeql`.
+  Copy this plan to `actions/docs/plans/` and track progress there.
+  The gate jobs use an inline step in this one pull request.
+- **SA-202** Add `require-jobs` with unit tests and two fixtures.
+  Switch the repository's own gates to `uses: ./require-jobs`.
+  Release `v0.1.0`, or record the SHA if tags are not available yet.
+- **SA-203** Pilot in `findingalpha`. Replace the inline gate step in
+  `lint.yml` and `test.yml` with `require-jobs`. Evidence: check-run
+  names are the same before and after, and both gates pass.
+- **SA-204** Check the update path. After the next release of
+  `actions`, confirm Dependabot opens a pull request in `findingalpha`
+  that moves the SHA and the version comment. If it does not, record
+  why and use manual bumps.
+- **SA-205** Roll `require-jobs` out to `lx-software`,
+  `evolvesprouts`, and `siutindei`.
+
+### Stage 3. Secret-free CI actions
+
+For each step: build the action in `actions` with tests and fixtures,
+release, pilot in `findingalpha`, then roll out to the other three.
+A repository that differs from the target passes an input that keeps
+its current behaviour. Extraction and behaviour change never share a
+pull request.
+
+- **SA-301** `setup-node` and `setup-python`. Callers pass their
+  current versions.
+- **SA-302** `pii-denylist`. The workflow file is yellow, but this
+  swaps the red PII script for the shared one in CI, so it waits for
+  gate G2. The local `scripts/check_pii.py` and `scripts/check-pii.sh`
+  stay until SA-307, when pre-commit stops calling them.
+- **SA-303** `gitleaks`, `checkov-cloudformation`, `codeql`,
+  `semgrep`. The caller keeps its own synth step for Checkov.
+  Evidence: the same finding count before and after for each tool.
+- **SA-304** `verify-rulesets`. Red in three repositories, gate G1.
+  Move `test_verify_github_rulesets.py` to `actions`. This step is
+  the one exception to "no behaviour change in an extraction": pair B
+  takes pair A's behaviour here (C19), because pair B's current check
+  fails against the live ruleset.
+- **SA-305** `node-lockfiles`, `python-requirements-pins`,
+  `flutter-lockfiles`, `pod-lockfiles`.
+- **SA-306** `agent-harness`. Write `.github/harness.json` in each
+  repository from the constants in its current scripts: required
+  rules and skills, size limits, scan roots, skip patterns, allowlist
+  path. Evidence: the old script and the new action report the same
+  result on `main`, and the same failure on a fixture that breaks a
+  rule.
+- **SA-307** Pre-commit hooks. Add `.pre-commit-hooks.yaml` to
+  `actions` with `language: script` entries for `check-pii`,
+  `validate-agent-rules`, `check-file-length`, and `check-test-focus`.
+  Each entry script finds the repository root from the working
+  directory. Point each repository's `.pre-commit-config.yaml` at
+  `actions`, then delete the local script copies and their tests.
+  Update anything that names the old paths: `.cursor/hooks/**`, the
+  `verify-change` skill, `AGENTS.md`, the zone map. Red, gate G2.
+- **SA-308** `pip-audit`, `bandit`, `npm-audit`, `playwright-install`.
+  In this stage only the repositories that already run them call
+  them.
+- **SA-309** `workflow-conformance` in `warn` mode in all four and in
+  `actions`. Write `docs/ci-contract.md`.
+
+### Stage 4. Converge CI
+
+One register row per pull request per repository. Suggested order:
+C01, C02, C10, C11, C05, C06, C28, then C13 and C14, C12, C17, C18,
+C22, C15, C16, C27, C03, C04, C09. C04 waits for the owner's Node
+choice. When a repository has no row left, switch its
+`workflow-conformance` to `enforce`.
+
+Rows closed by other steps: C07 by SA-101, C08 by SA-102, C19 by
+SA-304, C20 by SA-306, C21 by SA-307, C23 to C25 by SA-504, C26 by
+SA-603.
+
+### Stage 5. Credentials and read-only AWS
+
+Needs O5 for the trust change. `findingalpha` `cdk-diff.yml` is the
+canary, because it runs on pull requests and deploys nothing.
+
+- **SA-501** `aws-oidc` in `findingalpha` `cdk-diff.yml`. Move the
+  matching assertions from `scripts/test_workflow_secrets.py`: the
+  masking and missing-setting assertions become action tests in
+  `actions`, and the `findingalpha` test asserts that the workflow
+  calls the action at a 40-character SHA and passes
+  `secrets.AWS_ACCOUNT_ID || vars.AWS_ACCOUNT_ID`. Tests first.
+- **SA-502** `cdk-bootstrap-check` and `cdk-diff` in `findingalpha`,
+  then the other three with their current triggers.
+- **SA-503** `aws-oidc` and `cfn-stack-outputs` in the deploy and
+  promote workflows. Red, gate G3. One repository at a time,
+  `findingalpha` first. After each merge the owner runs the workflow
+  (O7). Do not start the next repository until that run is green.
+- **SA-504** C23, C24, C25. C24 is part of gate G3 and is confirmed
+  again by name, because it removes `cdk bootstrap` from pair B's
+  deploys.
+
+### Stage 6. Deploy actions
+
+- **SA-601** `s3-cloudfront-deploy` in pair A and `amplify-release`
+  in pair B. Red, gate G4. Same one-at-a-time rule as SA-503.
+- **SA-602** `lighthouse-ci` in `lx-software` and pair B. Yellow.
+- **SA-603** `cdk-deploy`. Write a design note in
+  `actions/docs/plans/` first. It covers the parameters file format
+  and how a value is marked as coming from a secret or a variable,
+  how parameters route to stacks, the retry and recovery rules, and
+  what each repository passes. The owner approves the note at gate
+  G5. Then pilot in `findingalpha`, then `lx-software`, then pair B.
+  This is C26.
+
+### Stage 7. Parity and close-out
+
+- **SA-701** Leftover duplication in pair B, by the rule in the
+  catalog.
+- **SA-702** Check parity. These touch product code, so each is its
+  own yellow plan in the repository it changes: `mypy` wherever
+  Python is linted, a type-check step for every Node app, a coverage
+  floor set at each repository's measured value, and OpenAPI lint
+  wherever an OpenAPI file exists.
+- **SA-703** All four on `enforce`. Set this plan to `Done`. Record
+  the open items that remain.
 
 ## Rollout procedure
 
-For a product change: record the check-run names on `main`, make the change, compare the names, and open the pull request with that repository's template (zone, gate, rollback). Do not trigger deploy, bootstrap, or key workflows. Never print an AWS account id.
+For every pull request in a product repository.
 
-`findingalpha` and `lx-software` use the "Docs and contracts" template. `evolvesprouts` and `siutindei` use "Docs and seed data". `siutindei` also has a content zone. `siutindei` board policy refuses `.github/**` to board agents. This work is a normal agent session.
+1. Read that repository's `AGENTS.md` and `docs/architecture/zones.md`.
+   For a yellow or red change, write a short plan in its `docs/plans/`
+   from its template and link this plan. For red, wait for the gate.
+2. Record the check-run names on the tip of `main`:
+   `gh api repos/lx-software-ltd/<repo>/commits/<sha>/check-runs --paginate --jq '.check_runs[].name' | sort`.
+3. Make the change. Update tests first where a test asserts workflow
+   text.
+4. Record the same list on the pull request head. The lists are equal,
+   except for names the step says it changes. `lint` and `test` are
+   always present.
+5. Compare the replaced step's output before and after: finding
+   counts, the list of files checked, or the diff summary.
+6. Run the repository's own checks for workflow and script changes,
+   as its `verify-change` skill lists them.
+7. Open the pull request with the repository's template. State the
+   zone, the gate if any, and the rollback.
 
-Yellow and red product changes need a short plan from `docs/plans/_template.md` in that repository.
+## Rules for the executing agent
 
-## Zones in this repository
-
-`docs/architecture/zones.md` is the map. It is not itself green. `docs/ci-contract.md` is yellow: conformance enforces it in four repositories and here. `AGENTS.md`, `.github/dependabot.yml`, and `scripts/**` are mapped. The denylist is red. `fixtures/**` is yellow, because a must-fail fixture is part of a gate.
-
-## Executing-agent rules
-
-- Stages in order. One concern per pull request. `findingalpha` first when proving a change.
-- SHA pins with version comments.
-- Never trigger deploy, bootstrap, or key workflows.
-- If a measured fact no longer holds, measure it again and correct this file before acting.
-- Do not weaken a check to get a green run.
+- One concern per pull request. An extraction does not change
+  behaviour. A convergence row does not move code.
+- `findingalpha` first, every time.
 - Never write a red path without the gate named in chat.
-- Do not tag `actions`. Do not tell a caller that a SHA or a tag here is immovable until O8 is done.
+- Never trigger a deploy, bootstrap, or key-management workflow.
+- Never print the AWS account id, in a log, a document, or a pull
+  request.
+- Nothing private goes into `actions`.
+- If a measured fact in this plan no longer holds, measure again and
+  update the plan copy in `actions` before acting on it.
+- If a step cannot produce its evidence, stop and report. Do not
+  weaken the check to get a green run.
+
+## Files
+
+- `actions`: everything, new.
+- Each product repository: `.github/workflows/*.yml`,
+  `.github/dependabot.yml`, `.github/harness.json` (new),
+  `.pre-commit-config.yaml`, the harness and PII scripts under
+  `scripts/` and their tests (deleted), `scripts/deploy/**` where a
+  deploy action replaces a script, and the documents that name those
+  paths.
+- `findingalpha` also: `scripts/test_workflow_secrets.py`.
+- `lx-software` also:
+  `docs/architecture/github-actions-trust-policy.json` (owner, O5).
+
+## Invariants this change preserves
+
+- A pull request to `main` cannot merge unless checks named `lint` and
+  `test` pass, in every repository, at every step.
+- A deploy runs only from `main`, in the `production` environment,
+  through OIDC. No long-lived AWS key is added.
+- No secret, account id, or personal data enters a log, a step
+  summary, or the public `actions` repository.
+- The PII hash list stays in each product repository. No plaintext
+  entry is added anywhere.
+- Every third-party action is pinned. After C01, by SHA.
+- No extraction changes what a check accepts or rejects. Behaviour
+  changes only through a register row.
 
 ## Done when
 
-- The four product repositories call the shared actions and the copies are gone.
-- The same check names, tool versions, and failure behaviour hold, except declared inputs and the differences that stay.
-- `workflow-conformance` is clean against `docs/ci-contract.md`.
-- `actions` is on `main-protection` and `release-tags` (O8), the PII denylist is either hashes from the owner or still explicitly empty, and the gate pin is a SHA that is on `main`.
+- Comparing the four repositories' workflow files finds no block of
+  ten lines or more that two of them share.
+- `workflow-conformance` runs in `enforce` mode and passes in all four
+  and in `actions`.
+- No caller passes an input that the register marks as temporary.
+- The scripts named in SA-307 exist only in `actions`.
+- Each deploy workflow has a green production run after its last
+  change.
+- `verify-rulesets` passes on its weekly run in all four.
 
 ## Rollback
 
-Revert the pull request that introduced the change. In a product repository, `main-protection` blocks a force-push, so the previous SHA stays reachable.
-
-That sentence is false for `actions`. Reverting a pull request does not stop a later force-push from orphaning the commit a caller pinned. Do not send callers to a pin in this repository until O8 is done. Do not move a tag to roll back. Tags are not protected here, and moving one is the failure mode O8 exists to prevent.
+- A product-repository change is a call-site or pin change. Revert the
+  pull request. The inline steps come back from history.
+- `actions` is fixed forward with a new commit. Old SHAs stay valid,
+  because the ruleset blocks force-pushes and tag changes.
+- A deploy-workflow change is rolled back the same way. The refactor
+  does not touch stacks, so there is nothing to roll back in AWS.
+- A convergence row that adds a check (C15, C16) can be rolled back by
+  removing the job.
 
 ## Risks
 
-- Pinning `actions` before O8. A force-push or a moved tag silently changes what callers run.
-- A gate implemented as `uses: ./require-jobs`. The pull request under test supplies the gate.
-- An empty PII denylist that is described as if it scanned something.
-- Marking C28 done from the Dependabot documentation alone.
-- Combining SA-201 and SA-202, which ships the local-action gate in the first merge.
-- Editing `verify-rulesets` or a deploy workflow without the gate.
+- **One repository now sits in every pipeline.** A bad commit in
+  `actions` cannot reach a caller until that caller's pin moves, which
+  is the reason for SHA pins. The 7-day cooldown is lifted for
+  `actions` so fixes arrive quickly. That also means a bad release
+  arrives quickly. The pilot-first rule is the control.
+- **`actions` is public and trusted by name.** D7 keeps it out of the
+  AWS trust. Until O5 is done, the wildcard trust covers it.
+- **A refactor can hide a behaviour change.** The before-and-after
+  evidence in the rollout procedure is the control.
+- **CI minutes rise in pair B** after C07.
+- **Deleting or renaming `actions`** breaks every pinned caller.
 
 ## Open questions
 
-- O4, O5, O6, O8, as in the owner-task table.
-- C03 and C04, which are O6.
-- Whether `security-summary` should become a required check once O8 is done. Until then it does not block a merge. PII and Gitleaks also run under the `lint` job so they fail that check when the ruleset eventually requires it.
+For the owner:
+
+- Which Node version is the organisation default (C04)?
+- Which macOS runner label (C03)?
+- Should `security-summary`, or at least `pii-denylist`, be a required
+  check? Today only `lint` and `test` gate a merge, so a failing
+  security job does not block one. The author would move
+  `pii-denylist` under the `lint` gate.
+- Is zero approving reviews on `main` intended (O4)?
+
+Not verified:
+
+- The organisation's Actions policy (O2). The API returns 403 to the
+  agent.
+- The live IAM trust policy. Only the document in `lx-software` was
+  read.
+- Whether `main-protection` has bypass actors. The field is hidden
+  from the agent's token.
+- How Dependabot treats a SHA pin that no tag points at, whether its
+  `github-actions` ecosystem accepts a `directories` glob for the
+  action subdirectories, and whether `cooldown` can exclude one
+  dependency. SA-204 answers the first. Check the other two against
+  the Dependabot documentation in SA-201.
+- Whether Dependabot updates a `container.image` digest in a workflow
+  file (C14). If not, bump it by hand.
+- That `$GITHUB_ACTION_PATH/../lib` resolves inside the Semgrep
+  container. The self-test in SA-303 proves or disproves it. The
+  fallback is to copy the filter into the `semgrep` action directory.
+- Why `evolvesprouts` checks out the pull request head SHA (C09).

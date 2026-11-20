@@ -12,11 +12,11 @@ Autonomy follows blast radius. The map is `docs/architecture/zones.md`. The stri
 
 Composite actions and the hooks the product repositories share. An action cannot read `secrets` or `vars`. Callers pass those as inputs. Payload is `"$GITHUB_ACTION_PATH/..."`. Shared payload is `"$GITHUB_ACTION_PATH/../lib/..."`. An action does not call another action in this repository.
 
-Nothing private goes in this repository: no secret, account id, internal hostname, or personal data. The PII hash list for a product stays in that product. `scripts/pii-denylist.sha256` has no digests, so the PII job checks nothing until the owner adds organisation-level hashes.
+Nothing private goes in this repository: no secret, account id, internal hostname, or personal data. A product's own further denylist entries stay in that product. `scripts/pii-denylist.sha256` still has no digests in this revision. The owner approved the 31 organisation digests on 20 Nov 2026. The pull request that writes them is separate.
 
 No workflow here requests `id-token: write` or calls AWS.
 
-`main-protection` and `release-tags` do not apply to this repository. Do not create a `v*` tag. Do not treat a green `lint` or `test` check as merge protection. The plan copy and the corrections live in `docs/plans/shared-actions-and-ci-convergence.md`.
+`main-protection` and `release-tags` both apply. `lint` and `test` are required. Do not create a `v*` tag: `release-tags` blocks creation, update, and deletion, and the owner has not yet split creation into its own ruleset. The plan copy is `docs/plans/shared-actions-and-ci-convergence.md`.
 
 The `lint`, `test`, and `security-summary` gates pin `lx-software-ltd/actions/require-jobs` at the merge SHA in `docs/plans/progress.md`. They must not use `uses: ./require-jobs`.
 
