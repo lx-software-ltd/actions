@@ -12,7 +12,7 @@ A call site that today only runs `actions/setup-node` passes `node-version` and 
 | --- | --- | --- | --- |
 | `node-version` | no | `26` | Passed to `actions/setup-node`. |
 | `working-directory` | no | empty | Directory with `package.json` and `package-lock.json`. Empty skips `npm ci`. |
-| `cache` | no | empty | `npm` caches that directory's `package-lock.json`. Empty does not cache. |
+| `cache` | no | empty | `npm` caches that directory's `package-lock.json`. Empty does not cache. Any other value fails the action. |
 | `install` | no | `true` | When `true` and `working-directory` is set, run `npm ci`. |
 
 ## Permissions

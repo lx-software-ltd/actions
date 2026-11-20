@@ -81,11 +81,14 @@ class SetupNodeContractTest(unittest.TestCase):
     def test_cache_and_install_are_conditional(self) -> None:
         steps = _steps(_text("setup-node/action.yml"))
         cached = next(step for step in steps if step.get("if") == "inputs.cache == 'npm'")
-        plain = next(step for step in steps if step.get("if") == "inputs.cache != 'npm'")
+        plain = next(step for step in steps if step.get("if") == "inputs.cache == ''")
+        rejected = next(step for step in steps if "unknown cache" in step.get("name", ""))
         install = next(step for step in steps if "npm ci" in step.get("run", ""))
         self.assertIn("cache: npm", cached["raw"])
         self.assertIn("cache-dependency-path", cached["raw"])
         self.assertNotIn("cache-dependency-path", plain["raw"])
+        self.assertEqual(rejected["if"], "inputs.cache != '' && inputs.cache != 'npm'")
+        self.assertIn("exit 1", rejected["raw"])
         self.assertEqual(
             install["if"],
             "inputs.install == 'true' && inputs.working-directory != ''",
@@ -116,12 +119,13 @@ class FixtureWorkflowTest(unittest.TestCase):
         for job in (
             "setup-node-fixture:",
             "setup-node-fail:",
+            "setup-node-unknown-cache:",
             "setup-python-fixture:",
             "setup-python-fail:",
         ):
             self.assertIn(job, text)
-        self.assertEqual(text.count("continue-on-error: true"), 3)
-        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 3)
+        self.assertEqual(text.count("continue-on-error: true"), 4)
+        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 4)
 
 
 if __name__ == "__main__":

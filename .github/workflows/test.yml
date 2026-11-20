@@ -120,6 +120,25 @@ jobs:
           OUTCOME: ${{ steps.setup.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  setup-node-unknown-cache:
+    name: Setup Node unknown cache
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Pass a cache value the action does not support
+        id: setup
+        continue-on-error: true
+        uses: ./setup-node
+        with:
+          cache: yarn
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.setup.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   setup-python-fixture:
     name: Setup Python fixture
     runs-on: ubuntu-26.04
@@ -168,6 +187,7 @@ jobs:
       - require-jobs-fail
       - setup-node-fixture
       - setup-node-fail
+      - setup-node-unknown-cache
       - setup-python-fixture
       - setup-python-fail
     if: always()
