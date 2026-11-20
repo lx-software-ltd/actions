@@ -46,9 +46,9 @@ Measured again 20 Nov 2026, 23:40 Hong Kong.
 
 `release-tags` (id `27712299`, updated `2026-11-20T15:37:16Z`) includes `refs/tags/v*` and has rules `deletion` and `update` only. `bypass_actors` is empty. Creation is no longer on this ruleset.
 
-`release-tags-create` (id `27737981`, updated `2026-11-20T15:36:32Z`) is active. Its include is `refs/tags/refs/tags/v*`, which does not match `refs/tags/v*`. Its rules are `non_fast_forward` and `creation`. `bypass_actors` is empty and `current_user_can_bypass` is `never`.
+Measured again 20 Nov 2026, 16:11 UTC. `release-tags-create` (id `27737981`, updated `2026-11-20T16:11:54Z`) includes `refs/tags/v*`. Its only rule is `creation`. `bypass_actors` is empty and `current_user_can_bypass` is `never`. The earlier include `refs/tags/refs/tags/v*` and the `non_fast_forward` rule are gone.
 
-Updates and deletes of `refs/tags/v*` stay blocked. The create ruleset does not match those tags, so it does not restrict who creates one. Callers still pin commit SHAs until a release exists. The agent does not run `gh release create`.
+Creating, updating, and deleting `refs/tags/v*` are all blocked. The create ruleset has no bypass, so the owner cannot create a tag through it either. The agent does not run `gh release create`. Callers still pin commit SHAs until a release exists.
 
 The same organisation rulesets apply to the four product repositories.
 
@@ -84,7 +84,7 @@ The owner approved copying the 31 digests shared by `evolvesprouts` and `siutind
 
 That commit is still an ancestor of `main`. Force-push is blocked. The gates in this repository still pin it. Fixture jobs still use `uses: ./require-jobs`.
 
-SA-301 callers pin `c850872471a02a3f6112a9c5321b485e7f181443` (`#11`). That is where `setup-node` fails unless `cache` is empty or `npm`. SA-304 callers pin `61d2a581a1d880533982bada88923ad1b6431700` (`#13`), which adds `verify-rulesets` and does not change the setup actions. A repository holds both SHAs until a later pull request moves every `lx-software-ltd/actions` reference together. Do not mix the two pins inside one pull request.
+One product repository uses one actions SHA. That SHA is `61d2a581a1d880533982bada88923ad1b6431700` (`#13`). It contains `require-jobs`, `setup-node`, and `setup-python` from `c850872`, plus `verify-rulesets`. Open setup pull requests move from `c850872` to `61d2a58`. The stricter tag check in #14 is not part of that pin.
 
 ## Dependabot
 
@@ -120,6 +120,6 @@ The action is on `actions` `main` at `61d2a58`. It fails unless the approving-re
 | SA-205 | Merged. `lx-software` #657, `evolvesprouts` #2270, `siutindei` #920. |
 | SA-301 | Merged. `actions` #9 at `c55e210`, then #11 at `c850872`. |
 | SA-204 | Waiting on a `v*` release. The tag rulesets are measured above. Dependabot has nothing to move until a release exists. |
-| SA-301 rollout | Pin `c850872`. `findingalpha` #73 merged at `11407a5`. Open: `lx-software` #659, `evolvesprouts` #2271, `siutindei` #921. `cdk-diff.yml` is not in those pulls. |
-| SA-304 | `actions` #13 merged at `61d2a58`. Open on that pin: `findingalpha` #74, `lx-software` #660, `evolvesprouts` #2272, and `siutindei` #922. Monday still fails in the last two until those pull requests are on `main`. |
+| SA-301 rollout | Move every actions pin to `61d2a58`. `findingalpha` #73 is on `main` at `c850872` and gets its own pull request. `lx-software` #659, `evolvesprouts` #2271, and `siutindei` #921 are being retargeted. |
+| SA-304 | Open at `61d2a58`: `findingalpha` #74, `lx-software` #660, `evolvesprouts` #2272, `siutindei` #922. Monday still fails in the last two until those are on `main`. #14 adds the stricter tag check and is not the pin. |
 | Later | SA-302 and SA-307 are allowed under the G2 approval above. SA-303, SA-305, SA-306, SA-308, and SA-309 are not started. G3, G4, and G5 stay closed. |
