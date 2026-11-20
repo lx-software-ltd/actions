@@ -171,11 +171,26 @@ def evaluate_branch_rulesets(
 
 
 def evaluate_tag_protection(rulesets: list[dict[str, Any]], legacy_tags: list[Any] | None) -> list[str]:
-    if any(targets_release_tags(ruleset) for ruleset in rulesets):
-        return []
-    if legacy_tags:
-        return []
-    return ["No active ruleset protects v* tags."]
+    """Require creation, update, and deletion blocks on refs/tags/v*.
+
+    The three rules may be split across rulesets. Classic tag protection
+    does not satisfy them. legacy_tags is accepted and ignored so older
+    callers keep the same argument.
+    """
+    del legacy_tags
+    protecting = [ruleset for ruleset in rulesets if targets_release_tags(ruleset)]
+    if not protecting:
+        return ["No active ruleset protects v* tags."]
+    rule_types = {
+        str(rule.get("type"))
+        for ruleset in protecting
+        for rule in (ruleset.get("rules") or [])
+        if isinstance(rule, dict)
+    }
+    missing = [name for name in ("creation", "update", "deletion") if name not in rule_types]
+    if missing:
+        return ["v* tag rulesets do not block " + ", ".join(missing) + "."]
+    return []
 
 
 def evaluate(
@@ -264,9 +279,11 @@ def main() -> int:
         rulesets = [item for item in parsed if isinstance(item, dict)]
         legacy_tags = None
     else:
-        repo = os.environ.get("GITHUB_REPOSITORY", "").strip()
+        repo = os.environ.get("VERIFY_RULESETS_REPOSITORY", "").strip() or os.environ.get(
+            "GITHUB_REPOSITORY", ""
+        ).strip()
         if not repo:
-            print("GITHUB_REPOSITORY is required.", file=sys.stderr)
+            print("VERIFY_RULESETS_REPOSITORY or GITHUB_REPOSITORY is required.", file=sys.stderr)
             return 1
         try:
             rulesets, legacy_tags = load_live(repo)
