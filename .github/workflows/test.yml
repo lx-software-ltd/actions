@@ -1,0 +1,109 @@
+name: Test
+
+# main-protection does not apply to this repository. A green test check
+# does not block a merge until the owner attaches that ruleset.
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Run unit tests
+        run: python3 -m unittest discover -s tests -v
+
+  require-jobs-pass:
+    name: Require jobs pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Load passing fixture
+        id: pass
+        run: |
+          {
+            echo "needs-json<<EOF"
+            cat fixtures/require-jobs/pass/needs.json
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Require jobs
+        uses: ./require-jobs
+        with:
+          needs-json: ${{ steps.pass.outputs.needs-json }}
+
+  require-jobs-fail:
+    name: Require jobs fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Load failing fixture
+        id: fail
+        run: |
+          {
+            echo "needs-json<<EOF"
+            cat fixtures/require-jobs/fail/needs.json
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Require jobs
+        id: require
+        continue-on-error: true
+        uses: ./require-jobs
+        with:
+          needs-json: ${{ steps.fail.outputs.needs-json }}
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.require.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  test:
+    name: test
+    runs-on: ubuntu-26.04
+    needs:
+      - unit
+      - require-jobs-pass
+      - require-jobs-fail
+    if: always()
+    steps:
+      # Inline on purpose. See the matching comment in lint.yml.
+      - name: Require every test job
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          needs = json.loads(os.environ["NEEDS_JSON"])
+          if not isinstance(needs, dict) or not needs:
+              print("needs must be a non-empty object", file=sys.stderr)
+              sys.exit(1)
+          failed = []
+          for name, value in needs.items():
+              result = value.get("result") if isinstance(value, dict) else value
+              if result != "success":
+                  failed.append(f"{name}={result}")
+          if failed:
+              print("Jobs did not all succeed: " + ", ".join(failed), file=sys.stderr)
+              sys.exit(1)
+          PY

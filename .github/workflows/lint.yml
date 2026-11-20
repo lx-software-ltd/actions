@@ -1,0 +1,94 @@
+name: Lint
+
+# main-protection does not apply to this repository. A green lint check
+# does not block a merge until the owner attaches that ruleset.
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  lint-python:
+    name: Lint Python
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+
+      - name: Compile Python
+        run: python3 -m compileall -q -f require-jobs scripts tests
+
+      - name: Check action layout
+        run: python3 scripts/check_action_layout.py
+
+      # These scans also run in security.yml. They sit on this job so the
+      # lint check fails when they fail. The denylist has no digests, so
+      # the PII step checks nothing until the owner adds hashes.
+      - name: Check hashed PII denylist
+        run: python3 scripts/check_pii.py
+
+      - name: Run Gitleaks
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+        run: |
+          downloaded=0
+          for attempt in 1 2 3 4 5; do
+            if [ "$attempt" -gt 1 ]; then
+              sleep $(((attempt - 1) * 2))
+            fi
+            if curl -sSfL \
+              "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+              -o /tmp/gitleaks.tgz; then
+              downloaded=1
+              break
+            fi
+          done
+          test "$downloaded" = 1
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tgz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          /tmp/gitleaks detect --source . --verbose --redact --no-banner
+
+  lint:
+    name: lint
+    runs-on: ubuntu-26.04
+    needs:
+      - lint-python
+    if: always()
+    steps:
+      # Inline on purpose. uses: ./require-jobs would load the pull request's
+      # own copy, and a change that always exits 0 would turn this check green.
+      # After a commit is on main, a follow-up may pin
+      # lx-software-ltd/actions/require-jobs at that SHA.
+      - name: Require every lint job
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          needs = json.loads(os.environ["NEEDS_JSON"])
+          if not isinstance(needs, dict) or not needs:
+              print("needs must be a non-empty object", file=sys.stderr)
+              sys.exit(1)
+          failed = []
+          for name, value in needs.items():
+              result = value.get("result") if isinstance(value, dict) else value
+              if result != "success":
+                  failed.append(f"{name}={result}")
+          if failed:
+              print("Jobs did not all succeed: " + ", ".join(failed), file=sys.stderr)
+              sys.exit(1)
+          PY

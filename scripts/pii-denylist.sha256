@@ -1,0 +1,4 @@
+# SHA-256 digests only. No plaintext personal data.
+#
+# No digests are listed. scripts/check_pii.py checks nothing until the owner
+# adds organisation-level hashes. See docs/plans/progress.md.
