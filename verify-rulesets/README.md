@@ -13,7 +13,7 @@ This is the pair A script with the approved G1 change. A review count other than
 | `token` | no | empty | `github.token` when the action reads GitHub. Ignored when `rulesets-json` is set. |
 | `required-checks` | no | `lint test` | Exact set of required status checks. |
 | `expected-reviews` | no | `0` | Exact `required_approving_review_count`. |
-| `repository` | no | calling repository | `owner/name` to read. |
+| `target-repository` | no | calling repository | `owner/name` to read. Empty uses the repository GitHub set. |
 | `rulesets-json` | no | empty | Ruleset objects for a fixture. Skips the GitHub API. |
 
 ## Permissions

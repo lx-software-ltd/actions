@@ -19,8 +19,10 @@ inputs:
     description: Required approving-review count. Default 0.
     required: false
     default: "0"
-  repository:
-    description: owner/name. Defaults to the calling repository.
+  target-repository:
+    description: >-
+      owner/name to read. Leave empty to use the calling repository.
+      No current caller sets this.
     required: false
     default: ""
   rulesets-json:
@@ -39,6 +41,6 @@ runs:
         GH_TOKEN: ${{ inputs.token }}
         REQUIRED_CHECKS: ${{ inputs.required-checks }}
         EXPECTED_REVIEWS: ${{ inputs.expected-reviews }}
-        GITHUB_REPOSITORY: ${{ inputs.repository != '' && inputs.repository || github.repository }}
+        VERIFY_RULESETS_REPOSITORY: ${{ inputs.target-repository }}
         RULESETS_JSON: ${{ inputs.rulesets-json }}
       run: python3 "$GITHUB_ACTION_PATH/verify_rulesets.py"

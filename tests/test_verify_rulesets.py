@@ -131,6 +131,13 @@ jobs:
         self.assertEqual(_evaluate(passing), [])
         self.assertTrue(_evaluate(failing))
 
+    def test_action_does_not_override_github_repository(self) -> None:
+        text = (ROOT / "verify-rulesets" / "action.yml").read_text(encoding="utf-8")
+        self.assertIn("target-repository:", text)
+        self.assertNotIn("\n  repository:", text)
+        self.assertIn("VERIFY_RULESETS_REPOSITORY:", text)
+        self.assertNotIn("GITHUB_REPOSITORY:", text)
+
     def test_legacy_403_is_treated_as_absent(self) -> None:
         self.assertTrue(rulesets.legacy_read_is_absent("gh api failed: HTTP 403"))
 

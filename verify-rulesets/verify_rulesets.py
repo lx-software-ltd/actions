@@ -279,9 +279,11 @@ def main() -> int:
         rulesets = [item for item in parsed if isinstance(item, dict)]
         legacy_tags = None
     else:
-        repo = os.environ.get("GITHUB_REPOSITORY", "").strip()
+        repo = os.environ.get("VERIFY_RULESETS_REPOSITORY", "").strip() or os.environ.get(
+            "GITHUB_REPOSITORY", ""
+        ).strip()
         if not repo:
-            print("GITHUB_REPOSITORY is required.", file=sys.stderr)
+            print("VERIFY_RULESETS_REPOSITORY or GITHUB_REPOSITORY is required.", file=sys.stderr)
             return 1
         try:
             rulesets, legacy_tags = load_live(repo)
