@@ -29,7 +29,7 @@ jobs:
           python-version: "3.12"
 
       - name: Compile Python
-        run: python3 -m compileall -q -f scripts tests
+        run: python3 -m compileall -q -f require-jobs scripts tests
 
       - name: Check action layout
         run: python3 scripts/check_action_layout.py

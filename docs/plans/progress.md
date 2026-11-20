@@ -87,7 +87,7 @@ Whether zero approving reviews is intended is O4, and it is unanswered. `actions
 | `lx-software` | `186d7fb` | Unchanged from the plan. |
 | `evolvesprouts` | `c1d4686` | Unchanged from the plan. |
 | `siutindei` | `87b1915` | Unchanged from the plan. |
-| `actions` | this branch | No rulesets. Scaffold pull request is SA-201. `require-jobs` is the next pull request. |
+| `actions` | this branch | No rulesets. SA-201 is the parent pull request. This branch is SA-202. |
 
 ## Steps
 
@@ -97,6 +97,6 @@ Whether zero approving reviews is intended is O4, and it is unanswered. `actions
 | SA-102 | Open. `findingalpha` #69, `lx-software` #656, `evolvesprouts` #2268 stacked on #2267, `siutindei` #918 stacked on #917. |
 | SA-103 | Reported above. No edit. |
 | SA-201 | This pull request. Layout, workflows, licence, Dependabot, plan copy, inline gates. No `require-jobs`. No tag. |
-| SA-202 | Next pull request, stacked on this one. Adds `require-jobs`, unit tests, and pass and fail fixtures. Fixture jobs may use `uses: ./require-jobs`. The `lint` and `test` gates stay inline. |
+| SA-202 | This pull request, stacked on the scaffold. Adds `require-jobs`, unit tests, and pass and fail fixtures. Fixture jobs use `uses: ./require-jobs`. The `lint` and `test` gates stay inline. |
 | SA-202 pin | Not started. After the SA-202 merge, record the SHA above and point the gates at that SHA. |
 | SA-203 onward | Not started. Waits on a SHA on `main`, on O8, and on the red gates. G1 to G5 are not approved. |
