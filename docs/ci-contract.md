@@ -81,6 +81,6 @@ The `lint`, `test`, and `security-summary` gates pin `lx-software-ltd/actions/re
 
 `security-summary` aggregates `security.yml` only. `main-protection` applies to this repository and requires `lint` and `test`. It does not require `security-summary`, so a failure that exists only in `security.yml` does not block a merge. PII and Gitleaks also run inside `lint-python`, so those two fail the required `lint` check.
 
-`scripts/pii-denylist.sha256` has no digests in this revision. The owner approved copying the 31 organisation digests. The pull request that writes them is separate, because the file is red. Until that lands, the PII job checks nothing and says so.
+`scripts/pii-denylist.sha256` holds the 31 organisation digests. The owner approved the copy on 20 Nov 2026. The file has no plaintext. The PII job scans tracked source against them.
 
 CodeQL scans Python and GitHub Actions. The Actions language is the one that covers the workflow files and composite actions in this repository.
