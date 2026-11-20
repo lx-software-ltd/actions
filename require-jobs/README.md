@@ -33,4 +33,4 @@ Pin a commit that is on `main`. Do not pin a tag, and do not point a merge gate 
           needs-json: ${{ toJson(needs) }}
 ```
 
-In this repository the pass and fail fixture jobs use `uses: ./require-jobs` so they test the pull request's copy. The `lint`, `test`, and `security-summary` gates pin the SHA recorded in `docs/plans/progress.md`. `main-protection` still does not apply, so a force-push can orphan that SHA. Product repositories should wait for owner task O8 before they pin it.
+In this repository the pass and fail fixture jobs use `uses: ./require-jobs` so they test the pull request's copy. The `lint`, `test`, and `security-summary` gates pin the SHA recorded in `docs/plans/progress.md`. `main-protection` applies, so a force-push cannot drop that SHA. Product repositories may pin it. Do not pin a tag until the owner splits `release-tags`.

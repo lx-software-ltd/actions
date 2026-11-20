@@ -1,7 +1,6 @@
 name: Lint
 
-# main-protection does not apply to this repository. A green lint check
-# does not block a merge until the owner attaches that ruleset.
+# main-protection applies. The check named lint is required on main.
 
 on:
   workflow_dispatch:

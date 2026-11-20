@@ -37,7 +37,7 @@ A skipped job is a failure otherwise. Pair A does not use `allow-skipped`.
 
 ## Runners
 
-Linux jobs use `ubuntu-26.04`. The macOS label is not chosen yet (convergence row C03).
+Linux jobs use `ubuntu-26.04`. macOS jobs use `macos-26`. The owner chose that label on 20 Nov 2026 (convergence row C03). It is what `macos-latest` selects today, so pinning it changes nothing until GitHub moves `macos-latest`.
 
 ## Pins and permissions
 
@@ -48,7 +48,7 @@ Linux jobs use `ubuntu-26.04`. The macOS label is not chosen yet (convergence ro
 
 ## Versions passed by callers
 
-Node and Python versions are inputs until the organisation default is chosen. The action defaults are the target: Python 3.12, and the Node version recorded in `setup-node` once the owner picks it (row C04). Callers pass their current value until then.
+The organisation default for Node is major version 26. The owner chose it on 20 Nov 2026 (row C04). `setup-node` uses 26 as its default when SA-301 adds that action. Python's default is 3.12. Callers keep passing their current Node version until each repository's C04 pull request. `lts/*` is not the default: it would move on the next long-term-support release.
 
 ## Differences that stay
 
@@ -67,7 +67,7 @@ Hosting, mobile workflows, extra triggers (`repository_dispatch`, `board-*`, Fig
 | Yes | `pull_request` on `lint.yml` and `test.yml` has no path filter. |
 | No | `check-lockfiles.yml`, `semgrep.yml`, `verify-rulesets.yml`, `cdk-diff.yml`, deploy workflows, and the product job ids (`checkov`, `bandit`, `validate-agent-harness`, and the rest). |
 | No | `allow-skipped`. Nothing in this repository is skipped as cost control. |
-| No | A `v*` tag, until `release-tags` applies. A tag created here can move. |
+| No | A `v*` tag until the owner splits `release-tags`. That ruleset now applies here and blocks creation, update, and deletion, with no bypass. |
 
 Workflows and jobs:
 
@@ -79,8 +79,8 @@ Workflows and jobs:
 
 The `lint`, `test`, and `security-summary` gates pin `lx-software-ltd/actions/require-jobs@1a3cca7c38163f8164c262323601c34a4df5b7a4` (`# main 2026-11-20`). They must not use `uses: ./require-jobs`. A local action is loaded from the pull request, so a change that always exits 0 would turn the required check green while the fail fixture goes red. Fixture jobs may use `uses: ./require-jobs` to test the pull request's copy. The layout check rejects a local action on a gate job. The calling job needs `python3` on `PATH`.
 
-`security-summary` aggregates `security.yml` only. No ruleset is attached to this repository, so neither that job nor `lint` and `test` block a merge until the owner adds `actions` to `main-protection` and requires those check names. PII and Gitleaks also run inside `lint-python`, so the `lint` check fails when they fail once that ruleset exists.
+`security-summary` aggregates `security.yml` only. `main-protection` applies to this repository and requires `lint` and `test`. It does not require `security-summary`, so a failure that exists only in `security.yml` does not block a merge. PII and Gitleaks also run inside `lint-python`, so those two fail the required `lint` check.
 
-`scripts/pii-denylist.sha256` has no digests. The PII job checks nothing until the owner adds organisation-level hashes.
+`scripts/pii-denylist.sha256` has no digests in this revision. The owner approved copying the 31 organisation digests. The pull request that writes them is separate, because the file is red. Until that lands, the PII job checks nothing and says so.
 
 CodeQL scans Python and GitHub Actions. The Actions language is the one that covers the workflow files and composite actions in this repository.
