@@ -15,7 +15,7 @@ These were wrong in the draft this file replaces. Do not reintroduce them.
    - `release-tags` does not apply, so a `v*` tag can be created and can be moved. Do not create one. The draft's reason ("the ruleset blocks tags, and no bypass is visible") described the product repositories, not this one.
 2. **Owner tasks are not done as a set.** Confirmed: O1, the public repository exists and the agent can push. O2 was stated by the owner and was not re-verified (policy API 403). O3, O4, O5, O6, and O7 are open. O7 is a hand-run of each deploy workflow after its pull request merges, so it cannot be done early. O4 (whether zero approving reviews is intended) is unanswered. SA-103 reports the live ruleset. It does not answer O4.
 3. **`allow-skipped: true` is allowed** on `security-summary`, and on pair B's `lint` and `test` gates, when a `changes` job is in `needs` and the gate lists every job. That is C07. The contract must not forbid it. Pair A does not use it. This repository does not use it.
-4. **Do not point a gate at `uses: ./require-jobs`.** The spec's self-test does that, and it is a hole: the pull request's copy of `require_jobs.py` is the code that decides the required check. A copy that always returns 0 turns `test` green while the fail fixture, which is not required, goes red. SA-201 uses an inline step. SA-202 adds the action and uses `./` only on fixture jobs. After that merge is on `main`, record the SHA and pin the gates at `lx-software-ltd/actions/require-jobs@<sha>`. One concern per pull request. SA-201 and SA-202 are not the same pull request.
+4. **Do not point a gate at `uses: ./require-jobs`.** The spec's self-test does that, and it is a hole: the pull request's copy of `require_jobs.py` is the code that decides the required check. A copy that always returns 0 turns `test` green while the fail fixture, which is not required, goes red. Fixture jobs may use `./`. The `lint`, `test`, and `security-summary` gates pin `lx-software-ltd/actions/require-jobs@1a3cca7c38163f8164c262323601c34a4df5b7a4`. That is the merge of #2 and the tip of `main` on 20 Nov 2026. One concern per pull request. SA-201 and SA-202 were not the same pull request.
 5. **The PII denylist has no digests.** The job checks nothing until the owner supplies organisation-level hashes. Say so. Do not invent hashes.
 6. **`findingalpha` `main` is `11e6caa`**, not `2cbc059`. The two later merges are Cognito work. They did not change workflow files. The other three product tips are unchanged: `lx-software` `186d7fb`, `evolvesprouts` `c1d4686`, `siutindei` `87b1915`.
 
@@ -152,9 +152,9 @@ Secret-free stages may proceed. Later stages wait on the gates and on O5, O7, an
 | SA-101 | Add `lint` and `test` gates on `evolvesprouts` and `siutindei`. Pair B runners stay. | Pull requests open |
 | SA-102 | `permissions: contents: read` on `lint.yml`, `test.yml`, `check-lockfiles.yml` in all four, plus `siutindei` `e2e-admin-web.yml`. No job overrides. | Pull requests open. Pair B stacked on SA-101 |
 | SA-103 | Report the next `verify-rulesets` run. No edit. | Reported in `progress.md`. Pair A passes with a warning. Pair B fails on the review count only |
-| SA-201 | Scaffold `actions`: licence, contract, zone map, this plan, workflows, Dependabot, inline `lint` and `test` gates. | This work |
-| SA-202 | Add `require-jobs`, unit tests, pass and fail fixtures. Fixture jobs may use `uses: ./require-jobs`. Gates stay inline. | Next pull request. Not combined with SA-201 |
-| SA-202 pin | Record the merge SHA. Point the gates at `require-jobs` at that SHA. | After SA-202 is on `main` |
+| SA-201 | Scaffold `actions`: licence, contract, zone map, this plan, workflows, Dependabot, inline `lint` and `test` gates. | Merged in #1 |
+| SA-202 | Add `require-jobs`, unit tests, pass and fail fixtures. Fixture jobs may use `uses: ./require-jobs`. Gates stay inline until the pin below. | Merged in #2 |
+| SA-202 pin | Record merge SHA `1a3cca7c38163f8164c262323601c34a4df5b7a4`. Point the gates at `require-jobs` at that SHA. | This follow-up |
 | SA-203 | Pilot `require-jobs` in `findingalpha` only. | After a SHA is on `main` and O8 is done. A squash merge orphans a pre-merge pin |
 | SA-302, SA-307 | Product PII and hooks | Behind G2 |
 | SA-304 | Replace pair B `verify-rulesets` | Behind G1 |

@@ -28,9 +28,9 @@ Pin a commit that is on `main`. Do not pin a tag, and do not point a merge gate 
     needs: [lint-python]
     if: always()
     steps:
-      - uses: lx-software-ltd/actions/require-jobs@<40-hex> # main <yyyy-mm-dd>
+      - uses: lx-software-ltd/actions/require-jobs@1a3cca7c38163f8164c262323601c34a4df5b7a4 # main 2026-11-20
         with:
           needs-json: ${{ toJson(needs) }}
 ```
 
-In this repository the pass and fail fixture jobs use `uses: ./require-jobs` so they test the pull request's copy. The `lint`, `test`, and `security-summary` gates stay inline until they can pin the SHA recorded in `docs/plans/progress.md`.
+In this repository the pass and fail fixture jobs use `uses: ./require-jobs` so they test the pull request's copy. The `lint`, `test`, and `security-summary` gates pin the SHA recorded in `docs/plans/progress.md`. `main-protection` still does not apply, so a force-push can orphan that SHA. Product repositories should wait for owner task O8 before they pin it.

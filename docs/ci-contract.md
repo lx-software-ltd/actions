@@ -74,10 +74,10 @@ Workflows and jobs:
 | File | Jobs |
 | --- | --- |
 | `lint.yml` | `lint-python` (compile, layout check, PII denylist, Gitleaks), gate `lint` |
-| `test.yml` | `unit`, gate `test`. The `require-jobs` pull request adds fixture jobs. The gate stays inline. |
+| `test.yml` | `unit`, `require-jobs-pass`, `require-jobs-fail`, gate `test` |
 | `security.yml` | `pii-denylist`, `secrets-scan`, `codeql` (languages `python` and `actions`), gate `security-summary` |
 
-The `lint` and `test` gates are inline Python in the workflow file. They must not use `uses: ./require-jobs`. A local action is loaded from the pull request, so a change that always exits 0 would turn the required check green while the fail fixture goes red. After a commit that contains `require-jobs` is on `main`, a follow-up may pin `lx-software-ltd/actions/require-jobs` at that SHA. Fixture jobs may use `uses: ./require-jobs` to test the pull request's copy. The layout check rejects a local action on a gate job.
+The `lint`, `test`, and `security-summary` gates pin `lx-software-ltd/actions/require-jobs@1a3cca7c38163f8164c262323601c34a4df5b7a4` (`# main 2026-11-20`). They must not use `uses: ./require-jobs`. A local action is loaded from the pull request, so a change that always exits 0 would turn the required check green while the fail fixture goes red. Fixture jobs may use `uses: ./require-jobs` to test the pull request's copy. The layout check rejects a local action on a gate job. The calling job needs `python3` on `PATH`.
 
 `security-summary` aggregates `security.yml` only. No ruleset is attached to this repository, so neither that job nor `lint` and `test` block a merge until the owner adds `actions` to `main-protection` and requires those check names. PII and Gitleaks also run inside `lint-python`, so the `lint` check fails when they fail once that ruleset exists.
 

@@ -51,17 +51,17 @@ The plan's old "Live problems" item 4 said `actions` inherits both rulesets. Tha
 
 `scripts/pii-denylist.sha256` contains no digests. `scripts/check_pii.py` exits 0 and prints that the run checks nothing. The job stays, so the owner can add organisation-level hashes without a new workflow. This file does not invent hashes.
 
-## Gate bypass, recorded for after the first merge
+## Gate pin
 
-SA-201's `lint`, `test`, and `security-summary` jobs are inline Python in the workflow file. They do not use `uses: ./require-jobs`.
+The spec's self-test uses `uses: ./require-jobs`, which loads the action from the pull request checkout. A pull request that makes `require_jobs.py` always return 0 turns a gate written that way green. The fail fixture still goes red, and that fixture is not a required check. That is a gap in the spec. The layout check rejects a local action on the `lint`, `test`, and `security-summary` jobs.
 
-The spec's self-test uses `uses: ./require-jobs`, which loads the action from the pull request checkout. A pull request that makes `require_jobs.py` always return 0 turns a gate written that way green. The fail fixture still goes red, and that fixture is not a required check. That is a gap in the spec. The layout check now rejects a local action on those three gate jobs.
-
-SA-202 adds `require-jobs` and may use `uses: ./require-jobs` on the fixture jobs only. The gates stay inline. After the merge that puts `require-jobs` on `main`, record that SHA in the table below and change the gates to `lx-software-ltd/actions/require-jobs@<that SHA>`. Do not point them at `./`, and do not pin a commit that is not on `main`.
+Those three gates pin `lx-software-ltd/actions/require-jobs` at the merge SHA below. Fixture jobs still use `uses: ./require-jobs`. Do not point a gate at `./`.
 
 | Pin | SHA |
 | --- | --- |
-| Merge that put `require-jobs` on `main` | Not merged. Record the SHA here after that merge. This is the "record the SHA" half of SA-202. |
+| Merge that put `require-jobs` on `main` | `1a3cca7c38163f8164c262323601c34a4df5b7a4` |
+
+That commit is the merge of #2 onto the previous `main` (`a4f81f0`), with parent `e9c01fe`. Its tree matches `e9c01fe`. GitHub reports the same merge commit for #1 and #2. `main-protection` still does not apply, so a force-push can orphan it. Product callers wait for owner task O8.
 
 ## Dependabot
 
@@ -87,7 +87,7 @@ Whether zero approving reviews is intended is O4, and it is unanswered. `actions
 | `lx-software` | `186d7fb` | Unchanged from the plan. |
 | `evolvesprouts` | `c1d4686` | Unchanged from the plan. |
 | `siutindei` | `87b1915` | Unchanged from the plan. |
-| `actions` | this branch | No rulesets. SA-201 is the parent pull request. This branch is SA-202. |
+| `actions` | `1a3cca7` | No rulesets. #1 and #2 are merged. This pull request pins the gates at that SHA. |
 
 ## Steps
 
@@ -96,7 +96,7 @@ Whether zero approving reviews is intended is O4, and it is unanswered. `actions
 | SA-101 | Open. `evolvesprouts` #2267, `siutindei` #917. |
 | SA-102 | Open. `findingalpha` #69, `lx-software` #656, `evolvesprouts` #2268 stacked on #2267, `siutindei` #918 stacked on #917. |
 | SA-103 | Reported above. No edit. |
-| SA-201 | This pull request. Layout, workflows, licence, Dependabot, plan copy, inline gates. No `require-jobs`. No tag. |
-| SA-202 | This pull request, stacked on the scaffold. Adds `require-jobs`, unit tests, and pass and fail fixtures. Fixture jobs use `uses: ./require-jobs`. The `lint` and `test` gates stay inline. |
-| SA-202 pin | Not started. After the SA-202 merge, record the SHA above and point the gates at that SHA. |
-| SA-203 onward | Not started. Waits on a SHA on `main`, on O8, and on the red gates. G1 to G5 are not approved. |
+| SA-201 | Merged. #1, included in `1a3cca7`. |
+| SA-202 | Merged. #2, merge commit `1a3cca7`. Fixture jobs use `uses: ./require-jobs`. |
+| SA-202 pin | This pull request. The SHA above is recorded, and the three gates pin `require-jobs` at it. |
+| SA-203 onward | Not started. The pin SHA is on `main`. Still waits on O8 and on red gates G1 to G5. |

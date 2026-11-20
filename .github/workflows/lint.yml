@@ -69,26 +69,10 @@ jobs:
       - lint-python
     if: always()
     steps:
-      # Inline on purpose. uses: ./require-jobs would load the pull request's
-      # own copy, and a change that always exits 0 would turn this check green.
-      # After a commit is on main, a follow-up may pin
-      # lx-software-ltd/actions/require-jobs at that SHA.
+      # Pinned to the merge on main. uses: ./require-jobs would load the
+      # pull request's copy, and a change that always exits 0 would turn
+      # this check green.
       - name: Require every lint job
-        env:
-          NEEDS_JSON: ${{ toJson(needs) }}
-        run: |
-          python3 - <<'PY'
-          import json, os, sys
-          needs = json.loads(os.environ["NEEDS_JSON"])
-          if not isinstance(needs, dict) or not needs:
-              print("needs must be a non-empty object", file=sys.stderr)
-              sys.exit(1)
-          failed = []
-          for name, value in needs.items():
-              result = value.get("result") if isinstance(value, dict) else value
-              if result != "success":
-                  failed.append(f"{name}={result}")
-          if failed:
-              print("Jobs did not all succeed: " + ", ".join(failed), file=sys.stderr)
-              sys.exit(1)
-          PY
+        uses: lx-software-ltd/actions/require-jobs@1a3cca7c38163f8164c262323601c34a4df5b7a4 # main 2026-11-20
+        with:
+          needs-json: ${{ toJson(needs) }}
