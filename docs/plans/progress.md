@@ -3,9 +3,17 @@
 **Status**: In progress
 **Zone**: yellow
 
-The plan copy is `docs/plans/shared-actions-and-ci-convergence.md`. The approved plan is in that file in full. Recorded decisions at the top of that file win where they conflict with the approved text. Decision, owner-task, row, and step numbers keep the approved meanings. This file does not renumber them. An earlier progress table called the Node and macOS choices "O6". That was wrong. O6 is still the `AWS_ACCOUNT_ID` secret.
+The plan copy is `docs/plans/shared-actions-and-ci-convergence.md`. The approved plan is in that file in full. Recorded decisions at the top of that file win where they conflict with the approved text. Decision, owner-task, row, and step numbers keep the approved meanings. This file does not renumber them. An earlier progress table called the Node and macOS choices "O6". That was wrong. O6 is `AWS_ACCOUNT_ID`, and the decision is now that it stays a variable.
 
-Gates G1 to G5 stay closed, except one named approval: gate G2, for `findingalpha` `scripts/pii-denylist.sha256` only. The red write of `scripts/pii-denylist.sha256` in this repository is also approved, and this branch writes that file.
+Named approvals, 20 Nov 2026:
+
+- Gate G1 is approved for SA-304. The expected approving-review count is 0.
+- Gate G2 is approved for SA-302 and for SA-307. The earlier approval for `findingalpha` `scripts/pii-denylist.sha256`, and for that file in this repository, still stands.
+- The O3 tag split is approved and not applied. This file's "O3, what the owner applies" is the procedure. The agent does not edit organisation rulesets and does not run `gh release create`.
+- O5 is approved and not started. It is before Stage 5. Narrow the role trust to the four product repositories and remove the account id from the public `lx-software` trust-policy document. Do not copy the account id into this file.
+- O6 is changed. `AWS_ACCOUNT_ID` stays a variable. Do not add it as a secret. That change is before Stage 5 and is not started.
+
+Gates G3, G4, and G5 stay closed.
 
 ## Owner tasks
 
@@ -15,10 +23,10 @@ Numbers are the approved plan's numbers.
 | --- | --- | --- |
 | O1 | Public `actions` repository, agent can push | Confirmed |
 | O2 | Actions policy allows `lx-software-ltd/*` | Not read. The policy API returns 403. Observed: this repository's own gates resolved `lx-software-ltd/actions/require-jobs@1a3cca7` and the runs were green. |
-| O3 | How `v*` tags get created | Decided. Only the owner creates one. Nobody can move or delete one. The ruleset split that makes this true is not applied yet. Do not tag until it is. |
+| O3 | How `v*` tags get created | Approved, not applied. Only the owner creates one. Nobody can move or delete one. The split below is still not on the organisation. Do not tag until it is. |
 | O4 | Is zero approving reviews intended? | Decided. Yes. SA-304 checks for exactly 0. |
-| O5 | Narrow `GitHubActionsRole` trust to the four product repositories | Open |
-| O6 | Add `AWS_ACCOUNT_ID` as a secret where it is only a variable | Open. The variable keeps working. |
+| O5 | Narrow `GitHubActionsRole` trust to the four product repositories | Approved, before Stage 5. Not started. Also remove the account id from the public trust-policy document. |
+| O6 | `AWS_ACCOUNT_ID` | Changed. It stays a variable. Do not add the secret. Before Stage 5. Not started. |
 | O7 | Hand-run each deploy workflow after its pull request merges | Open. Cannot start early. |
 | O8 | Attach `main-protection` and `release-tags` to `actions` | Done. Both rulesets are returned for this repository. `main-protection` was updated `2026-11-20T13:17:29Z`. |
 
@@ -68,7 +76,11 @@ The owner approved copying the 31 digests shared by `evolvesprouts` and `siutind
 | --- | --- |
 | Merge that put `require-jobs` on `main` | `1a3cca7c38163f8164c262323601c34a4df5b7a4` |
 
-That commit is still an ancestor of `main`. Force-push is now blocked, so callers may pin it. The `lint`, `test`, and `security-summary` gates in this repository already do. Fixture jobs still use `uses: ./require-jobs`.
+That commit is still an ancestor of `main`. Force-push is blocked. The gates in this repository pin it. Fixture jobs still use `uses: ./require-jobs`.
+
+One repository uses one actions SHA. `c55e210150528a8e334d95e3ca6ef950f2e83068` is the first commit that contains `require-jobs`, `setup-node`, and `setup-python`. The SA-301 rollout moves each product repository's `require-jobs` pin from `1a3cca7` to that same commit, in the same pull request as the setup actions. Pre-commit `rev` will use that commit too.
+
+`c55e210` treats a `cache` value other than `npm` as no cache. The next change on this repository fails that call. If that change is on `main` before the pilot merges, the pilot pins the newer commit. Still one SHA.
 
 ## Dependabot
 
@@ -78,17 +90,17 @@ Unchanged from the earlier note. `cooldown.exclude` for `lx-software-ltd/actions
 
 Not edited. Pair A warns when the approving-review count is below one and does not fail on that warning. The next weekly run passes, with that warning.
 
-Pair B treats a count below one as an error. The live ruleset asks for zero, and zero is intended (O4). The next weekly run, Monday 23 Nov 2026, still fails with `main ruleset does not require at least 1 approving review.` SA-304 replaces the script, behind gate G1, and the shared action takes an expected count of 0.
+Pair B treats a count below one as an error. The live ruleset asks for zero, and zero is intended (O4). Gate G1 is approved. SA-304 replaces the script and checks for exactly 0. Until that pull request is on `main`, Monday 23 Nov 2026 at 09:00 UTC still fails with `main ruleset does not require at least 1 approving review.` Pair A still only warns.
 
-## Measured commits, 20 Nov 2026, 21:30 Hong Kong
+## Measured commits, 20 Nov 2026, 23:20 Hong Kong
 
 | Repository | Commit | Note |
 | --- | --- | --- |
-| `findingalpha` | `8c3d3aaf2260966242e600b262d5ce876785272f` | Includes the SA-102 merge, #69. |
-| `lx-software` | `6a986bfcbd28c4c604c821501e385a87c2e8f99c` | Includes the SA-102 merge, #656. |
-| `evolvesprouts` | `aff0c818a3552308b041a89cf5d0fb7b3c9ad335` | Includes SA-101 #2267 and SA-102 #2268. |
-| `siutindei` | `754ee28cd91ffbce371f001139be5d317cddbebd` | Includes SA-101 #917 and SA-102 #918. |
-| `actions` | `39e58cf41debb899117588fa798a53deda0785fb` | #1, #2, #4, #6, and #7 merged. Both organisation rulesets attached. |
+| `findingalpha` | `d924cc4b1bdee7477b49b3352eccd7a4762639ea` | SA-203 merge, #72. |
+| `lx-software` | `326acc85fd7f80079b3fefb4551260590c6ef6aa` | SA-205 merge, #657. |
+| `evolvesprouts` | `bdf7b0f22518361c0f79d27d35c53e29758b6cab` | SA-205 merge, #2270. |
+| `siutindei` | `fe2c76663d4d26a5fb4409ca73ad4bf3ba543e58` | SA-205 merge, #920. |
+| `actions` | `c55e210150528a8e334d95e3ca6ef950f2e83068` | SA-301 merge, #9. |
 
 ## Steps
 
@@ -101,7 +113,11 @@ Pair B treats a count below one as an error. The live ruleset asks for zero, and
 | SA-202 | Merged. #2, merge commit `1a3cca7`. Fixture jobs use `uses: ./require-jobs`. |
 | SA-202 pin | Merged. #4. Gates pin `1a3cca7`. |
 | Decisions | Parent pull request. O3, O4, C03, C04, and the denylist approval. |
-| Denylist copy | Merged. #7 writes the 31 digests here. `findingalpha` is a separate pull request. |
-| SA-203 | Not started. O8 no longer blocks it. A tag is not required for the pin. |
-| SA-301 | This pull request. `setup-node` default 26, `setup-python` default 3.12. `working-directory` and `cache` default empty. No product caller changes. |
-| SA-203 onward | Red gates G1 to G5 stay closed, apart from the one G2 file named above. |
+| Denylist copy | Merged. #7 writes the 31 digests here. |
+| SA-203 | Merged. `findingalpha` #72, merge `d924cc4`. |
+| SA-205 | Merged. `lx-software` #657, `evolvesprouts` #2270, `siutindei` #920. |
+| SA-301 | Merged. `actions` #9 at `c55e210`. No product caller yet. |
+| SA-204 | Waiting. The tag split is approved and not applied, so Dependabot has no `v*` release to move. |
+| SA-301 rollout | Not started. `findingalpha` first. One actions SHA per repository, the commit named in the gate-pin section. Callers pass the versions they use today. |
+| SA-304 | Not started. Gate G1 is approved. Needed before Monday 23 Nov 2026, 09:00 UTC, or pair B's weekly run fails on the review count. |
+| Later | SA-302 and SA-307 are allowed under the G2 approval above. SA-303, SA-305, SA-306, SA-308, and SA-309 are not started. G3, G4, and G5 stay closed. |
