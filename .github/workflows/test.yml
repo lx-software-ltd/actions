@@ -77,6 +77,88 @@ jobs:
           OUTCOME: ${{ steps.require.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  setup-node-fixture:
+    name: Setup Node fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # No working-directory and no cache. This is the call site that only
+      # sets up Node. Default node-version is 26.
+      - name: Set up Node with no cache and no project
+        uses: ./setup-node
+
+      - name: The default Node major is 26
+        shell: bash
+        run: node --version | grep -E '^v26\.'
+
+      - name: Cache npm and install the fixture
+        uses: ./setup-node
+        with:
+          cache: npm
+          working-directory: fixtures/setup-node
+
+  setup-node-fail:
+    name: Setup Node fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Cache a directory that has no lockfile
+        id: setup
+        continue-on-error: true
+        uses: ./setup-node
+        with:
+          cache: npm
+          working-directory: fixtures/setup-node-no-lock
+          install: "false"
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.setup.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  setup-python-fixture:
+    name: Setup Python fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Empty requirements sets up Python with no pip cache.
+      - name: Set up Python with no cache
+        uses: ./setup-python
+
+      - name: The default Python is 3.12
+        shell: bash
+        run: python --version | grep -E 'Python 3\.12\.'
+
+      - name: Set up Python and cache pip
+        uses: ./setup-python
+        with:
+          requirements: fixtures/setup-python/requirements.txt
+
+  setup-python-fail:
+    name: Setup Python fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Cache a requirements file that is not there
+        id: setup
+        continue-on-error: true
+        uses: ./setup-python
+        with:
+          requirements: fixtures/setup-python/does-not-exist.txt
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.setup.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   test:
     name: test
     runs-on: ubuntu-26.04
@@ -84,6 +166,10 @@ jobs:
       - unit
       - require-jobs-pass
       - require-jobs-fail
+      - setup-node-fixture
+      - setup-node-fail
+      - setup-python-fixture
+      - setup-python-fail
     if: always()
     steps:
       # Pinned to the merge on main. See the matching comment in lint.yml.

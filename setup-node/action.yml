@@ -1,0 +1,52 @@
+name: Setup Node
+description: >-
+  Set up Node.js. Cache npm and run npm ci only when the caller asks.
+  The default version is the organisation major, 26. Callers pass the
+  version they use today until their own C04 pull request.
+
+inputs:
+  node-version:
+    description: Node.js version passed to actions/setup-node. Default 26.
+    required: false
+    default: "26"
+  working-directory:
+    description: >-
+      Directory that contains package.json and package-lock.json, relative
+      to the workspace. Empty sets up Node without npm ci.
+    required: false
+    default: ""
+  cache:
+    description: >-
+      npm caches package-lock.json. Empty sets up Node with no cache.
+      Default empty, so a call site that does not cache today stays that way.
+    required: false
+    default: ""
+  install:
+    description: >-
+      Run npm ci when true and working-directory is set. Default true.
+      Ignored when working-directory is empty.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js with the npm cache
+      if: inputs.cache == 'npm'
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+        cache-dependency-path: ${{ inputs.working-directory && format('{0}/package-lock.json', inputs.working-directory) || 'package-lock.json' }}
+
+    - name: Set up Node.js
+      if: inputs.cache != 'npm'
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install npm dependencies
+      if: inputs.install == 'true' && inputs.working-directory != ''
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: npm ci
