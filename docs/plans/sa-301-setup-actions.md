@@ -15,17 +15,18 @@ Publish `setup-node` with default Node 26 and `setup-python` with default Python
 
 ## Files
 
-`setup-node/`, `setup-python/`, `fixtures/setup-node/`, `fixtures/setup-python/`, `tests/test_setup_actions.py`, and the two fixture jobs in `.github/workflows/test.yml`.
+`setup-node/`, `setup-python/`, `fixtures/setup-node/`, `fixtures/setup-node-no-lock/`, `fixtures/setup-python/`, `tests/test_setup_actions.py`, and the pass and fail fixture jobs in `.github/workflows/test.yml`.
 
 ## Invariants this change preserves
 
 - Third-party actions stay pinned by full SHA with a version comment.
 - The `test` gate stays pinned at `1a3cca7` and lists the new jobs in `needs`.
-- Callers can override both defaults.
+- `working-directory` and `cache` default empty, so a call site that only selects a Node version does not gain a cache or `npm ci`.
+- Callers can override both version defaults.
 
 ## Done when
 
-`python3 -m unittest discover -s tests -v` passes, and `python3 scripts/check_action_layout.py` passes. The fixture jobs install Node at the default and Python at the default.
+`python3 -m unittest discover -s tests -v` passes, and `python3 scripts/check_action_layout.py` passes. The pass fixtures set up Node 26 with no cache and Python 3.12 with no cache, and also install from the lockfile and the requirements file. The fail fixtures fail: npm cache against a directory with no lockfile, and pip cache against a requirements path that is not there.
 
 ## Rollback
 

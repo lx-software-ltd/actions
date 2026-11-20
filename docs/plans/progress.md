@@ -84,7 +84,7 @@ Pair B treats a count below one as an error. The live ruleset asks for zero, and
 
 | Repository | Commit | Note |
 | --- | --- | --- |
-| `findingalpha` | `39da5857756e9253dcbbad65ed3efb58e69827a1` | SA-203 baseline. Includes the SA-102 merge, #69. |
+| `findingalpha` | `8c3d3aaf2260966242e600b262d5ce876785272f` | Includes the SA-102 merge, #69. |
 | `lx-software` | `6a986bfcbd28c4c604c821501e385a87c2e8f99c` | Includes the SA-102 merge, #656. |
 | `evolvesprouts` | `aff0c818a3552308b041a89cf5d0fb7b3c9ad335` | Includes SA-101 #2267 and SA-102 #2268. |
 | `siutindei` | `754ee28cd91ffbce371f001139be5d317cddbebd` | Includes SA-101 #917 and SA-102 #918. |
@@ -102,8 +102,6 @@ Pair B treats a count below one as an error. The live ruleset asks for zero, and
 | SA-202 pin | Merged. #4. Gates pin `1a3cca7`. |
 | Decisions | Parent pull request. O3, O4, C03, C04, and the denylist approval. |
 | Denylist copy | Merged. #7 writes the 31 digests here. `findingalpha` is a separate pull request. |
-| SA-203 | Open. `findingalpha` #72. The workflow check names on the pull request match the 21 names on `main` `39da585`. `lint` and `test` succeeded. Three `github-advanced-security` checks (Checkov, CodeQL, Semgrep OSS) appear on the pull request and not on that `main` commit. They are code-scanning uploads, not renamed jobs. |
-| SA-205 | Open. `lx-software` #657, `evolvesprouts` #2270, `siutindei` #920. Same pin as SA-203. Check names are compared after those runs finish. |
-| SA-301 | This pull request. `setup-node` default 26, `setup-python` default 3.12. No product caller changes. |
-| SA-204 | Waiting. `release-tags` still blocks every `v*` tag, so Dependabot has no release pin to move. The tag-ruleset split is an owner edit and is not applied. |
-| SA-203 onward | Red gates G1 to G5 stay closed, apart from the one G2 file named above. Monday’s pair B `verify-rulesets` run still fails on the review count until gate G1 and SA-304. |
+| SA-203 | Not started. O8 no longer blocks it. A tag is not required for the pin. |
+| SA-301 | This pull request. `setup-node` default 26, `setup-python` default 3.12. `working-directory` and `cache` default empty. No product caller changes. |
+| SA-203 onward | Red gates G1 to G5 stay closed, apart from the one G2 file named above. |
