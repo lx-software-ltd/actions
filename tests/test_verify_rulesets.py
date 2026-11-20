@@ -37,7 +37,7 @@ def _tags() -> dict:
         "target": "tag",
         "enforcement": "active",
         "conditions": {"ref_name": {"include": ["refs/tags/v*"]}},
-        "rules": [{"type": "deletion"}, {"type": "update"}],
+        "rules": [{"type": "deletion"}, {"type": "update"}, {"type": "creation"}],
     }
 
 
@@ -88,6 +88,20 @@ class VerifyRulesetsTest(unittest.TestCase):
         errors = _evaluate([ruleset, _tags()])
         self.assertTrue(any("force pushes" in error for error in errors))
 
+    def test_split_tag_rules_pass(self) -> None:
+        update_and_delete = _tags()
+        update_and_delete["rules"] = [{"type": "deletion"}, {"type": "update"}]
+        create = _tags()
+        create["name"] = "release-tags-create"
+        create["rules"] = [{"type": "creation"}]
+        self.assertEqual(_evaluate([_main(), update_and_delete, create]), [])
+
+    def test_missing_tag_creation_fails(self) -> None:
+        tags = _tags()
+        tags["rules"] = [{"type": "deletion"}, {"type": "update"}]
+        errors = _evaluate([_main(), tags])
+        self.assertTrue(any("do not block creation" in error for error in errors))
+
     def test_missing_tag_protection_fails(self) -> None:
         errors = _evaluate([_main()])
         self.assertTrue(any("v* tags" in error for error in errors))
@@ -116,6 +130,13 @@ jobs:
         failing = json.loads((ROOT / "fixtures/verify-rulesets/fail.json").read_text(encoding="utf-8"))
         self.assertEqual(_evaluate(passing), [])
         self.assertTrue(_evaluate(failing))
+
+    def test_action_does_not_override_github_repository(self) -> None:
+        text = (ROOT / "verify-rulesets" / "action.yml").read_text(encoding="utf-8")
+        self.assertIn("target-repository:", text)
+        self.assertNotIn("\n  repository:", text)
+        self.assertIn("VERIFY_RULESETS_REPOSITORY:", text)
+        self.assertNotIn("GITHUB_REPOSITORY:", text)
 
     def test_legacy_403_is_treated_as_absent(self) -> None:
         self.assertTrue(rulesets.legacy_read_is_absent("gh api failed: HTTP 403"))
