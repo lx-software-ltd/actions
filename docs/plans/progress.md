@@ -84,7 +84,7 @@ The owner approved copying the 31 digests shared by `evolvesprouts` and `siutind
 
 That commit is still an ancestor of `main`. Force-push is blocked. The gates in this repository still pin it. Fixture jobs still use `uses: ./require-jobs`.
 
-One repository uses one actions SHA. `c850872471a02a3f6112a9c5321b485e7f181443` (`#11`) is where `setup-node` started failing on a cache value other than empty or `npm`. `61d2a581a1d880533982bada88923ad1b6431700` (`#13`) is that commit plus `verify-rulesets`. A product pull request that is still open on `c850872` moves to `61d2a58` before it merges. SA-304 callers pin `61d2a58`.
+SA-301 callers pin `c850872471a02a3f6112a9c5321b485e7f181443` (`#11`). That is where `setup-node` fails unless `cache` is empty or `npm`. SA-304 callers pin `61d2a581a1d880533982bada88923ad1b6431700` (`#13`), which adds `verify-rulesets` and does not change the setup actions. A repository holds both SHAs until a later pull request moves every `lx-software-ltd/actions` reference together. Do not mix the two pins inside one pull request.
 
 ## Dependabot
 
@@ -120,6 +120,6 @@ The action is on `actions` `main` at `61d2a58`. It fails unless the approving-re
 | SA-205 | Merged. `lx-software` #657, `evolvesprouts` #2270, `siutindei` #920. |
 | SA-301 | Merged. `actions` #9 at `c55e210`, then #11 at `c850872`. |
 | SA-204 | Waiting on a `v*` release. The tag rulesets are measured above. Dependabot has nothing to move until a release exists. |
-| SA-301 rollout | `findingalpha` #73 is open at `ace427e` and still pins `c850872`. `lint` and `test` succeeded. Move that pin to `61d2a58` before merge. The other three repositories are not started. |
+| SA-301 rollout | `findingalpha` #73 is open at `ace427e` and pins `c850872`. `lint` and `test` succeeded. `lx-software` is the next repository, same pin. `evolvesprouts` and `siutindei` are not started. |
 | SA-304 | Merged. `actions` #13 at `61d2a58`. `lint`, `test`, and both fixtures passed. The findingalpha trial is next. `evolvesprouts` and `siutindei` still fail on Monday until their rollout is on `main`. |
 | Later | SA-302 and SA-307 are allowed under the G2 approval above. SA-303, SA-305, SA-306, SA-308, and SA-309 are not started. G3, G4, and G5 stay closed. |
