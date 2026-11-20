@@ -84,7 +84,7 @@ The owner approved copying the 31 digests shared by `evolvesprouts` and `siutind
 
 That commit is still an ancestor of `main`. Force-push is blocked. The gates in this repository still pin it. Fixture jobs still use `uses: ./require-jobs`.
 
-One product repository uses one actions SHA. That SHA is `61d2a581a1d880533982bada88923ad1b6431700` (`#13`). It contains `require-jobs`, `setup-node`, and `setup-python` from `c850872`, plus `verify-rulesets`. Open setup pull requests move from `c850872` to `61d2a58`. The stricter tag check in #14 is not part of that pin.
+One product repository uses one actions SHA. That SHA is `61d2a581a1d880533982bada88923ad1b6431700` (`#13`). It contains `require-jobs`, `setup-node`, and `setup-python` from `c850872`, plus `verify-rulesets`. Open setup pull requests move from `c850872` to `61d2a58`. #14 and #15 are on `main` at `2ba4826ba08ecb02154c26af35a786b84f4c7bc0`. They are not the product pin, so Monday does not run the stricter tag check yet.
 
 ## Dependabot
 
@@ -121,5 +121,5 @@ The action is on `actions` `main` at `61d2a58`. It fails unless the approving-re
 | SA-301 | Merged. `actions` #9 at `c55e210`, then #11 at `c850872`. |
 | SA-204 | Waiting on a `v*` release. The tag rulesets are measured above. Dependabot has nothing to move until a release exists. |
 | SA-301 rollout | Move every actions pin to `61d2a58`. `findingalpha` #73 is on `main` at `c850872` and gets its own pull request. `lx-software` #659, `evolvesprouts` #2271, and `siutindei` #921 are being retargeted. |
-| SA-304 | Open at `61d2a58`: `findingalpha` #74, `lx-software` #660, `evolvesprouts` #2272, `siutindei` #922. Monday still fails in the last two until those are on `main`. #14 adds the stricter tag check and is not the pin. |
+| SA-304 | Open at `61d2a58`: `findingalpha` #74, `lx-software` #660, `evolvesprouts` #2272, `siutindei` #922. Monday still fails in the last two until those are on `main`. The stricter tag check and the input rename merged as #14 and #15 at `2ba4826` and stay off that pin. |
 | Later | SA-302 and SA-307 are allowed under the G2 approval above. SA-303, SA-305, SA-306, SA-308, and SA-309 are not started. G3, G4, and G5 stay closed. |
