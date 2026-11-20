@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-_MODULE_PATH = Path(__file__).resolve().parent / "check_pii.py"
+_MODULE_PATH = Path(__file__).resolve().parents[1] / "scripts" / "check_pii.py"
 _SPEC = importlib.util.spec_from_file_location("check_pii", _MODULE_PATH)
 assert _SPEC is not None and _SPEC.loader is not None
 check_pii = importlib.util.module_from_spec(_SPEC)

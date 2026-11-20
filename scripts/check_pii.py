@@ -119,6 +119,12 @@ def main() -> int:
         print(f"missing denylist: {DENYLIST_PATH}", file=sys.stderr)
         return 1
     denied = _load_denylist()
+    if not denied:
+        print(
+            "pii check passed: scripts/pii-denylist.sha256 has no digests, "
+            "so this run checks nothing"
+        )
+        return 0
     failures = 0
     for path in _tracked_files():
         try:

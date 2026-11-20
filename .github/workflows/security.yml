@@ -1,5 +1,10 @@
 name: Security Scanning
 
+# The security-summary job aggregates this workflow. It is not a required
+# check, and no ruleset is attached, so a red result here does not block a
+# merge. PII and Gitleaks also run inside lint.yml so the lint check fails
+# when they fail, once the owner requires that check.
+
 on:
   workflow_dispatch:
   pull_request:
@@ -62,17 +67,26 @@ jobs:
           /tmp/gitleaks detect --source . --verbose --redact --no-banner
 
   codeql:
-    name: CodeQL Analysis (python)
+    name: CodeQL Analysis (${{ matrix.language }})
     runs-on: ubuntu-26.04
     permissions:
       actions: read
       contents: read
       security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: python
+            queries: security-extended
+          - language: actions
+            queries: security-extended
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python
+        if: matrix.language == 'python'
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
@@ -80,11 +94,41 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
-          languages: python
-          queries: security-extended
+          languages: ${{ matrix.language }}
+          queries: ${{ matrix.queries }}
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
-          category: /language:python
+          category: /language:${{ matrix.language }}
           wait-for-processing: false
+
+  security-summary:
+    name: security-summary
+    runs-on: ubuntu-26.04
+    needs:
+      - pii-denylist
+      - secrets-scan
+      - codeql
+    if: always()
+    steps:
+      # Inline on purpose. This gate does not load an action from the pull request.
+      - name: Require every security job
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          needs = json.loads(os.environ["NEEDS_JSON"])
+          if not isinstance(needs, dict) or not needs:
+              print("needs must be a non-empty object", file=sys.stderr)
+              sys.exit(1)
+          failed = []
+          for name, value in needs.items():
+              result = value.get("result") if isinstance(value, dict) else value
+              if result != "success":
+                  failed.append(f"{name}={result}")
+          if failed:
+              print("Jobs did not all succeed: " + ", ".join(failed), file=sys.stderr)
+              sys.exit(1)
+          PY
