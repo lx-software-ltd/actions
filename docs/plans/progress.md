@@ -121,5 +121,5 @@ The action is on `actions` `main` at `61d2a58`. It fails unless the approving-re
 | SA-301 | Merged. `actions` #9 at `c55e210`, then #11 at `c850872`. |
 | SA-204 | Waiting on a `v*` release. The tag rulesets are measured above. Dependabot has nothing to move until a release exists. |
 | SA-301 rollout | Pin `c850872`. `findingalpha` #73 merged at `11407a5`. Open: `lx-software` #659, `evolvesprouts` #2271, `siutindei` #921. `cdk-diff.yml` is not in those pulls. |
-| SA-304 | `actions` #13 merged at `61d2a58`. `findingalpha` #74 is the pilot and pins that commit. `evolvesprouts` and `siutindei` still fail on Monday until their rollout is on `main`. |
+| SA-304 | `actions` #13 merged at `61d2a58`. Open: `findingalpha` #74 and `lx-software` #660, both pin that commit. `evolvesprouts` and `siutindei` still fail on Monday until their rollout is on `main`. |
 | Later | SA-302 and SA-307 are allowed under the G2 approval above. SA-303, SA-305, SA-306, SA-308, and SA-309 are not started. G3, G4, and G5 stay closed. |
