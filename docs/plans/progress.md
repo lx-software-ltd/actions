@@ -103,7 +103,7 @@ Pair B treats a count below one as an error. The live ruleset asks for zero, and
 | Decisions | Parent pull request. O3, O4, C03, C04, and the denylist approval. |
 | Denylist copy | Merged. #7 writes the 31 digests here. `findingalpha` is a separate pull request. |
 | SA-203 | Open. `findingalpha` #72. The workflow check names on the pull request match the 21 names on `main` `39da585`. `lint` and `test` succeeded. Three `github-advanced-security` checks (Checkov, CodeQL, Semgrep OSS) appear on the pull request and not on that `main` commit. They are code-scanning uploads, not renamed jobs. |
-| SA-205 | In progress. The same pin, one repository per pull request, for `lx-software`, `evolvesprouts`, and `siutindei`. |
+| SA-205 | Open. `lx-software` #657, `evolvesprouts` #2270, `siutindei` #920. Same pin as SA-203. Check names are compared after those runs finish. |
 | SA-301 | This pull request. `setup-node` default 26, `setup-python` default 3.12. No product caller changes. |
 | SA-204 | Waiting. `release-tags` still blocks every `v*` tag, so Dependabot has no release pin to move. The tag-ruleset split is an owner edit and is not applied. |
 | SA-203 onward | Red gates G1 to G5 stay closed, apart from the one G2 file named above. Monday’s pair B `verify-rulesets` run still fails on the review count until gate G1 and SA-304. |
