@@ -120,6 +120,6 @@ The action is on `actions` `main` at `61d2a58`. It fails unless the approving-re
 | SA-205 | Merged. `lx-software` #657, `evolvesprouts` #2270, `siutindei` #920. |
 | SA-301 | Merged. `actions` #9 at `c55e210`, then #11 at `c850872`. |
 | SA-204 | Waiting on a `v*` release. The tag rulesets are measured above. Dependabot has nothing to move until a release exists. |
-| SA-301 rollout | Move every actions pin to `61d2a58`. Open: `findingalpha` #75, `lx-software` #661, `siutindei` #923. `evolvesprouts` #2271 already merged at `c850872`; its pin move is not on `main` yet. |
+| SA-301 rollout | Move every actions pin to `61d2a58`. Open: `findingalpha` #75, `lx-software` #661, `evolvesprouts` #2273, `siutindei` #923. |
 | SA-304 | `findingalpha` #74 merged. Still open at `61d2a58`: `lx-software` #660, `evolvesprouts` #2272, `siutindei` #922. Monday still fails in the last two until those are on `main`. The stricter tag check merged as #14 and #15 at `2ba4826` and stays off that pin. |
 | Later | SA-302 and SA-307 are allowed under the G2 approval above. SA-303, SA-305, SA-306, SA-308, and SA-309 are not started. G3, G4, and G5 stay closed. |
