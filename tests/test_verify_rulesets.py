@@ -37,7 +37,7 @@ def _tags() -> dict:
         "target": "tag",
         "enforcement": "active",
         "conditions": {"ref_name": {"include": ["refs/tags/v*"]}},
-        "rules": [{"type": "deletion"}, {"type": "update"}],
+        "rules": [{"type": "deletion"}, {"type": "update"}, {"type": "creation"}],
     }
 
 
@@ -87,6 +87,20 @@ class VerifyRulesetsTest(unittest.TestCase):
         ruleset["rules"] = [rule for rule in ruleset["rules"] if rule["type"] != "non_fast_forward"]
         errors = _evaluate([ruleset, _tags()])
         self.assertTrue(any("force pushes" in error for error in errors))
+
+    def test_split_tag_rules_pass(self) -> None:
+        update_and_delete = _tags()
+        update_and_delete["rules"] = [{"type": "deletion"}, {"type": "update"}]
+        create = _tags()
+        create["name"] = "release-tags-create"
+        create["rules"] = [{"type": "creation"}]
+        self.assertEqual(_evaluate([_main(), update_and_delete, create]), [])
+
+    def test_missing_tag_creation_fails(self) -> None:
+        tags = _tags()
+        tags["rules"] = [{"type": "deletion"}, {"type": "update"}]
+        errors = _evaluate([_main(), tags])
+        self.assertTrue(any("do not block creation" in error for error in errors))
 
     def test_missing_tag_protection_fails(self) -> None:
         errors = _evaluate([_main()])
