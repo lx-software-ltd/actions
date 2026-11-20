@@ -1,0 +1,1 @@
+# Empty on purpose. The setup-python fixture only needs a file for the pip cache.

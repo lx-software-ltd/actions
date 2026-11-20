@@ -1,0 +1,36 @@
+name: Setup Node
+description: >-
+  Set up Node.js with the npm cache and install from package-lock.json.
+  The default version is the organisation major, 26. Callers pass the
+  version they use today until their own C04 pull request.
+
+inputs:
+  node-version:
+    description: Node.js version passed to actions/setup-node. Default 26.
+    required: false
+    default: "26"
+  working-directory:
+    description: >-
+      Directory that contains package.json and package-lock.json, relative
+      to the workspace. Required.
+    required: true
+  install:
+    description: Run npm ci in the working directory when true. Default true.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+        cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+    - name: Install npm dependencies
+      if: inputs.install == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: npm ci
