@@ -178,6 +178,55 @@ jobs:
           OUTCOME: ${{ steps.setup.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  verify-rulesets-pass:
+    name: Verify rulesets pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Load the passing ruleset
+        id: pass
+        run: |
+          {
+            echo "rulesets-json<<EOF"
+            cat fixtures/verify-rulesets/pass.json
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify rulesets
+        uses: ./verify-rulesets
+        with:
+          rulesets-json: ${{ steps.pass.outputs.rulesets-json }}
+
+  verify-rulesets-fail:
+    name: Verify rulesets fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Load the failing ruleset
+        id: fail
+        run: |
+          {
+            echo "rulesets-json<<EOF"
+            cat fixtures/verify-rulesets/fail.json
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify rulesets
+        id: verify
+        continue-on-error: true
+        uses: ./verify-rulesets
+        with:
+          rulesets-json: ${{ steps.fail.outputs.rulesets-json }}
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.verify.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   test:
     name: test
     runs-on: ubuntu-26.04
@@ -190,6 +239,8 @@ jobs:
       - setup-node-unknown-cache
       - setup-python-fixture
       - setup-python-fail
+      - verify-rulesets-pass
+      - verify-rulesets-fail
     if: always()
     steps:
       # Pinned to the merge on main. See the matching comment in lint.yml.

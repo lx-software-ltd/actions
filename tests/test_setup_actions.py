@@ -124,8 +124,8 @@ class FixtureWorkflowTest(unittest.TestCase):
             "setup-python-fail:",
         ):
             self.assertIn(job, text)
-        self.assertEqual(text.count("continue-on-error: true"), 4)
-        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 4)
+        self.assertEqual(text.count("continue-on-error: true"), 5)
+        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 5)
 
 
 if __name__ == "__main__":
