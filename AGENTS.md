@@ -12,7 +12,7 @@ Autonomy follows blast radius. The map is `docs/architecture/zones.md`. The stri
 
 Composite actions and the hooks the product repositories share. An action cannot read `secrets` or `vars`. Callers pass those as inputs. Payload is `"$GITHUB_ACTION_PATH/..."`. Shared payload is `"$GITHUB_ACTION_PATH/../lib/..."`. An action does not call another action in this repository.
 
-Nothing private goes in this repository: no secret, account id, internal hostname, or personal data. A product's own further denylist entries stay in that product. `scripts/pii-denylist.sha256` still has no digests in this revision. The owner approved the 31 organisation digests on 20 Nov 2026. The pull request that writes them is separate.
+Nothing private goes in this repository: no secret, account id, internal hostname, or personal data. A product's own further denylist entries stay in that product. `scripts/pii-denylist.sha256` holds the 31 organisation digests the owner approved on 20 Nov 2026. They are the same digests as in `evolvesprouts` and `siutindei`. No plaintext.
 
 No workflow here requests `id-token: write` or calls AWS.
 

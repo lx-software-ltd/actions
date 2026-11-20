@@ -5,7 +5,7 @@
 
 The plan copy is `docs/plans/shared-actions-and-ci-convergence.md`. The approved plan is in that file in full. Recorded decisions at the top of that file win where they conflict with the approved text. Decision, owner-task, row, and step numbers keep the approved meanings. This file does not renumber them. An earlier progress table called the Node and macOS choices "O6". That was wrong. O6 is still the `AWS_ACCOUNT_ID` secret.
 
-Gates G1 to G5 stay closed, except one named approval: gate G2, for `findingalpha` `scripts/pii-denylist.sha256` only. The red write of `scripts/pii-denylist.sha256` in this repository is also approved. Neither file is edited in the decision-recording pull request.
+Gates G1 to G5 stay closed, except one named approval: gate G2, for `findingalpha` `scripts/pii-denylist.sha256` only. The red write of `scripts/pii-denylist.sha256` in this repository is also approved, and this branch writes that file.
 
 ## Owner tasks
 
@@ -52,7 +52,7 @@ A ruleset bypass cannot apply to one rule inside a ruleset, which is why creatio
 
 The owner approved copying the 31 digests shared by `evolvesprouts` and `siutindei` (measured 20 Nov 2026). `lx-software` has 30 of those 31. This decision does not add the missing digest there.
 
-`scripts/pii-denylist.sha256` in this repository still has no digests. The copy is the next pull request. `findingalpha`'s copy is a pull request in that repository, under the G2 approval for that file only. Both trees were scanned with the 31 digests before this was recorded: `check_pii.py` passed in each, so nothing already tracked matches.
+`scripts/pii-denylist.sha256` in this repository now holds those 31 digests. No plaintext. `check_pii.py` passed against this tree and against `findingalpha` before the copy. `findingalpha`'s copy is a pull request in that repository, under the G2 approval for that file only.
 
 ## Versions
 
@@ -100,7 +100,7 @@ Pair B treats a count below one as an error. The live ruleset asks for zero, and
 | SA-201 | Merged. #1, included in `1a3cca7`. |
 | SA-202 | Merged. #2, merge commit `1a3cca7`. Fixture jobs use `uses: ./require-jobs`. |
 | SA-202 pin | Merged. #4. Gates pin `1a3cca7`. |
-| Decisions | This pull request. O3, O4, C03, C04, and the denylist copy. |
-| Denylist copy | Next pull request here, and one in `findingalpha`. Approved. Not written yet. |
+| Decisions | Parent pull request. O3, O4, C03, C04, and the denylist approval. |
+| Denylist copy | This pull request writes the 31 digests here. `findingalpha` is a separate pull request. |
 | SA-203 | Not started. O8 no longer blocks it. A tag is not required for the pin. |
 | SA-203 onward | Red gates G1 to G5 stay closed, apart from the one G2 file named above. |
