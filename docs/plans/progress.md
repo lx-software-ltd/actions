@@ -98,7 +98,7 @@ The action is on `actions` `main` at `61d2a58`. It fails unless the approving-re
 
 | Repository | Commit | Note |
 | --- | --- | --- |
-| `findingalpha` | `d924cc4b1bdee7477b49b3352eccd7a4762639ea` | SA-203 merge, #72. |
+| `findingalpha` | `11407a5725c8ac97fb1d9b8ba92d3a69d195a34d` | SA-301 merge, #73. |
 | `lx-software` | `326acc85fd7f80079b3fefb4551260590c6ef6aa` | SA-205 merge, #657. |
 | `evolvesprouts` | `bdf7b0f22518361c0f79d27d35c53e29758b6cab` | SA-205 merge, #2270. |
 | `siutindei` | `fe2c76663d4d26a5fb4409ca73ad4bf3ba543e58` | SA-205 merge, #920. |
@@ -120,6 +120,6 @@ The action is on `actions` `main` at `61d2a58`. It fails unless the approving-re
 | SA-205 | Merged. `lx-software` #657, `evolvesprouts` #2270, `siutindei` #920. |
 | SA-301 | Merged. `actions` #9 at `c55e210`, then #11 at `c850872`. |
 | SA-204 | Waiting on a `v*` release. The tag rulesets are measured above. Dependabot has nothing to move until a release exists. |
-| SA-301 rollout | `findingalpha` #73 is open at `ace427e` and pins `c850872`. `lint` and `test` succeeded. `lx-software` is the next repository, same pin. `evolvesprouts` and `siutindei` are not started. |
-| SA-304 | Merged. `actions` #13 at `61d2a58`. `lint`, `test`, and both fixtures passed. The findingalpha trial is next. `evolvesprouts` and `siutindei` still fail on Monday until their rollout is on `main`. |
+| SA-301 rollout | `findingalpha` #73 merged at `11407a5`, pin `c850872`. `lx-software` #659 is open on that pin. `evolvesprouts` and `siutindei` are not open yet. |
+| SA-304 | `actions` #13 merged at `61d2a58`. `findingalpha` #74 is the pilot and pins that commit. `evolvesprouts` and `siutindei` still fail on Monday until their rollout is on `main`. |
 | Later | SA-302 and SA-307 are allowed under the G2 approval above. SA-303, SA-305, SA-306, SA-308, and SA-309 are not started. G3, G4, and G5 stay closed. |
