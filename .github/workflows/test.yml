@@ -227,6 +227,39 @@ jobs:
           OUTCOME: ${{ steps.verify.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  pii-denylist-pass:
+    name: PII denylist pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Scan a tree that does not match the denylist
+        uses: ./pii-denylist
+        with:
+          denylist-path: denylist.sha256
+          root: fixtures/pii-denylist/pass
+
+  pii-denylist-fail:
+    name: PII denylist fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Scan a tree that matches the denylist
+        id: scan
+        continue-on-error: true
+        uses: ./pii-denylist
+        with:
+          denylist-path: denylist.sha256
+          root: fixtures/pii-denylist/fail
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   test:
     name: test
     runs-on: ubuntu-26.04
@@ -241,6 +274,8 @@ jobs:
       - setup-python-fail
       - verify-rulesets-pass
       - verify-rulesets-fail
+      - pii-denylist-pass
+      - pii-denylist-fail
     if: always()
     steps:
       # Pinned to the merge on main. See the matching comment in lint.yml.
