@@ -53,6 +53,7 @@ jobs:
         uses: ./workflow-conformance
         with:
           mode: enforce
+          profile: producer
 
   lint:
     name: lint

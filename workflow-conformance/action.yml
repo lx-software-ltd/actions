@@ -12,6 +12,10 @@ inputs:
     description: Directory to check. Empty uses the workspace.
     required: false
     default: ""
+  profile:
+    description: product requires the target security jobs and semgrep/ci. producer is this repository.
+    required: false
+    default: product
 
 runs:
   using: composite
@@ -20,5 +24,6 @@ runs:
       shell: bash
       env:
         CONFORMANCE_MODE: ${{ inputs.mode }}
+        CONFORMANCE_PROFILE: ${{ inputs.profile }}
         CONFORMANCE_ROOT: ${{ inputs.root }}
       run: python3 "$GITHUB_ACTION_PATH/check_workflows.py"

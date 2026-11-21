@@ -81,8 +81,141 @@ class WorkflowConformanceTest(unittest.TestCase):
             )
             self.assertEqual(completed.returncode, 1)
 
-    def test_this_repository_passes_enforce(self) -> None:
-        self.assertEqual(checker.findings(ROOT), [])
+    def test_this_repository_passes_the_producer_profile(self) -> None:
+        self.assertEqual(checker.findings(ROOT, "producer"), [])
+
+    def test_paths_ignore_is_a_path_filter(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _repo(
+                root,
+                textwrap.dedent(
+                    """\
+                    name: Lint
+                    on:
+                      pull_request:
+                        paths-ignore:
+                          - docs/**
+                    permissions:
+                      contents: read
+                    jobs:
+                      lint:
+                        runs-on: ubuntu-26.04
+                        steps:
+                          - run: "true"
+                    """
+                ),
+            )
+            self.assertTrue(any("path filter" in item for item in checker.findings(root, "producer")))
+
+    def test_an_unpinned_image_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _repo(
+                root,
+                textwrap.dedent(
+                    """\
+                    name: Lint
+                    on:
+                      pull_request:
+                    permissions:
+                      contents: read
+                    jobs:
+                      lint:
+                        runs-on: ubuntu-26.04
+                        container:
+                          image: semgrep/semgrep
+                        steps:
+                          - run: "true"
+                    """
+                ),
+            )
+            self.assertTrue(any("not pinned by digest" in item for item in checker.findings(root, "producer")))
+
+    def test_a_gate_must_wait_for_every_job_and_pin_require_jobs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _valid(root)
+            lint = (root / ".github" / "workflows" / "lint.yml").read_text(encoding="utf-8")
+            (root / ".github" / "workflows" / "lint.yml").write_text(
+                lint.replace("    if: always()\n", ""),
+                encoding="utf-8",
+            )
+            found = checker.findings(root, "producer")
+            self.assertTrue(any("if: always()" in item for item in found), found)
+            (root / ".github" / "workflows" / "lint.yml").write_text(
+                lint.replace("      - lint-python\n", ""),
+                encoding="utf-8",
+            )
+            found = checker.findings(root, "producer")
+            self.assertTrue(any("needs" in item for item in found), found)
+            (root / ".github" / "workflows" / "lint.yml").write_text(
+                lint.replace(f"lx-software-ltd/actions/require-jobs@{REQUIRE}", "./require-jobs"),
+                encoding="utf-8",
+            )
+            found = checker.findings(root, "producer")
+            self.assertTrue(any("require-jobs" in item for item in found), found)
+
+    def test_pre_commit_rev_stays_inside_the_actions_block(self) -> None:
+        text = textwrap.dedent(
+            """\
+            repos:
+              - repo: https://github.com/lx-software-ltd/actions
+                hooks:
+                  - id: check-pii
+              - repo: https://github.com/pre-commit/pre-commit-hooks
+                rev: v5.0.0
+            """
+        )
+        found, revs = checker._pre_commit_actions_revs(text)
+        self.assertTrue(found)
+        self.assertEqual(revs, [""])
+
+    def test_product_profile_requires_the_target_jobs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _valid(root)
+            found = checker.findings(root, "product")
+            self.assertTrue(any("missing job checkov" in item for item in found), found)
+            self.assertTrue(any("semgrep/ci" in item for item in found), found)
+
+
+REQUIRE = "1a3cca7c38163f8164c262323601c34a4df5b7a4"
+
+
+def _valid(directory: Path) -> None:
+    workflows = directory / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    workflows.joinpath("lint.yml").write_text(_gated("Lint", "lint", "lint-python"), encoding="utf-8")
+    workflows.joinpath("test.yml").write_text(_gated("Test", "test", "unit"), encoding="utf-8")
+    workflows.joinpath("security.yml").write_text(
+        _gated("Security", "security-summary", "secrets-scan"),
+        encoding="utf-8",
+    )
+
+
+def _gated(name: str, gate: str, other: str) -> str:
+    return textwrap.dedent(
+        f"""\
+        name: {name}
+        on:
+          pull_request:
+        permissions:
+          contents: read
+        jobs:
+          {other}:
+            runs-on: ubuntu-26.04
+            steps:
+              - run: "true"
+          {gate}:
+            runs-on: ubuntu-26.04
+            needs:
+              - {other}
+            if: always()
+            steps:
+              - uses: lx-software-ltd/actions/require-jobs@{REQUIRE}
+        """
+    )
 
 
 if __name__ == "__main__":
