@@ -66,7 +66,10 @@ class SemgrepModeTest(unittest.TestCase):
     def test_ci_mode_does_not_pass_scan_flags(self) -> None:
         completed = self._run("ci", 0, True)
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertIn("ci --sarif --output=semgrep-results.sarif", completed.argv)  # type: ignore[attr-defined]
+        self.assertIn(
+            "ci --no-suppress-errors --sarif --output=semgrep-results.sarif",
+            completed.argv,  # type: ignore[attr-defined]
+        )
         self.assertNotIn("--config", completed.argv)  # type: ignore[attr-defined]
         self.assertNotIn("fixtures", completed.argv)  # type: ignore[attr-defined]
 

@@ -17,9 +17,10 @@ fi
 
 if [ "$mode" = "ci" ]; then
   # Pair A passes packs through SEMGREP_RULES. semgrep ci reads that
-  # variable. --config and a positional directory are scan flags, and a
-  # rejected flag used to disappear behind `|| true` and an empty SARIF.
-  set -- semgrep ci --sarif --output="$output"
+  # variable. --config and a positional directory are scan flags.
+  # Semgrep 1.185 exits 0 after a bad config unless --no-suppress-errors
+  # is set, which would publish an empty SARIF.
+  set -- semgrep ci --no-suppress-errors --sarif --output="$output"
 else
   set -- semgrep scan --sarif --sarif-output="$output"
   for rule in $rules; do
