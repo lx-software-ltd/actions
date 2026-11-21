@@ -1,0 +1,19 @@
+name: Python requirements pins
+description: >-
+  Fail when a requirements file has a dependency that is not pinned
+  with ==. Follows -r and --requirement includes.
+
+inputs:
+  files:
+    description: Newline-separated requirements files.
+    required: true
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Check requirement pins
+      shell: bash
+      env:
+        REQUIREMENTS_FILES: ${{ inputs.files }}
+      run: python3 "$GITHUB_ACTION_PATH/check_pins.py"

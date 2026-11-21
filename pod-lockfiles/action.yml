@@ -1,0 +1,28 @@
+name: Pod lockfiles
+description: >-
+  Run pod install and fail when Podfile.lock changes. A missing
+  Podfile is skipped.
+
+inputs:
+  working-directory:
+    description: Directory that contains the Podfile.
+    required: true
+    default: ""
+  setup:
+    description: When false, use pod already on PATH. Fixtures use this.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Install CocoaPods
+      if: inputs.setup == 'true'
+      shell: bash
+      run: sudo gem install cocoapods
+
+    - name: Check the Pod lockfile
+      shell: bash
+      env:
+        POD_DIRECTORY: ${{ inputs.working-directory }}
+      run: bash "$GITHUB_ACTION_PATH/check.sh"
