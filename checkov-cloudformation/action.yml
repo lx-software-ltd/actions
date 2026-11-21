@@ -56,7 +56,7 @@ runs:
       with:
         directory: ${{ inputs.directory }}
         output_format: cli,sarif
-        output_file_path: console,${{ runner.temp }}/checkov-results.sarif
+        output_file_path: console,checkov-results.sarif
         quiet: true
 
     - name: Run Checkov for one framework
@@ -66,7 +66,7 @@ runs:
         directory: ${{ inputs.directory }}
         framework: ${{ inputs.framework }}
         output_format: cli,sarif
-        output_file_path: console,${{ runner.temp }}/checkov-results.sarif
+        output_file_path: console,checkov-results.sarif
         quiet: true
 
     - name: Run Checkov with a config file
@@ -76,7 +76,7 @@ runs:
         directory: ${{ inputs.directory }}
         config_file: ${{ inputs.config-file }}
         output_format: cli,sarif
-        output_file_path: console,${{ runner.temp }}/checkov-results.sarif
+        output_file_path: console,checkov-results.sarif
         quiet: true
 
     - name: Run Checkov with a config file and a framework
@@ -87,7 +87,7 @@ runs:
         config_file: ${{ inputs.config-file }}
         framework: ${{ inputs.framework }}
         output_format: cli,sarif
-        output_file_path: console,${{ runner.temp }}/checkov-results.sarif
+        output_file_path: console,checkov-results.sarif
         quiet: true
 
     - name: Filter in-source suppressed findings
@@ -95,9 +95,16 @@ runs:
       if: always() && (steps.templates.outputs.present == 'true' || steps.templates.outputs.present == 'false')
       shell: bash
       env:
-        SARIF_INPUT: ${{ runner.temp }}/checkov-results.sarif
-        SARIF_OUTPUT: ${{ runner.temp }}/checkov-results.filtered.sarif
-      run: python3 "$GITHUB_ACTION_PATH/../lib/filter_sarif.py"
+        SARIF_INPUT: ${{ github.workspace }}/checkov-results.sarif
+        SARIF_OUTPUT: ${{ github.workspace }}/checkov-results.filtered.sarif
+        CHECKOV_PRESENT: ${{ steps.templates.outputs.present }}
+      run: |
+        if [ "$CHECKOV_PRESENT" = "true" ] && [ ! -e "$SARIF_INPUT" ]; then
+          echo "checkov-cloudformation: no SARIF at $SARIF_INPUT" >&2
+          echo "checkov-cloudformation: the scanner container only keeps files written in the workspace" >&2
+          exit 1
+        fi
+        python3 "$GITHUB_ACTION_PATH/../lib/filter_sarif.py"
 
     - name: Upload SARIF results
       if: always() && inputs.upload == 'true' && steps.filter.outputs.filtered_sarif != ''

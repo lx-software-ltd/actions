@@ -2,6 +2,8 @@
 
 Runs Checkov on a directory the caller has already synthesised. Findings whose SARIF suppression kind is `inSource` are removed. The SARIF upload uses `continue-on-error`, so an upload failure does not fail the scan.
 
+Checkov runs in a container. GitHub mounts the workspace into that container and does not mount the runner temp directory, so the SARIF is `checkov-results.sarif` in the workspace, outside the scanned directory. If the scan ran and that file is missing, the action fails instead of uploading an empty result.
+
 The calling job needs `contents: read`, `security-events: write`, and `actions: read` when it uploads. The caller keeps its own synth step.
 
 ## Inputs
