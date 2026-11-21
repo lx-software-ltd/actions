@@ -74,6 +74,32 @@ class CheckPiiTest(unittest.TestCase):
         finally:
             path.unlink(missing_ok=True)
 
+    def test_scan_reads_root_and_denylist_from_the_environment(self) -> None:
+        import os
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "note.md").write_text("Meet fixturepii tokenalpha today.\n", encoding="utf-8")
+            denylist = root / "denylist.sha256"
+            denylist.write_text(check_pii._digest("fixturepii tokenalpha") + "\n", encoding="utf-8")
+            previous_root = os.environ.get("PII_ROOT")
+            previous_list = os.environ.get("PII_DENYLIST")
+            os.environ["PII_ROOT"] = str(root)
+            os.environ["PII_DENYLIST"] = "denylist.sha256"
+            try:
+                self.assertEqual(check_pii.main(), 1)
+                denylist.write_text(check_pii._digest("absent fixture token") + "\n", encoding="utf-8")
+                self.assertEqual(check_pii.main(), 0)
+            finally:
+                if previous_root is None:
+                    os.environ.pop("PII_ROOT", None)
+                else:
+                    os.environ["PII_ROOT"] = previous_root
+                if previous_list is None:
+                    os.environ.pop("PII_DENYLIST", None)
+                else:
+                    os.environ["PII_DENYLIST"] = previous_list
+
 
 if __name__ == "__main__":
     unittest.main()
