@@ -1,0 +1,85 @@
+name: Checkov CloudFormation
+description: >-
+  Run Checkov on a synthesised CloudFormation directory, drop findings
+  suppressed in source, and upload SARIF. An upload error does not fail
+  the step.
+
+inputs:
+  directory:
+    description: Directory of synthesised templates. The caller runs synth.
+    required: true
+    default: ""
+  config-file:
+    description: Checkov config file. Empty uses Checkov's defaults.
+    required: false
+    default: ""
+  framework:
+    description: Checkov framework. Default cloudformation.
+    required: false
+    default: cloudformation
+  skip-if-missing:
+    description: When true, a missing directory writes an empty SARIF and passes.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: See whether the template directory is there
+      id: templates
+      shell: bash
+      env:
+        CHECKOV_DIRECTORY: ${{ inputs.directory }}
+        CHECKOV_SKIP_IF_MISSING: ${{ inputs.skip-if-missing }}
+      run: |
+        if [ -z "$CHECKOV_DIRECTORY" ]; then
+          echo "checkov-cloudformation: directory is required" >&2
+          exit 1
+        fi
+        if [ ! -d "$CHECKOV_DIRECTORY" ]; then
+          if [ "$CHECKOV_SKIP_IF_MISSING" = "true" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "checkov-cloudformation: missing $CHECKOV_DIRECTORY" >&2
+          exit 1
+        fi
+        echo "present=true" >> "$GITHUB_OUTPUT"
+
+    - name: Run Checkov
+      if: steps.templates.outputs.present == 'true' && inputs.config-file == ''
+      uses: bridgecrewio/checkov-action@3f0caf0c3aa9f56ade6b49f6e60b63aaeafb75a3 # v12.3141.0
+      with:
+        directory: ${{ inputs.directory }}
+        framework: ${{ inputs.framework }}
+        output_format: cli,sarif
+        output_file_path: console,${{ inputs.directory }}/checkov-results.sarif
+        quiet: true
+
+    - name: Run Checkov with a config file
+      if: steps.templates.outputs.present == 'true' && inputs.config-file != ''
+      uses: bridgecrewio/checkov-action@3f0caf0c3aa9f56ade6b49f6e60b63aaeafb75a3 # v12.3141.0
+      with:
+        directory: ${{ inputs.directory }}
+        config_file: ${{ inputs.config-file }}
+        framework: ${{ inputs.framework }}
+        output_format: cli,sarif
+        output_file_path: console,${{ inputs.directory }}/checkov-results.sarif
+        quiet: true
+
+    - name: Filter in-source suppressed findings
+      id: filter
+      if: always() && (steps.templates.outputs.present == 'true' || steps.templates.outputs.present == 'false')
+      shell: bash
+      env:
+        SARIF_INPUT: ${{ inputs.directory }}/checkov-results.sarif
+        SARIF_OUTPUT: ${{ runner.temp }}/checkov-results.filtered.sarif
+      run: python3 "$GITHUB_ACTION_PATH/../lib/filter_sarif.py"
+
+    - name: Upload SARIF results
+      if: always() && steps.filter.outputs.filtered_sarif != ''
+      uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+      continue-on-error: true
+      with:
+        sarif_file: ${{ steps.filter.outputs.filtered_sarif }}
+        wait-for-processing: false

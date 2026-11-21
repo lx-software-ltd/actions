@@ -260,6 +260,146 @@ jobs:
           OUTCOME: ${{ steps.scan.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  gitleaks-pass:
+    name: Gitleaks pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Scan a tree with no secret
+        uses: ./gitleaks
+        with:
+          source: fixtures/gitleaks/pass
+
+  gitleaks-fail:
+    name: Gitleaks fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Scan a tree with an access key
+        id: scan
+        continue-on-error: true
+        uses: ./gitleaks
+        with:
+          source: fixtures/gitleaks/fail
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  checkov-skip:
+    name: Checkov missing directory
+    runs-on: ubuntu-26.04
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Skip a directory that is not there
+        uses: ./checkov-cloudformation
+        with:
+          directory: fixtures/checkov/missing
+          skip-if-missing: "true"
+
+  checkov-fail:
+    name: Checkov fail fixture
+    runs-on: ubuntu-26.04
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Scan a public bucket
+        id: scan
+        continue-on-error: true
+        uses: ./checkov-cloudformation
+        with:
+          directory: fixtures/checkov/fail
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  codeql-fail:
+    name: CodeQL fail fixture
+    runs-on: ubuntu-26.04
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reject a missing language
+        id: scan
+        continue-on-error: true
+        uses: ./codeql
+        with:
+          language: ""
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  semgrep-lib-path:
+    name: Semgrep shared library path
+    runs-on: ubuntu-26.04
+    container:
+      image: semgrep/semgrep
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Scan a clean tree inside the Semgrep container
+        uses: ./semgrep
+        with:
+          rules: fixtures/semgrep/rule.yml
+          source: fixtures/semgrep/pass
+
+  semgrep-fail:
+    name: Semgrep fail fixture
+    runs-on: ubuntu-26.04
+    container:
+      image: semgrep/semgrep
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Scan a tree the fixture rule matches
+        id: scan
+        continue-on-error: true
+        uses: ./semgrep
+        with:
+          rules: fixtures/semgrep/rule.yml
+          source: fixtures/semgrep/fail
+
+      - name: Expect findings and a resolved library path
+        shell: sh
+        run: |
+          test -f semgrep-results.sarif
+          python3 -c 'import json,sys; payload=json.load(open("semgrep-results.sarif")); count=sum(len(run.get("results") or []) for run in payload.get("runs") or []); sys.exit(0 if count == 1 else 1)'
+
   test:
     name: test
     runs-on: ubuntu-26.04
@@ -276,6 +416,13 @@ jobs:
       - verify-rulesets-fail
       - pii-denylist-pass
       - pii-denylist-fail
+      - gitleaks-pass
+      - gitleaks-fail
+      - checkov-skip
+      - checkov-fail
+      - codeql-fail
+      - semgrep-lib-path
+      - semgrep-fail
     if: always()
     steps:
       # Pinned to the merge on main. See the matching comment in lint.yml.

@@ -28,7 +28,7 @@ jobs:
           python-version: "3.12"
 
       - name: Compile Python
-        run: python3 -m compileall -q -f require-jobs pii-denylist scripts tests
+        run: python3 -m compileall -q -f require-jobs pii-denylist lib gitleaks scripts tests
 
       - name: Check action layout
         run: python3 scripts/check_action_layout.py
@@ -40,26 +40,7 @@ jobs:
         uses: ./pii-denylist
 
       - name: Run Gitleaks
-        env:
-          GITLEAKS_VERSION: "8.30.1"
-          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
-        run: |
-          downloaded=0
-          for attempt in 1 2 3 4 5; do
-            if [ "$attempt" -gt 1 ]; then
-              sleep $(((attempt - 1) * 2))
-            fi
-            if curl -sSfL \
-              "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-              -o /tmp/gitleaks.tgz; then
-              downloaded=1
-              break
-            fi
-          done
-          test "$downloaded" = 1
-          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tgz" | sha256sum -c -
-          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
-          /tmp/gitleaks detect --source . --verbose --redact --no-banner
+        uses: ./gitleaks
 
   lint:
     name: lint

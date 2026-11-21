@@ -1,0 +1,41 @@
+name: Semgrep
+description: >-
+  Run semgrep scan with the caller's rule packs, write an empty SARIF
+  when the scan writes nothing, drop in-source suppressions, and upload
+  with category semgrep. Steps use sh because the job runs in the
+  Semgrep container.
+
+inputs:
+  rules:
+    description: Space-separated Semgrep configs, such as p/python or a file.
+    required: true
+    default: ""
+  exclude-rules:
+    description: Space-separated rule ids passed to --exclude-rule.
+    required: false
+    default: ""
+  source:
+    description: Directory to scan. Default the workspace.
+    required: false
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    - name: Run Semgrep
+      shell: sh
+      env:
+        SEMGREP_RULES: ${{ inputs.rules }}
+        SEMGREP_EXCLUDE_RULES: ${{ inputs.exclude-rules }}
+        SEMGREP_SOURCE: ${{ inputs.source }}
+        SEMGREP_OUTPUT: semgrep-results.sarif
+      run: sh "$GITHUB_ACTION_PATH/scan.sh"
+
+    - name: Upload SARIF results
+      if: always()
+      uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+      continue-on-error: true
+      with:
+        sarif_file: semgrep-results.sarif
+        category: semgrep
+        wait-for-processing: false
