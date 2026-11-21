@@ -647,6 +647,156 @@ jobs:
           OUTCOME: ${{ steps.scan.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  pip-audit-pass:
+    name: pip-audit pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Audit an empty requirements file
+        uses: ./pip-audit
+        with:
+          requirements: fixtures/pip-audit/pass/requirements.txt
+
+  pip-audit-fail:
+    name: pip-audit fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Audit a known vulnerable pin
+        id: scan
+        continue-on-error: true
+        uses: ./pip-audit
+        with:
+          requirements: fixtures/pip-audit/fail/requirements.txt
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  bandit-pass:
+    name: Bandit pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Scan a file with no findings
+        uses: ./bandit
+        with:
+          paths: app.py
+          root: fixtures/bandit/pass
+
+  bandit-fail:
+    name: Bandit fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Scan a file that calls eval
+        id: scan
+        continue-on-error: true
+        uses: ./bandit
+        with:
+          paths: app.py
+          root: fixtures/bandit/fail
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  npm-audit-pass:
+    name: npm audit pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: ./setup-node
+        with:
+          install: "false"
+
+      - name: Audit a lockfile with no vulnerabilities
+        uses: ./npm-audit
+        with:
+          directories: fixtures/node-lockfiles/pass
+
+  npm-audit-fail:
+    name: npm audit fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: ./setup-node
+        with:
+          install: "false"
+
+      - name: Audit a lockfile with a high finding
+        id: scan
+        continue-on-error: true
+        uses: ./npm-audit
+        with:
+          directories: fixtures/npm-audit/fail
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  playwright-pass:
+    name: Playwright install pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: ./setup-node
+        with:
+          cache: npm
+          working-directory: fixtures/playwright
+
+      - name: Install Chromium, falling back if apt fails
+        uses: ./playwright-install
+        with:
+          working-directory: fixtures/playwright
+          browsers: chromium
+
+  playwright-fail:
+    name: Playwright install fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: ./setup-node
+        with:
+          cache: npm
+          working-directory: fixtures/playwright
+
+      - name: Reject an unknown browser
+        id: scan
+        continue-on-error: true
+        uses: ./playwright-install
+        with:
+          working-directory: fixtures/playwright
+          browsers: not-a-browser
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   test:
     name: test
     runs-on: ubuntu-26.04
@@ -677,6 +827,14 @@ jobs:
       - flutter-lockfiles-pass
       - flutter-lockfiles-fail
       - flutter-version-fail
+      - pip-audit-pass
+      - pip-audit-fail
+      - bandit-pass
+      - bandit-fail
+      - npm-audit-pass
+      - npm-audit-fail
+      - playwright-pass
+      - playwright-fail
       - pod-lockfiles-pass
       - pod-lockfiles-fail
       - agent-harness-pass

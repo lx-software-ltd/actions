@@ -1,0 +1,29 @@
+name: npm audit
+description: >-
+  Run npm audit in each directory. A registry 503 is retried. Other
+  failures, including findings at the audit level, fail immediately.
+
+inputs:
+  directories:
+    description: Newline-separated directories that contain a package.json.
+    required: true
+    default: ""
+  audit-level:
+    description: Passed to --audit-level. Default high.
+    required: false
+    default: high
+  omit:
+    description: Passed to --omit. Default dev.
+    required: false
+    default: dev
+
+runs:
+  using: composite
+  steps:
+    - name: Audit npm directories
+      shell: bash
+      env:
+        NPM_AUDIT_DIRECTORIES: ${{ inputs.directories }}
+        NPM_AUDIT_LEVEL: ${{ inputs.audit-level }}
+        NPM_AUDIT_OMIT: ${{ inputs.omit }}
+      run: bash "$GITHUB_ACTION_PATH/run.sh"

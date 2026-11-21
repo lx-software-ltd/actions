@@ -1,0 +1,22 @@
+#!/bin/bash
+# Audit requirements files. A non-zero pip-audit status fails the step.
+set -euo pipefail
+
+files="${PIP_AUDIT_FILES:?pip-audit: requirements are required}"
+ignores="${PIP_AUDIT_IGNORE:-}"
+python3 -m pip install --disable-pip-version-check pip-audit
+export PATH="$(python3 -m site --user-base)/bin:$PATH"
+ignore_args=""
+for vuln in $ignores; do
+  ignore_args="$ignore_args --ignore-vuln $vuln"
+done
+while IFS= read -r req; do
+  req="${req%$'\r'}"
+  if [ -z "$req" ]; then
+    continue
+  fi
+  # shellcheck disable=SC2086
+  pip-audit -r "$req" --desc on $ignore_args
+done << EOF
+$files
+EOF
