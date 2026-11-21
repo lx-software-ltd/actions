@@ -1,0 +1,75 @@
+"""The harness matches the messages of the scripts it replaces."""
+
+from __future__ import annotations
+
+import importlib.util
+import tempfile
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+_PATH = ROOT / "agent-harness" / "check_harness.py"
+_SPEC = importlib.util.spec_from_file_location("check_harness", _PATH)
+assert _SPEC is not None and _SPEC.loader is not None
+harness = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(harness)
+
+LENGTH = {
+    "allowlist": "scripts/file-length-allowlist.txt",
+    "python-limit": 500,
+    "typescript-limit": 800,
+    "python-prefix": "backend/lambda/",
+    "typescript-app-prefix": "apps/",
+    "typescript-lib-prefix": "backend/infrastructure/lib/",
+    "generated-suffix": "src/lib/contracts/generated.ts",
+    "scan-roots": ["backend/lambda"],
+}
+
+
+class AgentHarnessTest(unittest.TestCase):
+    def test_pass_fixture_is_clean(self) -> None:
+        root = ROOT / "fixtures" / "agent-harness" / "pass"
+        errors = harness.run(root, root / ".github" / "harness.json")
+        self.assertEqual(errors, [])
+
+    def test_missing_why_uses_the_file_line(self) -> None:
+        root = ROOT / "fixtures" / "agent-harness" / "fail"
+        errors = harness.run(root, root / ".github" / "harness.json")
+        self.assertIn("00-repository-core.mdc:6 rule bullet is missing [why:]", errors)
+
+    def test_file_length_reports_growth(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "backend" / "lambda"
+            target.mkdir(parents=True)
+            source = target / "app.py"
+            source.write_text("\n".join(["x"] * 501) + "\n", encoding="utf-8")
+            errors = harness.check_file_length(root, LENGTH)
+            self.assertEqual(
+                errors,
+                ["backend/lambda/app.py is 501 lines (limit 500); split it or, if it already exists, allowlist 501"],
+            )
+
+    def test_pair_b_skip_message(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            tests = root / "tests"
+            tests.mkdir()
+            (tests / "test_app.py").write_text("@pytest.mark.skip\ndef test_x():\n    pass\n", encoding="utf-8")
+            errors = harness.check_test_focus(
+                root,
+                {
+                    "mode": "all-sources",
+                    "roots": ["tests"],
+                    "suffixes": [".py"],
+                    "skip-parts": ["node_modules"],
+                },
+            )
+            self.assertEqual(
+                errors,
+                ["tests/test_app.py:1: unconditional pytest skip: @pytest.mark.skip"],
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

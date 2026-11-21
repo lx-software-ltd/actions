@@ -136,10 +136,12 @@ class FixtureWorkflowTest(unittest.TestCase):
             "flutter-lockfiles-fail:",
             "pod-lockfiles-pass:",
             "pod-lockfiles-fail:",
+            "agent-harness-pass:",
+            "agent-harness-fail:",
         ):
             self.assertIn(job, text)
-        self.assertEqual(text.count("continue-on-error: true"), 14)
-        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 13)
+        self.assertEqual(text.count("continue-on-error: true"), 15)
+        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 14)
 
 
 if __name__ == "__main__":
