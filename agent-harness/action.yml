@@ -1,0 +1,24 @@
+name: Agent harness
+description: >-
+  Check agent rules, file length, and test focus using the caller's
+  .github/harness.json.
+
+inputs:
+  config:
+    description: Harness config, relative to root unless absolute.
+    required: false
+    default: .github/harness.json
+  root:
+    description: Directory to check. Empty uses the workspace.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Check the agent harness
+      shell: bash
+      env:
+        HARNESS_CONFIG: ${{ inputs.config }}
+        HARNESS_ROOT: ${{ inputs.root }}
+      run: python3 "$GITHUB_ACTION_PATH/check_harness.py"

@@ -571,6 +571,37 @@ jobs:
           OUTCOME: ${{ steps.scan.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  agent-harness-pass:
+    name: Agent harness pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check a fixture that satisfies its config
+        uses: ./agent-harness
+        with:
+          root: fixtures/agent-harness/pass
+
+  agent-harness-fail:
+    name: Agent harness fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check a rule bullet with no why tag
+        id: scan
+        continue-on-error: true
+        uses: ./agent-harness
+        with:
+          root: fixtures/agent-harness/fail
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   test:
     name: test
     runs-on: ubuntu-26.04
@@ -602,6 +633,8 @@ jobs:
       - flutter-lockfiles-fail
       - pod-lockfiles-pass
       - pod-lockfiles-fail
+      - agent-harness-pass
+      - agent-harness-fail
     if: always()
     steps:
       # Pinned to the merge on main. See the matching comment in lint.yml.

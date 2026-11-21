@@ -1,0 +1,34 @@
+{
+  "rules": {
+    "agents-limit": 60,
+    "rule-limit": 80,
+    "skill-limit": 160,
+    "pointer-limit": 8,
+    "core-rule": "00-repository-core.mdc",
+    "required-rules": {
+      "00-repository-core.mdc": true
+    },
+    "required-skills": ["verify-change"],
+    "agents-phrases": ["## Zones"],
+    "required-files": ["docs/architecture/zones.md"],
+    "extra-rules": "full",
+    "verify-why-commits": true,
+    "skills": "all"
+  },
+  "file-length": {
+    "allowlist": "scripts/file-length-allowlist.txt",
+    "python-limit": 500,
+    "typescript-limit": 800,
+    "python-prefix": "backend/lambda/",
+    "typescript-app-prefix": "apps/",
+    "typescript-lib-prefix": "backend/infrastructure/lib/",
+    "generated-suffix": "src/lib/contracts/generated.ts",
+    "scan-roots": ["backend/lambda"]
+  },
+  "test-focus": {
+    "mode": "test-names",
+    "roots": ["backend/lambda"],
+    "suffixes": [".py"],
+    "skip-parts": ["node_modules", "dist"]
+  }
+}

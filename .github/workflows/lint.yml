@@ -28,7 +28,7 @@ jobs:
           python-version: "3.12"
 
       - name: Compile Python
-        run: python3 -m compileall -q -f require-jobs pii-denylist lib gitleaks python-requirements-pins scripts tests
+        run: python3 -m compileall -q -f require-jobs pii-denylist lib gitleaks python-requirements-pins agent-harness scripts tests
 
       - name: Check action layout
         run: python3 scripts/check_action_layout.py
