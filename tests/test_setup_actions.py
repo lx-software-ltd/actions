@@ -138,6 +138,8 @@ class FixtureWorkflowTest(unittest.TestCase):
             "pod-lockfiles-fail:",
             "agent-harness-pass:",
             "agent-harness-fail:",
+            "semgrep-ci:",
+            "semgrep-ci-error:",
             "semgrep-mode-fail:",
             "flutter-version-fail:",
             "pip-audit-fail:",
@@ -146,8 +148,8 @@ class FixtureWorkflowTest(unittest.TestCase):
             "playwright-fail:",
         ):
             self.assertIn(job, text)
-        self.assertEqual(text.count("continue-on-error: true"), 21)
-        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 20)
+        self.assertEqual(text.count("continue-on-error: true"), 22)
+        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 21)
 
 
 if __name__ == "__main__":

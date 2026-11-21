@@ -12,7 +12,7 @@ fi
 
 run_install() {
   # shellcheck disable=SC2086
-  timeout --kill-after=20s 180 npx playwright install $browsers "$@"
+  timeout --kill-after=20s 600 npx playwright install $browsers "$@"
 }
 
 if ! run_install --with-deps; then

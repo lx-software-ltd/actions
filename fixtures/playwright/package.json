@@ -3,6 +3,6 @@
   "private": true,
   "version": "0.0.0",
   "devDependencies": {
-    "playwright": "1.49.1"
+    "playwright": "1.65.1"
   }
 }

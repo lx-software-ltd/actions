@@ -76,7 +76,7 @@ class PlaywrightInstallTest(unittest.TestCase):
 
     def test_both_attempts_are_bounded(self) -> None:
         text = SCRIPT.read_text(encoding="utf-8")
-        self.assertEqual(text.count("timeout --kill-after=20s 180"), 1)
+        self.assertEqual(text.count("timeout --kill-after=20s 600"), 1)
         self.assertIn("run_install --with-deps", text)
         self.assertIn("run_install\n", text)
 

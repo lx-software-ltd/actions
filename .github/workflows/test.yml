@@ -343,6 +343,33 @@ jobs:
           OUTCOME: ${{ steps.scan.outcome }}
         run: test "$OUTCOME" = "failure"
 
+      - name: Expect the workspace SARIF to contain a finding
+        shell: bash
+        run: |
+          python3 - << 'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          def load(path: Path) -> dict:
+              if path.is_dir():
+                  files = sorted(path.glob("*.sarif"))
+                  if not files:
+                      sys.exit(f"{path} has no SARIF")
+                  path = files[0]
+              if not path.is_file():
+                  sys.exit(f"{path} is missing")
+              return json.loads(path.read_text(encoding="utf-8"))
+
+          def count(payload: dict) -> int:
+              return sum(len(run.get("results") or []) for run in payload.get("runs") or [])
+
+          raw = count(load(Path("checkov-results.sarif")))
+          filtered = count(load(Path("checkov-results.filtered.sarif")))
+          if raw < 1 or filtered < 1:
+              sys.exit(f"raw={raw} filtered={filtered}")
+          PY
+
   codeql-fail:
     name: CodeQL fail fixture
     runs-on: ubuntu-26.04
@@ -370,7 +397,7 @@ jobs:
     name: Semgrep shared library path
     runs-on: ubuntu-26.04
     container:
-      image: semgrep/semgrep
+      image: semgrep/semgrep@sha256:f83a64e8a7d985eaa51ee3978c9c882be946964c68633fba5d2817cf297a3912 # 2026-11-17
     permissions:
       actions: read
       contents: read
@@ -389,7 +416,7 @@ jobs:
     name: Semgrep fail fixture
     runs-on: ubuntu-26.04
     container:
-      image: semgrep/semgrep
+      image: semgrep/semgrep@sha256:f83a64e8a7d985eaa51ee3978c9c882be946964c68633fba5d2817cf297a3912 # 2026-11-17
     permissions:
       actions: read
       contents: read
@@ -625,6 +652,71 @@ jobs:
           OUTCOME: ${{ steps.scan.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  semgrep-ci:
+    name: Semgrep ci fixture
+    runs-on: ubuntu-26.04
+    container:
+      image: semgrep/semgrep@sha256:f83a64e8a7d985eaa51ee3978c9c882be946964c68633fba5d2817cf297a3912 # 2026-11-17
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Add a finding on this checkout
+        shell: sh
+        run: |
+          git config user.email fixture@example.com
+          git config user.name fixture
+          printf '%s\n' fixture-semgrep-hit >> fixtures/semgrep/fail/note.txt
+          git add fixtures/semgrep/fail/note.txt
+          git commit -m fixture
+
+      - name: Run semgrep ci with the fixture rule
+        uses: ./semgrep
+        with:
+          mode: ci
+          rules: fixtures/semgrep/rule.yml
+          upload: "false"
+
+      - name: Expect the ci scan to report the fixture hit
+        shell: sh
+        run: |
+          test -f semgrep-results.sarif
+          python3 -c 'import json,sys; payload=json.load(open("semgrep-results.sarif")); count=sum(len(run.get("results") or []) for run in payload.get("runs") or []); sys.exit(0 if count >= 1 else 1)'
+
+  semgrep-ci-error:
+    name: Semgrep ci error fixture
+    runs-on: ubuntu-26.04
+    container:
+      image: semgrep/semgrep@sha256:f83a64e8a7d985eaa51ee3978c9c882be946964c68633fba5d2817cf297a3912 # 2026-11-17
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reject a missing ci config
+        id: scan
+        continue-on-error: true
+        uses: ./semgrep
+        with:
+          mode: ci
+          rules: fixtures/semgrep/missing.yml
+          upload: "false"
+
+      - name: Expect the action to fail
+        shell: sh
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   semgrep-mode-fail:
     name: Semgrep mode fail fixture
     runs-on: ubuntu-26.04
@@ -755,7 +847,7 @@ jobs:
   playwright-pass:
     name: Playwright install pass fixture
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -765,17 +857,6 @@ jobs:
         with:
           cache: npm
           working-directory: fixtures/playwright
-
-      # Playwright 1.49.1's Chromium download reached 100% on ubuntu-26.04
-      # and then never exited. The fallback had no timeout, so the job sat
-      # until the six-hour runner cancel. This stub proves the action exits
-      # 0 when the install command exits 0. The shell tests cover the fallback.
-      - name: Stub npx so this job does not download a browser
-        run: |
-          mkdir -p "$RUNNER_TEMP/bin"
-          printf '%s\n' '#!/bin/bash' 'echo "stub npx $*"' 'exit 0' > "$RUNNER_TEMP/bin/npx"
-          chmod +x "$RUNNER_TEMP/bin/npx"
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
       - name: Install Chromium, falling back if apt fails
         uses: ./playwright-install
@@ -852,6 +933,8 @@ jobs:
       - pod-lockfiles-fail
       - agent-harness-pass
       - agent-harness-fail
+      - semgrep-ci
+      - semgrep-ci-error
       - semgrep-mode-fail
     if: always()
     steps:
