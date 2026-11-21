@@ -86,7 +86,7 @@ The owner approved copying the 31 digests shared by `evolvesprouts` and `siutind
 
 That commit is still an ancestor of `main`. Force-push is blocked. The gates in this repository still pin it. Fixture jobs still use `uses: ./require-jobs`.
 
-One product repository uses one actions SHA. That SHA is `61d2a581a1d880533982bada88923ad1b6431700` (`#13`). It contains `require-jobs`, `setup-node`, and `setup-python` from `c850872`, plus `verify-rulesets`. Open setup pull requests move from `c850872` to `61d2a58`. #14 and #15 are on `main` at `2ba4826ba08ecb02154c26af35a786b84f4c7bc0`. They are not the product pin, so Monday does not run the stricter tag check yet.
+One product repository uses one actions SHA. The harness pull requests moved all four to `aab84b76383d5a44838f9617ac47b23cfff7fdaf`: `findingalpha` #77 at `0e93c2b`, `lx-software` #663 at `a4b7033`, `evolvesprouts` #2274 at `58ab636`, `siutindei` #925 at `0fb8b5d`. findingalpha merged first. The next product pin is the merge commit of the wave 1 pull request, after it is on `main`.
 
 ## Dependabot
 
@@ -122,6 +122,22 @@ The action is on `actions` `main` at `61d2a58`. It fails unless the approving-re
 | SA-205 | Merged. `lx-software` #657, `evolvesprouts` #2270, `siutindei` #920. |
 | SA-301 | Merged. `actions` #9 at `c55e210`, then #11 at `c850872`. |
 | SA-204 | Waiting on a `v*` release. The tag rulesets are measured above. Dependabot has nothing to move until a release exists. |
-| SA-301 rollout | Move every actions pin to `61d2a58`. Open: `findingalpha` #75, `lx-software` #661, `evolvesprouts` #2273, `siutindei` #923. |
-| SA-304 | `findingalpha` #74 merged. Still open at `61d2a58`: `lx-software` #660, `evolvesprouts` #2272, `siutindei` #922. Monday still fails in the last two until those are on `main`. The stricter tag check merged as #14 and #15 at `2ba4826` and stays off that pin. |
-| Later | SA-302 and SA-307 are allowed under the G2 approval above. SA-303, SA-305, SA-306, SA-308, and SA-309 are not started. G3, G4, and G5 stay closed. |
+| SA-301 rollout | Merged at `61d2a58`: `findingalpha` #75, `lx-software` #661, `evolvesprouts` #2273, `siutindei` #923. Three of those pins moved again in SA-302. |
+| SA-304 | Merged at `61d2a58`: `findingalpha` #74, `lx-software` #660, `evolvesprouts` #2272, `siutindei` #922. The stricter tag check is on `actions` `main` at `2ba4826` and is not that pin. |
+| SA-302 | Merged. `actions` #19 at `f33bc37`. Product: `findingalpha` #76, `lx-software` #662, `siutindei` #924. `evolvesprouts` had no CI PII job at that pin. |
+| SA-303, SA-305 | The actions are on `main` at `aab84b7`. Product call sites are the next wave. |
+| SA-306 | Merged. `actions` #22 and #23 at `aab84b7`. Product: `findingalpha` #77, `lx-software` #663, `evolvesprouts` #2274, `siutindei` #925. Evidence is below. |
+| SA-307, SA-308, SA-309 | This pull request. Pre-commit hooks, the audit actions, and `workflow-conformance` in enforce mode here. |
+| Later | Product waves pin the wave 1 merge commit. Part B is deferred. G3, G4, and G5 stay closed. |
+
+## SA-306 evidence
+
+On each product `main`, the local scripts and `agent-harness` with that repository's `.github/harness.json` both exit 0 and report no findings.
+
+Turning `alwaysApply` off on `00-repository-core.mdc` makes both exit 1. Both print `00-repository-core.mdc alwaysApply must be true`. Checked on `findingalpha`, `lx-software`, `evolvesprouts`, and `siutindei`.
+
+`evolvesprouts` CI now also runs the file-length and test-focus checks, because they are in its harness config. Both pass on `main`. That extra coverage is accepted.
+
+## Part B
+
+Deferred. Stage 5 needs O5, G3, and O7. Stage 6 needs G4 and G5. This exercise closes at the CI scope.
