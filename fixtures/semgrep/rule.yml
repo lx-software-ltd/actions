@@ -1,0 +1,6 @@
+rules:
+  - id: fixture-token
+    languages: [generic]
+    severity: INFO
+    message: fixture hit
+    pattern: fixture-semgrep-hit

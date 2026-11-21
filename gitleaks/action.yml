@@ -1,0 +1,34 @@
+name: Gitleaks
+description: >-
+  Download the pinned Gitleaks binary, check its digest, and scan.
+  Retries the download. Does not use the licensed Gitleaks action.
+
+inputs:
+  version:
+    description: Gitleaks release. Default 8.30.1.
+    required: false
+    default: "8.30.1"
+  checksum:
+    description: sha256 of the linux x64 tarball for that release.
+    required: false
+    default: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+  config-path:
+    description: Optional gitleaks config. Empty uses the built-in rules.
+    required: false
+    default: ""
+  source:
+    description: Directory to scan. Default the workspace.
+    required: false
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    - name: Run Gitleaks
+      shell: bash
+      env:
+        GITLEAKS_VERSION: ${{ inputs.version }}
+        GITLEAKS_SHA256: ${{ inputs.checksum }}
+        GITLEAKS_CONFIG: ${{ inputs.config-path }}
+        GITLEAKS_SOURCE: ${{ inputs.source }}
+      run: bash "$GITHUB_ACTION_PATH/run_gitleaks.sh"

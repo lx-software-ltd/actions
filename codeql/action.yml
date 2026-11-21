@@ -1,0 +1,60 @@
+name: CodeQL
+description: >-
+  Initialize and analyze one CodeQL language. The category is the
+  caller's, so the security tab keeps its existing grouping.
+
+inputs:
+  language:
+    description: One CodeQL language, such as python or javascript.
+    required: true
+    default: ""
+  queries:
+    description: Query suite. Default security-extended.
+    required: false
+    default: security-extended
+  config-file:
+    description: Optional CodeQL config file. Empty omits the input.
+    required: false
+    default: ""
+  category:
+    description: Analyze category. Empty omits the input.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Require a language
+      if: inputs.language == ''
+      shell: bash
+      run: |
+        echo "codeql: language is required" >&2
+        exit 1
+
+    - name: Initialize CodeQL
+      if: inputs.language != '' && inputs.config-file == ''
+      uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+      with:
+        languages: ${{ inputs.language }}
+        queries: ${{ inputs.queries }}
+
+    - name: Initialize CodeQL with a config file
+      if: inputs.language != '' && inputs.config-file != ''
+      uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+      with:
+        languages: ${{ inputs.language }}
+        queries: ${{ inputs.queries }}
+        config-file: ${{ inputs.config-file }}
+
+    - name: Perform CodeQL Analysis
+      if: inputs.language != '' && inputs.category == ''
+      uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+      with:
+        wait-for-processing: false
+
+    - name: Perform CodeQL Analysis with a category
+      if: inputs.language != '' && inputs.category != ''
+      uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+      with:
+        category: ${{ inputs.category }}
+        wait-for-processing: false
