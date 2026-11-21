@@ -28,7 +28,7 @@ jobs:
           python-version: "3.12"
 
       - name: Compile Python
-        run: python3 -m compileall -q -f require-jobs pii-denylist lib gitleaks python-requirements-pins agent-harness scripts tests
+        run: python3 -m compileall -q -f require-jobs pii-denylist lib gitleaks python-requirements-pins agent-harness workflow-conformance scripts tests
 
       - name: Check action layout
         run: python3 scripts/check_action_layout.py
@@ -42,11 +42,24 @@ jobs:
       - name: Run Gitleaks
         uses: ./gitleaks
 
+  workflow-conformance:
+    name: Workflow conformance
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Enforce the CI contract
+        uses: ./workflow-conformance
+        with:
+          mode: enforce
+
   lint:
     name: lint
     runs-on: ubuntu-26.04
     needs:
       - lint-python
+      - workflow-conformance
     if: always()
     steps:
       # Pinned to the merge on main. uses: ./require-jobs would load the
