@@ -1,0 +1,27 @@
+name: PII denylist
+description: >-
+  Fail when tracked source matches a SHA-256 denylist of personal data.
+  A hit is a path and line number. The matched text is not printed.
+
+inputs:
+  denylist-path:
+    description: >-
+      Hash list, relative to root unless absolute. Default
+      scripts/pii-denylist.sha256.
+    required: false
+    default: scripts/pii-denylist.sha256
+  root:
+    description: >-
+      Directory to scan. Empty scans the calling workspace.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Check hashed PII denylist
+      shell: bash
+      env:
+        PII_DENYLIST: ${{ inputs.denylist-path }}
+        PII_ROOT: ${{ inputs.root }}
+      run: python3 "$GITHUB_ACTION_PATH/check_pii.py"

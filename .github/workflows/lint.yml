@@ -28,7 +28,7 @@ jobs:
           python-version: "3.12"
 
       - name: Compile Python
-        run: python3 -m compileall -q -f require-jobs scripts tests
+        run: python3 -m compileall -q -f require-jobs pii-denylist scripts tests
 
       - name: Check action layout
         run: python3 scripts/check_action_layout.py
@@ -37,7 +37,7 @@ jobs:
       # lint check fails when they fail. The denylist has no digests, so
       # the PII step checks nothing until the owner adds hashes.
       - name: Check hashed PII denylist
-        run: python3 scripts/check_pii.py
+        uses: ./pii-denylist
 
       - name: Run Gitleaks
         env:

@@ -31,7 +31,7 @@ jobs:
           python-version: "3.12"
 
       - name: Check hashed PII denylist
-        run: python3 scripts/check_pii.py
+        uses: ./pii-denylist
 
   secrets-scan:
     name: Secret Scanning
