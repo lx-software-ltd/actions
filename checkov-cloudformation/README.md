@@ -10,7 +10,7 @@ The calling job needs `contents: read`, `security-events: write`, and `actions: 
 | --- | --- | --- | --- |
 | `directory` | yes | | Synthesised template directory. |
 | `config-file` | no | empty | Checkov config. |
-| `framework` | no | `cloudformation` | Passed to Checkov. |
+| `framework` | no | empty | Empty leaves Checkov's own default in place. |
 | `skip-if-missing` | no | `false` | A missing directory writes an empty SARIF and passes. |
 | `upload` | no | `true` | `false` skips the SARIF upload. |
 
