@@ -6,6 +6,10 @@ description: >-
   Semgrep container.
 
 inputs:
+  mode:
+    description: scan (the default) or ci. ci keeps the current pair A command until C13.
+    required: false
+    default: scan
   rules:
     description: Space-separated Semgrep configs, such as p/python or a file.
     required: true
@@ -29,6 +33,7 @@ runs:
     - name: Run Semgrep
       shell: sh
       env:
+        SEMGREP_MODE: ${{ inputs.mode }}
         SEMGREP_RULES: ${{ inputs.rules }}
         SEMGREP_EXCLUDE_RULES: ${{ inputs.exclude-rules }}
         SEMGREP_SOURCE: ${{ inputs.source }}

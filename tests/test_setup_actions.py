@@ -138,10 +138,11 @@ class FixtureWorkflowTest(unittest.TestCase):
             "pod-lockfiles-fail:",
             "agent-harness-pass:",
             "agent-harness-fail:",
+            "semgrep-mode-fail:",
         ):
             self.assertIn(job, text)
-        self.assertEqual(text.count("continue-on-error: true"), 15)
-        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 14)
+        self.assertEqual(text.count("continue-on-error: true"), 16)
+        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 15)
 
 
 if __name__ == "__main__":

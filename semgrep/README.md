@@ -8,6 +8,7 @@ Every `run` step uses `shell: sh`. The calling job sets `container: semgrep/semg
 
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
+| `mode` | no | `scan` | `scan` or `ci`. `ci` runs `semgrep ci`. |
 | `rules` | yes | | Space-separated `--config` values. |
 | `exclude-rules` | no | empty | Space-separated `--exclude-rule` values. |
 | `source` | no | `.` | Directory to scan. |

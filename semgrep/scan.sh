@@ -8,8 +8,17 @@ rules="${SEMGREP_RULES:?semgrep: rules are required}"
 excludes="${SEMGREP_EXCLUDE_RULES:-}"
 source_dir="${SEMGREP_SOURCE:-.}"
 output="${SEMGREP_OUTPUT:-semgrep-results.sarif}"
+mode="${SEMGREP_MODE:-scan}"
 
-set -- semgrep scan --sarif --sarif-output="$output"
+if [ "$mode" != "scan" ] && [ "$mode" != "ci" ]; then
+  echo "semgrep: mode must be scan or ci" >&2
+  exit 1
+fi
+if [ "$mode" = "ci" ]; then
+  set -- semgrep ci --sarif --output="$output"
+else
+  set -- semgrep scan --sarif --sarif-output="$output"
+fi
 for rule in $rules; do
   set -- "$@" --config "$rule"
 done

@@ -602,6 +602,28 @@ jobs:
           OUTCOME: ${{ steps.scan.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  semgrep-mode-fail:
+    name: Semgrep mode fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reject a mode that is not scan or ci
+        id: scan
+        continue-on-error: true
+        uses: ./semgrep
+        with:
+          mode: nope
+          rules: fixtures/semgrep/rule.yml
+          source: fixtures/semgrep/pass
+          upload: "false"
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   test:
     name: test
     runs-on: ubuntu-26.04
@@ -635,6 +657,7 @@ jobs:
       - pod-lockfiles-fail
       - agent-harness-pass
       - agent-harness-fail
+      - semgrep-mode-fail
     if: always()
     steps:
       # Pinned to the merge on main. See the matching comment in lint.yml.
