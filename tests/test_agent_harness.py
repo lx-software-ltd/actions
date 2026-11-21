@@ -50,6 +50,43 @@ class AgentHarnessTest(unittest.TestCase):
                 ["backend/lambda/app.py is 501 lines (limit 500); split it or, if it already exists, allowlist 501"],
             )
 
+    def test_python_counted_skips_alembic_versions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            versions = root / "backend" / "src" / "alembic" / "versions"
+            versions.mkdir(parents=True)
+            (versions / "rev.py").write_text("\n".join(["x"] * 600) + "\n", encoding="utf-8")
+            app = root / "backend" / "src" / "app.py"
+            app.write_text("\n".join(["x"] * 501) + "\n", encoding="utf-8")
+            errors = harness.check_file_length(
+                root,
+                {"mode": "python-counted", "limit": 500, "allowlist": "missing.txt", "scan-roots": ["backend/src"]},
+            )
+            self.assertEqual(
+                errors,
+                ["backend/src/app.py is 501 lines (limit 500); split it or, if it already exists, allowlist 501"],
+            )
+
+    def test_python_names_requires_an_over_limit_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "backend" / "src"
+            target.mkdir(parents=True)
+            (target / "app.py").write_text("ok\n", encoding="utf-8")
+            allow = root / "scripts"
+            allow.mkdir()
+            (allow / "python-file-length-allowlist.txt").write_text("backend/src/app.py\n", encoding="utf-8")
+            errors = harness.check_file_length(
+                root,
+                {
+                    "mode": "python-names",
+                    "limit": 500,
+                    "allowlist": "scripts/python-file-length-allowlist.txt",
+                    "scan-roots": ["backend/src"],
+                },
+            )
+            self.assertEqual(errors, ["allowlist entry is now within 500 lines; remove backend/src/app.py"])
+
     def test_pair_b_skip_message(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

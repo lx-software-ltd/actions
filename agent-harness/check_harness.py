@@ -308,7 +308,107 @@ def length_problems(counts: dict[str, int], allowed: dict[str, int], cfg: dict) 
     return errors
 
 
+def check_python_counted(root: Path, cfg: dict) -> list[str]:
+    """evolvesprouts: counted allowlist, Alembic versions and dot paths skipped."""
+    limit = int(cfg["limit"])
+    allowlist_path = root / cfg["allowlist"]
+    allowed: dict[str, int] = {}
+    if allowlist_path.exists():
+        for line_number, raw in enumerate(allowlist_path.read_text(encoding="utf-8").splitlines(), start=1):
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            try:
+                rel_path, count_text = line.rsplit(None, 1)
+                count = int(count_text)
+            except ValueError as exc:
+                raise SystemExit(f"{allowlist_path}:{line_number}: expected '<path> <lines>'") from exc
+            if count <= limit:
+                raise SystemExit(
+                    f"{allowlist_path}:{line_number}: {rel_path} allowance {count} is not above {limit}; remove it"
+                )
+            if rel_path in allowed:
+                raise SystemExit(f"{allowlist_path}:{line_number}: duplicate entry for {rel_path}")
+            allowed[rel_path] = count
+    seen: set[str] = set()
+    errors: list[str] = []
+    for relative in cfg["scan-roots"]:
+        scan = root / relative
+        if not scan.exists():
+            continue
+        for path in scan.rglob("*.py"):
+            parts = path.parts
+            if "alembic" in parts:
+                alembic_at = parts.index("alembic")
+                if alembic_at + 1 < len(parts) and parts[alembic_at + 1] == "versions":
+                    continue
+            if any(part.startswith(".") for part in parts):
+                continue
+            rel = path.relative_to(root).as_posix()
+            seen.add(rel)
+            count = len(_lines(path))
+            allowance = allowed.get(rel)
+            if count <= limit:
+                if allowance is not None:
+                    errors.append(f"{rel} is {count} lines; remove it from the allowlist")
+                continue
+            if allowance is None:
+                errors.append(f"{rel} is {count} lines (limit {limit}); split it or, if it already exists, allowlist {count}")
+            elif count > allowance:
+                errors.append(f"{rel} grew from {allowance} to {count} lines")
+            elif count < allowance:
+                errors.append(f"{rel} shrank from {allowance} to {count} lines; lower its allowlist entry")
+    for rel in sorted(set(allowed) - seen):
+        errors.append(f"{rel} is allowlisted but was not found")
+    return errors
+
+
+def check_python_names(root: Path, cfg: dict) -> list[str]:
+    """siutindei: the allowlist names files and only shrinks."""
+    limit = int(cfg["limit"])
+    allowlist_path = root / cfg["allowlist"]
+    allowed: list[str] = []
+    if allowlist_path.exists():
+        for line in allowlist_path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            allowed.append(stripped)
+    allowed_set = set(allowed)
+    seen: set[str] = set()
+    errors: list[str] = []
+    for relative in cfg["scan-roots"]:
+        scan = root / relative
+        if not scan.exists():
+            continue
+        for path in scan.rglob("*.py"):
+            rel = path.relative_to(root).as_posix()
+            count = len(_lines(path))
+            seen.add(rel)
+            if count <= limit:
+                continue
+            if rel in allowed_set:
+                continue
+            errors.append(f"{rel} is {count} lines (max {limit})")
+    for rel in sorted(allowed_set):
+        path = root / rel
+        if not path.exists():
+            errors.append(f"allowlist entry does not exist: {rel}")
+            continue
+        if rel not in seen:
+            errors.append(f"allowlist entry is outside the scan: {rel}")
+            continue
+        if len(_lines(path)) <= limit:
+            errors.append(f"allowlist entry is now within {limit} lines; remove {rel}")
+    return errors
+
+
 def check_file_length(root: Path, cfg: dict) -> list[str]:
+    mode = cfg.get("mode", "typed")
+    if mode == "python-counted":
+        return check_python_counted(root, cfg)
+    if mode == "python-names":
+        return check_python_names(root, cfg)
     allowed = load_allowlist(root, cfg)
     counts: dict[str, int] = {}
     for relative in cfg["scan-roots"]:
