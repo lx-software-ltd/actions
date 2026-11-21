@@ -86,7 +86,7 @@ The owner approved copying the 31 digests shared by `evolvesprouts` and `siutind
 
 That commit is still an ancestor of `main`. Force-push is blocked. The gates in this repository still pin it. Fixture jobs still use `uses: ./require-jobs`.
 
-One product repository uses one actions SHA. That SHA is `61d2a581a1d880533982bada88923ad1b6431700` (`#13`). It contains `require-jobs`, `setup-node`, and `setup-python` from `c850872`, plus `verify-rulesets`. The four pin pull requests are on `main`. #14 and #15 are on `actions` `main` at `2ba4826ba08ecb02154c26af35a786b84f4c7bc0`. They are not the product pin, so Monday does not run the stricter tag check yet.
+One product repository uses one actions SHA. `findingalpha`, `lx-software`, and `siutindei` use `f33bc376b6745fcf47a4af88e436ce14b8e55c9b` (`#19`), which contains `pii-denylist` plus the actions from `61d2a58`. `evolvesprouts` stays on `61d2a581a1d880533982bada88923ad1b6431700` because it does not run the PII check in CI. #14 and #15 are on `actions` `main` at `2ba4826` and are not the product pin.
 
 ## Dependabot
 
@@ -122,6 +122,7 @@ The action is on `actions` `main` at `61d2a58`. It fails unless the approving-re
 | SA-205 | Merged. `lx-software` #657, `evolvesprouts` #2270, `siutindei` #920. |
 | SA-301 | Merged. `actions` #9 at `c55e210`, then #11 at `c850872`. |
 | SA-204 | Waiting on a `v*` release. The tag rulesets are measured above. Dependabot has nothing to move until a release exists. |
-| SA-301 rollout | Merged. Each product `main` uses only `61d2a58`: `findingalpha` #75, `lx-software` #661, `evolvesprouts` #2273, `siutindei` #923. |
+| SA-301 rollout | Merged at `61d2a58`: `findingalpha` #75, `lx-software` #661, `evolvesprouts` #2273, `siutindei` #923. Three of those pins moved again in SA-302. |
 | SA-304 | Merged at `61d2a58`: `findingalpha` #74, `lx-software` #660, `evolvesprouts` #2272, `siutindei` #922. The stricter tag check is on `actions` `main` at `2ba4826` and is not that pin. |
-| Later | SA-302 and SA-307 are allowed under the G2 approval above. SA-303, SA-305, SA-306, SA-308, and SA-309 are not started. G3, G4, and G5 stay closed. |
+| SA-302 | Merged. `actions` #19 at `f33bc37`. Product: `findingalpha` #76, `lx-software` #662, `siutindei` #924. `evolvesprouts` has no CI PII job, so it stays on `61d2a58`. Local scripts stay until SA-307. |
+| Later | SA-307 is allowed under the G2 approval above. SA-303, SA-305, SA-306, SA-308, and SA-309 are not started. G3, G4, and G5 stay closed. |
