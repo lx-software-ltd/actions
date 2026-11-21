@@ -476,11 +476,21 @@ def check_test_focus(root: Path, cfg: dict) -> list[str]:
 
 def run(root: Path, config_path: Path) -> list[str]:
     cfg = json.loads(config_path.read_text(encoding="utf-8"))
-    errors = check_rules(root, cfg["rules"])
-    if "file-length" in cfg:
+    section = os.environ.get("HARNESS_SECTION", "all")
+    errors: list[str] = []
+    if section in {"all", "rules"}:
+        errors.extend(check_rules(root, cfg["rules"]))
+    if section in {"all", "file-length"} and "file-length" in cfg:
         errors.extend(check_file_length(root, cfg["file-length"]))
-    if "test-focus" in cfg:
+    if section in {"all", "test-focus"} and "test-focus" in cfg:
         errors.extend(check_test_focus(root, cfg["test-focus"]))
+    if section == "file-length" and "file-length" not in cfg:
+        print("File length check skipped; harness.json has no file-length.")
+    if section == "test-focus" and "test-focus" not in cfg:
+        print("Test focus check skipped; harness.json has no test-focus.")
+    if section not in {"all", "rules", "file-length", "test-focus"}:
+        print(f"agent-harness: unknown section {section}", file=sys.stderr)
+        return ["unknown section"]
     return errors
 
 

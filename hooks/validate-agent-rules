@@ -1,0 +1,8 @@
+#!/bin/bash
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+root="$(git rev-parse --show-toplevel)"
+export HARNESS_ROOT="$root"
+export HARNESS_CONFIG="$root/.github/harness.json"
+export HARNESS_SECTION=rules
+exec python3 "$here/../agent-harness/check_harness.py"

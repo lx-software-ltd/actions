@@ -1,0 +1,24 @@
+- id: check-pii
+  name: check hashed PII denylist
+  description: Fail when tracked source matches the SHA-256 denylist. The matched text is not printed.
+  entry: hooks/check-pii
+  language: script
+  pass_filenames: false
+- id: validate-agent-rules
+  name: validate agent rules
+  description: Check agent rules from .github/harness.json.
+  entry: hooks/validate-agent-rules
+  language: script
+  pass_filenames: false
+- id: check-file-length
+  name: check file length
+  description: Check file-length ceilings from .github/harness.json.
+  entry: hooks/check-file-length
+  language: script
+  pass_filenames: false
+- id: check-test-focus
+  name: check test focus
+  description: Check focused and unconditional tests from .github/harness.json.
+  entry: hooks/check-test-focus
+  language: script
+  pass_filenames: false
