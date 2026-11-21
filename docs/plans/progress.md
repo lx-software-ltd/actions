@@ -23,7 +23,7 @@ Numbers are the approved plan's numbers.
 | --- | --- | --- |
 | O1 | Public `actions` repository, agent can push | Confirmed |
 | O2 | Actions policy allows `lx-software-ltd/*` | Not read. The policy API returns 403. Observed: this repository's own gates resolved `lx-software-ltd/actions/require-jobs@1a3cca7` and the runs were green. |
-| O3 | How `v*` tags get created | Measured 20 Nov 2026, 23:40 Hong Kong. See below. The agent does not create the tag. |
+| O3 | How `v*` tags get created | Organization admin is on the `release-tags-create` bypass list. The owner creates the tag. The agent does not. |
 | O4 | Is zero approving reviews intended? | Decided. Yes. SA-304 checks for exactly 0. |
 | O5 | Narrow `GitHubActionsRole` trust to the four product repositories | Approved, before Stage 5. Not started. Also remove the account id from the public trust-policy document. |
 | O6 | `AWS_ACCOUNT_ID` | A variable. Stage 5 uses `vars.AWS_ACCOUNT_ID` only. Not started. |
@@ -46,9 +46,11 @@ Measured again 20 Nov 2026, 23:40 Hong Kong.
 
 `release-tags` (id `27712299`, updated `2026-11-20T15:37:16Z`) includes `refs/tags/v*` and has rules `deletion` and `update` only. `bypass_actors` is empty. Creation is no longer on this ruleset.
 
-`release-tags-create` (id `27737981`, updated `2026-11-20T15:36:32Z`) is active. Its include is `refs/tags/refs/tags/v*`, which does not match `refs/tags/v*`. Its rules are `non_fast_forward` and `creation`. `bypass_actors` is empty and `current_user_can_bypass` is `never`.
+Measured again 20 Nov 2026, 16:11 UTC. `release-tags-create` (id `27737981`, updated `2026-11-20T16:11:54Z`) includes `refs/tags/v*`. Its only rule is `creation`. The earlier include `refs/tags/refs/tags/v*` and the `non_fast_forward` rule are gone.
 
-Updates and deletes of `refs/tags/v*` stay blocked. The create ruleset does not match those tags, so it does not restrict who creates one. Callers still pin commit SHAs until a release exists. The agent does not run `gh release create`.
+Measured again 21 Nov 2026, 12:30 Hong Kong. Organization admin is on the bypass list of `release-tags-create`. `release-tags` still has no bypass, so update and deletion stay blocked for everyone. This token's read of ruleset `27737981` still returns `bypass_actors: null` and `current_user_can_bypass: never`. That field is hidden here. A null `bypass_actors` on this endpoint is not an empty bypass list.
+
+Organization admin can create a `refs/tags/v*` tag. Other actors cannot. The agent does not run `gh release create`. Callers still pin commit SHAs until a release exists.
 
 The same organisation rulesets apply to the four product repositories.
 
@@ -57,7 +59,7 @@ The same organisation rulesets apply to the four product repositories.
 In the organisation ruleset settings:
 
 1. Edit `release-tags`. Keep "Restrict updates" and "Restrict deletions". Remove "Restrict creations". Leave the bypass list empty.
-2. Add a tag ruleset, for example `release-tags-create`, with the same repository targeting and pattern `refs/tags/v*`, and only "Restrict creations". Put Organization admin on its bypass list.
+2. Add a tag ruleset, `release-tags-create`, with the same repository targeting and pattern `refs/tags/v*`, and only "Restrict creations". Organization admin is on its bypass list. Done.
 3. Optionally turn on release immutability for `actions`. The agent does not change repository settings.
 
 A ruleset bypass cannot apply to one rule inside a ruleset, which is why creation has to be its own ruleset. After the split, the owner tags with `gh release create`. The agent prepares the notes and does not run that command.
@@ -84,7 +86,7 @@ The owner approved copying the 31 digests shared by `evolvesprouts` and `siutind
 
 That commit is still an ancestor of `main`. Force-push is blocked. The gates in this repository still pin it. Fixture jobs still use `uses: ./require-jobs`.
 
-SA-301 callers pin `c850872471a02a3f6112a9c5321b485e7f181443` (`#11`). That is where `setup-node` fails unless `cache` is empty or `npm`. SA-304 callers pin `61d2a581a1d880533982bada88923ad1b6431700` (`#13`), which adds `verify-rulesets` and does not change the setup actions. A repository holds both SHAs until a later pull request moves every `lx-software-ltd/actions` reference together. Do not mix the two pins inside one pull request.
+One product repository uses one actions SHA. That SHA is `61d2a581a1d880533982bada88923ad1b6431700` (`#13`). It contains `require-jobs`, `setup-node`, and `setup-python` from `c850872`, plus `verify-rulesets`. Open setup pull requests move from `c850872` to `61d2a58`. #14 and #15 are on `main` at `2ba4826ba08ecb02154c26af35a786b84f4c7bc0`. They are not the product pin, so Monday does not run the stricter tag check yet.
 
 ## Dependabot
 
@@ -120,6 +122,6 @@ The action is on `actions` `main` at `61d2a58`. It fails unless the approving-re
 | SA-205 | Merged. `lx-software` #657, `evolvesprouts` #2270, `siutindei` #920. |
 | SA-301 | Merged. `actions` #9 at `c55e210`, then #11 at `c850872`. |
 | SA-204 | Waiting on a `v*` release. The tag rulesets are measured above. Dependabot has nothing to move until a release exists. |
-| SA-301 rollout | Pin `c850872`. `findingalpha` #73 merged at `11407a5`. Open: `lx-software` #659, `evolvesprouts` #2271, `siutindei` #921. `cdk-diff.yml` is not in those pulls. |
-| SA-304 | `actions` #13 merged at `61d2a58`. Open on that pin: `findingalpha` #74, `lx-software` #660, `evolvesprouts` #2272, and `siutindei` #922. Monday still fails in the last two until those pull requests are on `main`. |
+| SA-301 rollout | Move every actions pin to `61d2a58`. Open: `findingalpha` #75, `lx-software` #661, `evolvesprouts` #2273, `siutindei` #923. |
+| SA-304 | `findingalpha` #74 merged. Still open at `61d2a58`: `lx-software` #660, `evolvesprouts` #2272, `siutindei` #922. Monday still fails in the last two until those are on `main`. The stricter tag check merged as #14 and #15 at `2ba4826` and stays off that pin. |
 | Later | SA-302 and SA-307 are allowed under the G2 approval above. SA-303, SA-305, SA-306, SA-308, and SA-309 are not started. G3, G4, and G5 stay closed. |
