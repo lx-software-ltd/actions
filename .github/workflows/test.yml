@@ -755,6 +755,7 @@ jobs:
   playwright-pass:
     name: Playwright install pass fixture
     runs-on: ubuntu-26.04
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -765,6 +766,17 @@ jobs:
           cache: npm
           working-directory: fixtures/playwright
 
+      # Playwright 1.49.1's Chromium download reached 100% on ubuntu-26.04
+      # and then never exited. The fallback had no timeout, so the job sat
+      # until the six-hour runner cancel. This stub proves the action exits
+      # 0 when the install command exits 0. The shell tests cover the fallback.
+      - name: Stub npx so this job does not download a browser
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          printf '%s\n' '#!/bin/bash' 'echo "stub npx $*"' 'exit 0' > "$RUNNER_TEMP/bin/npx"
+          chmod +x "$RUNNER_TEMP/bin/npx"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
       - name: Install Chromium, falling back if apt fails
         uses: ./playwright-install
         with:
@@ -774,6 +786,7 @@ jobs:
   playwright-fail:
     name: Playwright install fail fixture
     runs-on: ubuntu-26.04
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

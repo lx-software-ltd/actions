@@ -13,9 +13,11 @@ Yellow. One pull request on `actions`. One commit per step. Product repositories
 7. `docs/ci-contract.md` is the target workflow shape. The short replacement was restored.
 8. `docs/plans/progress.md` records the harness evidence and that Part B is deferred.
 
-## Evidence still open
+## Evidence
 
-The fixture jobs run in this pull request's checks. A local Bandit and npm-audit smoke passed. `pip-audit` could not be smoked here because this machine has no `python3-venv`. The action was not changed to skip that.
+The fixture jobs ran on this pull request. Bandit, npm audit, and pip-audit passed and failed as required. `pip-audit` could not be smoked on the agent machine because it has no `python3-venv`.
+
+Playwright 1.49.1's Chromium download on `ubuntu-26.04` reached 100% and then did not exit. The fallback command had no timeout, so the pass job sat from 15:14 to 21:14 and was cancelled, and the `test` gate failed. Both attempts are now limited to 180 seconds and the process is killed if it ignores the first signal. The pass job stubs `npx` so it checks the success exit without that download. The fail job still uses the real CLI. The shell tests cover the apt fallback.
 
 ## Out of scope
 

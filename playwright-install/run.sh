@@ -1,6 +1,7 @@
 #!/bin/bash
 # Install Playwright browsers. If apt packages cannot be installed, install
-# the browser alone.
+# the browser alone. Both attempts are bounded so a download that reaches
+# 100% and then never exits cannot hold the runner.
 set -euo pipefail
 
 browsers="${PLAYWRIGHT_BROWSERS:?playwright-install: browsers are required}"
@@ -8,8 +9,13 @@ root="${PLAYWRIGHT_DIRECTORY:-}"
 if [ -n "$root" ]; then
   cd "$root"
 fi
-if ! timeout 180 npx playwright install $browsers --with-deps; then
-  echo "::warning::Could not install browser apt packages; continuing with the browser only."
+
+run_install() {
   # shellcheck disable=SC2086
-  npx playwright install $browsers
+  timeout --kill-after=20s 180 npx playwright install $browsers "$@"
+}
+
+if ! run_install --with-deps; then
+  echo "::warning::Could not install browser apt packages; continuing with the browser only."
+  run_install
 fi
