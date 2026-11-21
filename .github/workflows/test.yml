@@ -413,6 +413,164 @@ jobs:
           test -f semgrep-results.sarif
           python3 -c 'import json,sys; payload=json.load(open("semgrep-results.sarif")); count=sum(len(run.get("results") or []) for run in payload.get("runs") or []); sys.exit(0 if count == 1 else 1)'
 
+  node-lockfiles-pass:
+    name: Node lockfile pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: ./setup-node
+        with:
+          install: "false"
+
+      - name: Check a lockfile that matches
+        uses: ./node-lockfiles
+        with:
+          directories: fixtures/node-lockfiles/pass
+
+  node-lockfiles-fail:
+    name: Node lockfile fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: ./setup-node
+        with:
+          install: "false"
+
+      - name: Check a directory with no lockfile
+        id: scan
+        continue-on-error: true
+        uses: ./node-lockfiles
+        with:
+          directories: fixtures/node-lockfiles/fail
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  python-requirements-pass:
+    name: Python pins pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check pinned requirements
+        uses: ./python-requirements-pins
+        with:
+          files: fixtures/python-requirements/pass/requirements.txt
+
+  python-requirements-fail:
+    name: Python pins fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check an unpinned requirement
+        id: scan
+        continue-on-error: true
+        uses: ./python-requirements-pins
+        with:
+          files: fixtures/python-requirements/fail/requirements.txt
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  flutter-lockfiles-pass:
+    name: Flutter lockfile pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Skip a directory with no pubspec
+        uses: ./flutter-lockfiles
+        with:
+          working-directory: fixtures/flutter-lockfiles/pass
+          setup: "false"
+
+  flutter-lockfiles-fail:
+    name: Flutter lockfile fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Stub flutter so the lockfile changes
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          cat > "$RUNNER_TEMP/bin/flutter" << 'EOF'
+          #!/bin/sh
+          printf 'rewritten\n' > pubspec.lock
+          EOF
+          chmod +x "$RUNNER_TEMP/bin/flutter"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Check a lockfile the stub rewrites
+        id: scan
+        continue-on-error: true
+        uses: ./flutter-lockfiles
+        with:
+          working-directory: fixtures/flutter-lockfiles/fail
+          setup: "false"
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  pod-lockfiles-pass:
+    name: Pod lockfile pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Skip a directory with no Podfile
+        uses: ./pod-lockfiles
+        with:
+          working-directory: fixtures/pod-lockfiles/pass
+          setup: "false"
+
+  pod-lockfiles-fail:
+    name: Pod lockfile fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Stub pod so the lockfile changes
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          cat > "$RUNNER_TEMP/bin/pod" << 'EOF'
+          #!/bin/sh
+          printf 'rewritten\n' > Podfile.lock
+          EOF
+          chmod +x "$RUNNER_TEMP/bin/pod"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Check a lockfile the stub rewrites
+        id: scan
+        continue-on-error: true
+        uses: ./pod-lockfiles
+        with:
+          working-directory: fixtures/pod-lockfiles/fail
+          setup: "false"
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   test:
     name: test
     runs-on: ubuntu-26.04
@@ -436,6 +594,14 @@ jobs:
       - codeql-fail
       - semgrep-lib-path
       - semgrep-fail
+      - node-lockfiles-pass
+      - node-lockfiles-fail
+      - python-requirements-pass
+      - python-requirements-fail
+      - flutter-lockfiles-pass
+      - flutter-lockfiles-fail
+      - pod-lockfiles-pass
+      - pod-lockfiles-fail
     if: always()
     steps:
       # Pinned to the merge on main. See the matching comment in lint.yml.

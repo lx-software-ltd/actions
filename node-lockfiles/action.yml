@@ -1,0 +1,19 @@
+name: Node lockfiles
+description: >-
+  Run npm ci in each directory and fail when package-lock.json changes.
+  The caller sets up Node first.
+
+inputs:
+  directories:
+    description: Newline-separated directories that may contain a package.json.
+    required: true
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Check Node lockfiles
+      shell: bash
+      env:
+        LOCKFILE_DIRECTORIES: ${{ inputs.directories }}
+      run: bash "$GITHUB_ACTION_PATH/check.sh"

@@ -128,10 +128,18 @@ class FixtureWorkflowTest(unittest.TestCase):
             "gitleaks-fail:",
             "semgrep-lib-path:",
             "semgrep-fail:",
+            "node-lockfiles-pass:",
+            "node-lockfiles-fail:",
+            "python-requirements-pass:",
+            "python-requirements-fail:",
+            "flutter-lockfiles-pass:",
+            "flutter-lockfiles-fail:",
+            "pod-lockfiles-pass:",
+            "pod-lockfiles-fail:",
         ):
             self.assertIn(job, text)
-        self.assertEqual(text.count("continue-on-error: true"), 10)
-        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 9)
+        self.assertEqual(text.count("continue-on-error: true"), 14)
+        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 13)
 
 
 if __name__ == "__main__":

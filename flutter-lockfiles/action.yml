@@ -1,0 +1,35 @@
+name: Flutter lockfiles
+description: >-
+  Run flutter pub get and fail when pubspec.lock changes. A missing
+  pubspec.yaml is skipped.
+
+inputs:
+  working-directory:
+    description: Directory that contains pubspec.yaml.
+    required: true
+    default: ""
+  flutter-version:
+    description: Flutter SDK used when setup is true.
+    required: false
+    default: "3.47.9"
+  setup:
+    description: When false, use flutter already on PATH. Fixtures use this.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Flutter
+      if: inputs.setup == 'true'
+      uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+      with:
+        channel: stable
+        flutter-version: ${{ inputs.flutter-version }}
+        cache: true
+
+    - name: Check the Flutter lockfile
+      shell: bash
+      env:
+        FLUTTER_DIRECTORY: ${{ inputs.working-directory }}
+      run: bash "$GITHUB_ACTION_PATH/check.sh"
