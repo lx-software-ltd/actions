@@ -279,12 +279,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Create a throwaway repository with one leak
+        run: |
+          root="$RUNNER_TEMP/gitleaks-fail"
+          mkdir -p "$root"
+          git -C "$root" init
+          prefix=ghp_
+          body=A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8
+          printf 'token=%s%s\n' "$prefix" "$body" > "$root/secret.txt"
+          git -C "$root" add secret.txt
+          git -C "$root" -c user.email=fixture@example.com -c user.name=fixture commit -m fixture
+
       - name: Scan a tree with an access key
         id: scan
         continue-on-error: true
         uses: ./gitleaks
         with:
-          source: fixtures/gitleaks/fail
+          source: ${{ runner.temp }}/gitleaks-fail
 
       - name: Expect the action to fail
         env:
@@ -325,6 +336,7 @@ jobs:
         uses: ./checkov-cloudformation
         with:
           directory: fixtures/checkov/fail
+          upload: "false"
 
       - name: Expect the action to fail
         env:
@@ -393,6 +405,7 @@ jobs:
         with:
           rules: fixtures/semgrep/rule.yml
           source: fixtures/semgrep/fail
+          upload: "false"
 
       - name: Expect findings and a resolved library path
         shell: sh

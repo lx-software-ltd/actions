@@ -13,7 +13,7 @@ Move Gitleaks, Checkov, CodeQL, and Semgrep into composite actions. Callers keep
 
 ## Container path
 
-`semgrep-lib-path` runs `uses: ./semgrep` inside `semgrep/semgrep`. The scan script refuses to continue when the shared library path does not resolve. A green job means the path resolves in that container. The fallback, copying the filter into `semgrep/`, is unused while this job is green.
+`semgrep-lib-path` runs `uses: ./semgrep` inside `semgrep/semgrep`. The scan script refuses to continue when the shared library path does not resolve. The first run of that job passed, so `$GITHUB_ACTION_PATH/../lib` resolves in that container. The fallback, copying the filter into `semgrep/`, stays unused. Fixture jobs set `upload: false` so a planted finding is not sent to code scanning.
 
 ## Finding count
 

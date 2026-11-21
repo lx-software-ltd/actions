@@ -11,6 +11,7 @@ Every `run` step uses `shell: sh`. The calling job sets `container: semgrep/semg
 | `rules` | yes | | Space-separated `--config` values. |
 | `exclude-rules` | no | empty | Space-separated `--exclude-rule` values. |
 | `source` | no | `.` | Directory to scan. |
+| `upload` | no | `true` | `false` skips the SARIF upload. |
 
 ## Permissions
 
