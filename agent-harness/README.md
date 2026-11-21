@@ -4,7 +4,7 @@ Checks agent rules, file length, and test focus. `.github/harness.json` holds th
 
 `rules.extra-rules` is `full` when every rule file is checked, which is what `findingalpha` and `lx-software` do. It is `always-only` when extra rules are only forbidden from `alwaysApply: true`, which is what `evolvesprouts` and `siutindei` do. `rules.verify-why-commits` checks that a `[why:]` tag names `convention` or a commit that exists. `rules.skills` is `all` or `required`.
 
-`test-focus.mode` is `test-names` or `all-sources`.
+`file-length.mode` is `typed`, `python-counted`, or `python-names`. `test-focus.mode` is `test-names` or `all-sources`.
 
 ## Inputs
 
