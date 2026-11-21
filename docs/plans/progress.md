@@ -127,7 +127,8 @@ The action is on `actions` `main` at `61d2a58`. It fails unless the approving-re
 | SA-302 | Merged. `actions` #19 at `f33bc37`. Product: `findingalpha` #76, `lx-software` #662, `siutindei` #924. `evolvesprouts` had no CI PII job at that pin. |
 | SA-303, SA-305 | The actions are on `main` at `aab84b7`. Product call sites are the next wave. |
 | SA-306 | Merged. `actions` #22 and #23 at `aab84b7`. Product: `findingalpha` #77, `lx-software` #663, `evolvesprouts` #2274, `siutindei` #925. Evidence is below. |
-| SA-307, SA-308, SA-309 | This pull request. Pre-commit hooks, the audit actions, and `workflow-conformance` in enforce mode here. |
+| SA-307 | This pull request publishes the hook definitions. Deleting the product script copies is Wave 2. |
+| SA-308, SA-309 | This pull request. The audit actions and `workflow-conformance` in enforce mode here. |
 | Later | Product waves pin the wave 1 merge commit. Part B is deferred. G3, G4, and G5 stay closed. |
 
 ## SA-306 evidence

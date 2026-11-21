@@ -17,7 +17,11 @@ Yellow. One pull request on `actions`. One commit per step. Product repositories
 
 The fixture jobs ran on this pull request. Bandit, npm audit, and pip-audit passed and failed as required. `pip-audit` could not be smoked on the agent machine because it has no `python3-venv`.
 
-Playwright 1.49.1's Chromium download on `ubuntu-26.04` reached 100% and then did not exit. The fallback command had no timeout, so the pass job sat from 15:14 to 21:14 and was cancelled, and the `test` gate failed. Both attempts are now limited to 180 seconds and the process is killed if it ignores the first signal. The pass job stubs `npx` so it checks the success exit without that download. The fail job still uses the real CLI. The shell tests cover the apt fallback.
+Playwright 1.49.1's Chromium download on `ubuntu-26.04` reached 100% and then did not exit. The pass fixture now uses Playwright 1.65.1, which is what the product repositories use, and installs Chromium. Each attempt is limited to 10 minutes.
+
+Checkov writes `checkov-results.sarif` in the workspace. The runner temp directory is not mounted into Checkov's container, so a SARIF written there was discarded and the filter uploaded an empty file. The fail fixture checks that the workspace SARIF has a finding.
+
+`semgrep ci` passes rules through `SEMGREP_RULES` and fails on a command error. `workflow-conformance` checks image digests, `paths-ignore`, the gate shape, and, for `profile: product`, the target security jobs.
 
 ## Out of scope
 
