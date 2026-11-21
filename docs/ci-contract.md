@@ -67,7 +67,7 @@ Hosting, mobile workflows, extra triggers (`repository_dispatch`, `board-*`, Fig
 | Yes | `pull_request` on `lint.yml` and `test.yml` has no path filter. |
 | No | `check-lockfiles.yml`, `semgrep.yml`, `verify-rulesets.yml`, `cdk-diff.yml`, deploy workflows, and the product job ids (`checkov`, `bandit`, `validate-agent-harness`, and the rest). |
 | No | `allow-skipped`. Nothing in this repository is skipped as cost control. |
-| No | A `v*` tag until the owner splits `release-tags`. That ruleset now applies here and blocks creation, update, and deletion, with no bypass. |
+| No | A `v*` tag. Organization admin can create one through the `release-tags-create` bypass. Update and deletion stay blocked. Callers pin commit SHAs until a release exists. |
 
 Workflows and jobs:
 

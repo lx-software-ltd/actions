@@ -23,7 +23,7 @@ Numbers are the approved plan's numbers.
 | --- | --- | --- |
 | O1 | Public `actions` repository, agent can push | Confirmed |
 | O2 | Actions policy allows `lx-software-ltd/*` | Not read. The policy API returns 403. Observed: this repository's own gates resolved `lx-software-ltd/actions/require-jobs@1a3cca7` and the runs were green. |
-| O3 | How `v*` tags get created | Measured 20 Nov 2026, 23:40 Hong Kong. See below. The agent does not create the tag. |
+| O3 | How `v*` tags get created | Organization admin is on the `release-tags-create` bypass list. The owner creates the tag. The agent does not. |
 | O4 | Is zero approving reviews intended? | Decided. Yes. SA-304 checks for exactly 0. |
 | O5 | Narrow `GitHubActionsRole` trust to the four product repositories | Approved, before Stage 5. Not started. Also remove the account id from the public trust-policy document. |
 | O6 | `AWS_ACCOUNT_ID` | A variable. Stage 5 uses `vars.AWS_ACCOUNT_ID` only. Not started. |
@@ -46,9 +46,11 @@ Measured again 20 Nov 2026, 23:40 Hong Kong.
 
 `release-tags` (id `27712299`, updated `2026-11-20T15:37:16Z`) includes `refs/tags/v*` and has rules `deletion` and `update` only. `bypass_actors` is empty. Creation is no longer on this ruleset.
 
-Measured again 20 Nov 2026, 16:11 UTC. `release-tags-create` (id `27737981`, updated `2026-11-20T16:11:54Z`) includes `refs/tags/v*`. Its only rule is `creation`. `bypass_actors` is empty and `current_user_can_bypass` is `never`. The earlier include `refs/tags/refs/tags/v*` and the `non_fast_forward` rule are gone.
+Measured again 20 Nov 2026, 16:11 UTC. `release-tags-create` (id `27737981`, updated `2026-11-20T16:11:54Z`) includes `refs/tags/v*`. Its only rule is `creation`. The earlier include `refs/tags/refs/tags/v*` and the `non_fast_forward` rule are gone.
 
-Creating, updating, and deleting `refs/tags/v*` are all blocked. The create ruleset has no bypass, so the owner cannot create a tag through it either. The agent does not run `gh release create`. Callers still pin commit SHAs until a release exists.
+Measured again 21 Nov 2026, 12:30 Hong Kong. Organization admin is on the bypass list of `release-tags-create`. `release-tags` still has no bypass, so update and deletion stay blocked for everyone. This token's read of ruleset `27737981` still returns `bypass_actors: null` and `current_user_can_bypass: never`. That field is hidden here. A null `bypass_actors` on this endpoint is not an empty bypass list.
+
+Organization admin can create a `refs/tags/v*` tag. Other actors cannot. The agent does not run `gh release create`. Callers still pin commit SHAs until a release exists.
 
 The same organisation rulesets apply to the four product repositories.
 
@@ -57,7 +59,7 @@ The same organisation rulesets apply to the four product repositories.
 In the organisation ruleset settings:
 
 1. Edit `release-tags`. Keep "Restrict updates" and "Restrict deletions". Remove "Restrict creations". Leave the bypass list empty.
-2. Add a tag ruleset, for example `release-tags-create`, with the same repository targeting and pattern `refs/tags/v*`, and only "Restrict creations". Put Organization admin on its bypass list.
+2. Add a tag ruleset, `release-tags-create`, with the same repository targeting and pattern `refs/tags/v*`, and only "Restrict creations". Organization admin is on its bypass list. Done.
 3. Optionally turn on release immutability for `actions`. The agent does not change repository settings.
 
 A ruleset bypass cannot apply to one rule inside a ruleset, which is why creation has to be its own ruleset. After the split, the owner tags with `gh release create`. The agent prepares the notes and does not run that command.
