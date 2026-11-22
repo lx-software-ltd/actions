@@ -1,6 +1,6 @@
 # Shared actions plan — progress
 
-**Status**: Done (CI scope) except C04. The four product pull requests below are the C04 change. Their merge commits are written into this file before this pull request merges.
+**Status**: C04 is merged. Post-CI phases are in progress. G3 and G4 are approved. G5 is approved for the cdk-deploy design note only.
 **Zone**: yellow
 
 The plan copy is `docs/plans/shared-actions-and-ci-convergence.md`. The approved plan is in that file in full. Recorded decisions at the top of that file win where they conflict with the approved text. Decision, owner-task, row, and step numbers keep the approved meanings. This file does not renumber them. An earlier progress table called the Node and macOS choices "O6". That was wrong. O6 is `AWS_ACCOUNT_ID`, and the decision is now that it stays a variable.
@@ -13,7 +13,13 @@ Named approvals, 20 Nov 2026:
 - O5 is approved. The IAM trust narrowing is the owner's and blocks only Stage 5. The account id in the public `lx-software` trust-policy document is a separate one-file change. Do not copy the account id into this file.
 - O6 stays a variable. Stage 5 reads `vars.AWS_ACCOUNT_ID` only. Do not assert or write `secrets.AWS_ACCOUNT_ID || vars.AWS_ACCOUNT_ID`. That line overrides decision D8 and the SA-501 sentence in the plan copy.
 
-Gates G3, G4, and G5 stay closed.
+22 Nov 2026, owner-approved:
+
+- G3 is approved, including C24, which removes `cdk bootstrap` from pair B deploys. Bootstrap stays in `cdk-bootstrap.yml`.
+- G4 is approved for SA-601.
+- G5 is approved for writing `docs/plans/cdk-deploy.md` only. Implementation waits for a second G5 approval on that note.
+- SA-501 keeps `secrets.AWS_ACCOUNT_ID || vars.AWS_ACCOUNT_ID`. `AWS_ACCOUNT_ID` stays a variable (O6). The account id is not written into this file.
+- Red steps are one repository at a time. After each merge the owner runs the affected deploy (O7) before the next repository starts.
 
 ## Owner tasks
 
@@ -132,7 +138,7 @@ The action is on `actions` `main` at `61d2a58`. It fails unless the approving-re
 | Later | Product waves pin `61b67ed4`. findingalpha is the first. Part B is deferred. G3, G4, and G5 stay closed. |
 | uses: anchor | Merged. #26 at `9235676`. `_uses` is `^\s*(-\s*)?uses:`. Product pins stay `61b67ed4`. Quoted `"statuses"` keys stay until a later pin bump. |
 | CI close-out | Merged. #27. Done (CI scope) except C04. |
-| C04 and pin | `findingalpha` #80, `lx-software` #669, `evolvesprouts` #2276, `siutindei` #927. Merge commits are added here before this pull request merges. |
+| C04 and pin | Merged. `findingalpha` #80 `e829c7900d496cd7aaaa98619807ed28dd46a3c8`. `lx-software` #669 `6ce6213ac6a54d5c6c08fbcdee5a9e04a1296bdb`. `evolvesprouts` #2276 `aa0d8d379017b98e4e879ae0ca50111ab1348c75`. `siutindei` #927 `b19167534cf9ba1e23ca805aee483d851bf31961`. The record pull request #28 merged before these SHAs were written. This pull request adds them. |
 
 ## SA-306 evidence
 
@@ -179,14 +185,10 @@ Stage 5 and Stage 6 actions are not called. Those workflows still contain their 
 
 ### Still open
 
-- C04. `findingalpha` #80, `lx-software` #669, `evolvesprouts` #2276, `siutindei` #927. Each moves the actions pin to `9235676` and stops passing an older Node version. Shared `setup-node` calls omit `node-version`. Direct `actions/setup-node` calls that were `lts/*` or `24` pass `"26"`. Merge `findingalpha` first. This file records their merge commits before the actions pull request merges:
-  - `findingalpha` #80:
-  - `lx-software` #669:
-  - `evolvesprouts` #2276:
-  - `siutindei` #927:
+- C04 is merged. `findingalpha` #80 `e829c7900d496cd7aaaa98619807ed28dd46a3c8`. `lx-software` #669 `6ce6213ac6a54d5c6c08fbcdee5a9e04a1296bdb`. `evolvesprouts` #2276 `aa0d8d379017b98e4e879ae0ca50111ab1348c75`. `siutindei` #927 `b19167534cf9ba1e23ca805aee483d851bf31961`. The product pin is `9235676200771b2f93bc01ac85f3de1392133182`. The owner still needs to dispatch `e2e-admin-web.yml` and Deploy Admin Web on `siutindei` `main`. Those are the first Node 26 runs of those paths.
 - Flutter pins differ. C06 requires a pin, not one shared version. `evolvesprouts` passes `3.50.1`. `siutindei` passes `3.47.9`.
-- Stage 5, all of it. It needs O5, G3, and O7. G3 stays closed. O5 is approved and not started.
-- Stage 6. SA-601 needs G4. SA-603 needs a design note and G5. Both gates stay closed. SA-602, `lighthouse-ci`, was not added. The product Lighthouse workflows are still inline.
+- Stage 5. G3 is approved. O5 is approved and not applied in IAM yet. Each repository waits for an O7 run before the next one starts.
+- Stage 6. G4 is approved for SA-601. SA-603 is the design note only; implementation needs a second G5 approval. SA-602 stays out of scope.
 - SA-701. The pair B mobile and promote workflows (`deploy-ios.yml`, `deploy-mobile.yml`, `promote-public-www.yml`, `smoke-public-www-staging.yml`) were not compared for a shared block of ten lines.
 - SA-702. `mypy` where Python is linted, a type-check for every Node app, a coverage floor at the measured value, and OpenAPI lint where an OpenAPI file exists. Each is its own plan in the repository it changes.
 - The pin bump to `9235676` is the same four pull requests. They also drop the quotes around `statuses` in `lx-software` and `siutindei`.
