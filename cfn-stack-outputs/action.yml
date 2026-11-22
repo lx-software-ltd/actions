@@ -1,0 +1,36 @@
+name: CloudFormation stack outputs
+description: >-
+  Read named CloudFormation stack outputs into the json step output.
+  This does not change the stack.
+
+inputs:
+  stack:
+    description: CloudFormation stack name.
+    required: true
+  outputs:
+    description: >-
+      Output keys to read, separated by spaces or commas. Every key
+      must have a non-empty value.
+    required: true
+  region:
+    description: AWS region. The caller passes vars.AWS_REGION.
+    required: true
+
+outputs:
+  json:
+    description: >-
+      JSON object of the requested keys. The caller checks values
+      that have a format of their own, such as an https URL.
+    value: ${{ steps.read.outputs.json }}
+
+runs:
+  using: composite
+  steps:
+    - name: Read stack outputs
+      id: read
+      shell: bash
+      env:
+        STACK: ${{ inputs.stack }}
+        OUTPUTS: ${{ inputs.outputs }}
+        AWS_REGION: ${{ inputs.region }}
+      run: python3 "$GITHUB_ACTION_PATH/read_outputs.py"
