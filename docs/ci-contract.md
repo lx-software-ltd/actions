@@ -84,3 +84,10 @@ The `lint`, `test`, and `security-summary` gates pin `lx-software-ltd/actions/re
 `scripts/pii-denylist.sha256` holds the 31 organisation digests. The owner approved the copy on 20 Nov 2026. The file has no plaintext. The PII job scans tracked source against them.
 
 CodeQL scans Python and GitHub Actions. The Actions language is the one that covers the workflow files and composite actions in this repository.
+
+
+## Checked by workflow-conformance
+
+The action checks the pin, runner, permission, image-digest, gate, path-filter, one-commit, and pre-commit `rev` rules above. A `pull_request` `paths-ignore` is a path filter. A gate job has `if: always()`, lists every other job in that file under `needs`, and pins `require-jobs` by commit SHA. `security-summary` is that gate in `security.yml`. Container and service images are pinned by digest, which is how row C14 is enforced.
+
+`profile: product` also requires the `security.yml` job ids in the table above and a `semgrep/ci` job. `profile: producer` is this repository, which does not have those product job ids. `mode: warn` prints findings and exits 0. `mode: enforce` exits 1. This repository runs enforce with `profile: producer`. Product repositories start in warn and switch to enforce on their last close-out commit.

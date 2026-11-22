@@ -1,0 +1,24 @@
+name: Playwright install
+description: >-
+  Install Playwright browsers with apt dependencies, and fall back to
+  the browser alone when apt cannot be reached.
+
+inputs:
+  working-directory:
+    description: Directory whose Playwright CLI is used. Empty uses the workspace.
+    required: false
+    default: ""
+  browsers:
+    description: Browsers to install. Default chromium.
+    required: false
+    default: chromium
+
+runs:
+  using: composite
+  steps:
+    - name: Install Playwright browsers
+      shell: bash
+      env:
+        PLAYWRIGHT_DIRECTORY: ${{ inputs.working-directory }}
+        PLAYWRIGHT_BROWSERS: ${{ inputs.browsers }}
+      run: bash "$GITHUB_ACTION_PATH/run.sh"

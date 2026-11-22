@@ -1,0 +1,27 @@
+name: Bandit
+description: Run Bandit on the caller's paths. A finding fails the step.
+
+inputs:
+  paths:
+    description: Space-separated paths passed to bandit -r.
+    required: true
+    default: ""
+  skip:
+    description: Comma-separated Bandit test ids to skip.
+    required: false
+    default: ""
+  root:
+    description: Directory to run in. Empty uses the workspace.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Run Bandit
+      shell: bash
+      env:
+        BANDIT_PATHS: ${{ inputs.paths }}
+        BANDIT_SKIP: ${{ inputs.skip }}
+        BANDIT_ROOT: ${{ inputs.root }}
+      run: bash "$GITHUB_ACTION_PATH/run.sh"

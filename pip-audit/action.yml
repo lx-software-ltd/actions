@@ -1,0 +1,22 @@
+name: pip-audit
+description: Audit Python requirements files with pip-audit.
+
+inputs:
+  requirements:
+    description: Newline-separated requirements files.
+    required: true
+    default: ""
+  ignore-vulns:
+    description: Space-separated advisory ids passed to --ignore-vuln.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Audit Python requirements
+      shell: bash
+      env:
+        PIP_AUDIT_FILES: ${{ inputs.requirements }}
+        PIP_AUDIT_IGNORE: ${{ inputs.ignore-vulns }}
+      run: bash "$GITHUB_ACTION_PATH/run.sh"

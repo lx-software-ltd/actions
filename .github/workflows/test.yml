@@ -343,6 +343,33 @@ jobs:
           OUTCOME: ${{ steps.scan.outcome }}
         run: test "$OUTCOME" = "failure"
 
+      - name: Expect the workspace SARIF to contain a finding
+        shell: bash
+        run: |
+          python3 - << 'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          def load(path: Path) -> dict:
+              if path.is_dir():
+                  files = sorted(path.glob("*.sarif"))
+                  if not files:
+                      sys.exit(f"{path} has no SARIF")
+                  path = files[0]
+              if not path.is_file():
+                  sys.exit(f"{path} is missing")
+              return json.loads(path.read_text(encoding="utf-8"))
+
+          def count(payload: dict) -> int:
+              return sum(len(run.get("results") or []) for run in payload.get("runs") or [])
+
+          raw = count(load(Path("checkov-results.sarif")))
+          filtered = count(load(Path("checkov-results.filtered.sarif")))
+          if raw < 1 or filtered < 1:
+              sys.exit(f"raw={raw} filtered={filtered}")
+          PY
+
   codeql-fail:
     name: CodeQL fail fixture
     runs-on: ubuntu-26.04
@@ -370,7 +397,7 @@ jobs:
     name: Semgrep shared library path
     runs-on: ubuntu-26.04
     container:
-      image: semgrep/semgrep
+      image: semgrep/semgrep@sha256:f83a64e8a7d985eaa51ee3978c9c882be946964c68633fba5d2817cf297a3912 # 2026-11-17
     permissions:
       actions: read
       contents: read
@@ -389,7 +416,7 @@ jobs:
     name: Semgrep fail fixture
     runs-on: ubuntu-26.04
     container:
-      image: semgrep/semgrep
+      image: semgrep/semgrep@sha256:f83a64e8a7d985eaa51ee3978c9c882be946964c68633fba5d2817cf297a3912 # 2026-11-17
     permissions:
       actions: read
       contents: read
@@ -496,6 +523,7 @@ jobs:
         uses: ./flutter-lockfiles
         with:
           working-directory: fixtures/flutter-lockfiles/pass
+          flutter-version: "3.47.9"
           setup: "false"
 
   flutter-lockfiles-fail:
@@ -521,6 +549,28 @@ jobs:
         uses: ./flutter-lockfiles
         with:
           working-directory: fixtures/flutter-lockfiles/fail
+          flutter-version: "3.47.9"
+          setup: "false"
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  flutter-version-fail:
+    name: Flutter version fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reject an empty Flutter version
+        id: scan
+        continue-on-error: true
+        uses: ./flutter-lockfiles
+        with:
+          working-directory: fixtures/flutter-lockfiles/pass
+          flutter-version: ""
           setup: "false"
 
       - name: Expect the action to fail
@@ -602,6 +652,265 @@ jobs:
           OUTCOME: ${{ steps.scan.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  semgrep-ci:
+    name: Semgrep ci fixture
+    runs-on: ubuntu-26.04
+    container:
+      image: semgrep/semgrep@sha256:f83a64e8a7d985eaa51ee3978c9c882be946964c68633fba5d2817cf297a3912 # 2026-11-17
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # On a pull request, semgrep ci checks out the head sha from the event
+      # and scans only files changed since the base. A file already on that
+      # head is invisible once the pull request merges. Commit the hit during
+      # the job and replace the event's head sha with that commit so the scan
+      # sees a file that is new on every run. GitHub ignores a step-level
+      # override of GITHUB_BASE_REF, so the baseline stays the real base.
+      - name: Commit a new Semgrep hit
+        shell: sh
+        run: |
+          set -eu
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global user.email fixture@example.com
+          git config --global user.name fixture
+          mkdir -p fixtures/semgrep
+          printf '%s\n' fixture-semgrep-hit > fixtures/semgrep/ci-hit.txt
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            head=$(python3 -c 'import json, os; print(json.load(open(os.environ["GITHUB_EVENT_PATH"]))["pull_request"]["head"]["sha"])')
+            git cat-file -e "$head^{commit}" || git fetch origin "$head"
+            git checkout --detach "$head"
+            git add fixtures/semgrep/ci-hit.txt
+            tree=$(git write-tree)
+            parent=$(git rev-parse "$head^")
+            new=$(git commit-tree "$tree" -p "$parent" -m "fixture semgrep hit")
+            git replace "$head" "$new"
+          else
+            git add fixtures/semgrep/ci-hit.txt
+            git commit -m "fixture semgrep hit"
+          fi
+
+      - name: Run semgrep ci with the fixture rule
+        uses: ./semgrep
+        with:
+          mode: ci
+          rules: fixtures/semgrep/rule.yml
+          upload: "false"
+
+      - name: Expect the ci scan to report the fixture hit
+        shell: sh
+        run: |
+          test -f semgrep-results.sarif
+          python3 -c 'import json,sys; payload=json.load(open("semgrep-results.sarif")); count=sum(len(run.get("results") or []) for run in payload.get("runs") or []); sys.exit(0 if count >= 1 else 1)'
+
+  semgrep-ci-error:
+    name: Semgrep ci error fixture
+    runs-on: ubuntu-26.04
+    container:
+      image: semgrep/semgrep@sha256:f83a64e8a7d985eaa51ee3978c9c882be946964c68633fba5d2817cf297a3912 # 2026-11-17
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reject a missing ci config
+        id: scan
+        continue-on-error: true
+        uses: ./semgrep
+        with:
+          mode: ci
+          rules: fixtures/semgrep/missing.yml
+          upload: "false"
+
+      - name: Expect the action to fail
+        shell: sh
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  semgrep-mode-fail:
+    name: Semgrep mode fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reject a mode that is not scan or ci
+        id: scan
+        continue-on-error: true
+        uses: ./semgrep
+        with:
+          mode: nope
+          rules: fixtures/semgrep/rule.yml
+          source: fixtures/semgrep/pass
+          upload: "false"
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  pip-audit-pass:
+    name: pip-audit pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Audit an empty requirements file
+        uses: ./pip-audit
+        with:
+          requirements: fixtures/pip-audit/pass/requirements.txt
+
+  pip-audit-fail:
+    name: pip-audit fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Audit a known vulnerable pin
+        id: scan
+        continue-on-error: true
+        uses: ./pip-audit
+        with:
+          requirements: fixtures/pip-audit/fail/requirements.txt
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  bandit-pass:
+    name: Bandit pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Scan a file with no findings
+        uses: ./bandit
+        with:
+          paths: app.py
+          root: fixtures/bandit/pass
+
+  bandit-fail:
+    name: Bandit fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Scan a file that calls eval
+        id: scan
+        continue-on-error: true
+        uses: ./bandit
+        with:
+          paths: app.py
+          root: fixtures/bandit/fail
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  npm-audit-pass:
+    name: npm audit pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: ./setup-node
+        with:
+          install: "false"
+
+      - name: Audit a lockfile with no vulnerabilities
+        uses: ./npm-audit
+        with:
+          directories: fixtures/node-lockfiles/pass
+
+  npm-audit-fail:
+    name: npm audit fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: ./setup-node
+        with:
+          install: "false"
+
+      - name: Audit a lockfile with a high finding
+        id: scan
+        continue-on-error: true
+        uses: ./npm-audit
+        with:
+          directories: fixtures/npm-audit/fail
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  playwright-pass:
+    name: Playwright install pass fixture
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: ./setup-node
+        with:
+          cache: npm
+          working-directory: fixtures/playwright
+
+      - name: Install Chromium, falling back if apt fails
+        uses: ./playwright-install
+        with:
+          working-directory: fixtures/playwright
+          browsers: chromium
+
+  playwright-fail:
+    name: Playwright install fail fixture
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: ./setup-node
+        with:
+          cache: npm
+          working-directory: fixtures/playwright
+
+      - name: Reject an unknown browser
+        id: scan
+        continue-on-error: true
+        uses: ./playwright-install
+        with:
+          working-directory: fixtures/playwright
+          browsers: not-a-browser
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   test:
     name: test
     runs-on: ubuntu-26.04
@@ -631,10 +940,22 @@ jobs:
       - python-requirements-fail
       - flutter-lockfiles-pass
       - flutter-lockfiles-fail
+      - flutter-version-fail
+      - pip-audit-pass
+      - pip-audit-fail
+      - bandit-pass
+      - bandit-fail
+      - npm-audit-pass
+      - npm-audit-fail
+      - playwright-pass
+      - playwright-fail
       - pod-lockfiles-pass
       - pod-lockfiles-fail
       - agent-harness-pass
       - agent-harness-fail
+      - semgrep-ci
+      - semgrep-ci-error
+      - semgrep-mode-fail
     if: always()
     steps:
       # Pinned to the merge on main. See the matching comment in lint.yml.

@@ -1,11 +1,15 @@
 name: Semgrep
 description: >-
-  Run semgrep scan with the caller's rule packs, write an empty SARIF
-  when the scan writes nothing, drop in-source suppressions, and upload
-  with category semgrep. Steps use sh because the job runs in the
+  Run semgrep scan or semgrep ci, write an empty SARIF only when the
+  command exits 0 and writes nothing, drop in-source suppressions, and
+  upload with category semgrep. Steps use sh because the job runs in the
   Semgrep container.
 
 inputs:
+  mode:
+    description: scan (the default) or ci. ci passes rules through SEMGREP_RULES.
+    required: false
+    default: scan
   rules:
     description: Space-separated Semgrep configs, such as p/python or a file.
     required: true
@@ -15,7 +19,7 @@ inputs:
     required: false
     default: ""
   source:
-    description: Directory to scan. Default the workspace.
+    description: Directory to scan in scan mode. ci mode scans the repository.
     required: false
     default: "."
   upload:
@@ -29,6 +33,7 @@ runs:
     - name: Run Semgrep
       shell: sh
       env:
+        SEMGREP_MODE: ${{ inputs.mode }}
         SEMGREP_RULES: ${{ inputs.rules }}
         SEMGREP_EXCLUDE_RULES: ${{ inputs.exclude-rules }}
         SEMGREP_SOURCE: ${{ inputs.source }}
