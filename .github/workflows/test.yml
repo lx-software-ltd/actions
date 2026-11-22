@@ -1092,6 +1092,72 @@ jobs:
           OUTCOME: ${{ steps.aws.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  cfn-stack-outputs-pass:
+    name: CloudFormation stack outputs pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # A stub. The job does not call AWS.
+      - name: Install a stub aws
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          cat > "$RUNNER_TEMP/bin/aws" << 'EOF'
+          #!/bin/sh
+          cat << 'JSON'
+          {"Stacks":[{"Outputs":[{"OutputKey":"UserPoolClientId","OutputValue":"client"},{"OutputKey":"CognitoDomain","OutputValue":"https://example.auth.ap-southeast-1.amazoncognito.com"},{"OutputKey":"Unused","OutputValue":"no"}]}]}
+          JSON
+          exit 0
+          EOF
+          chmod +x "$RUNNER_TEMP/bin/aws"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Read stack outputs
+        id: settings
+        uses: ./cfn-stack-outputs
+        with:
+          stack: findingalpha
+          outputs: UserPoolClientId CognitoDomain
+          region: ap-southeast-1
+
+      - name: The json output has only the requested keys
+        env:
+          JSON: ${{ steps.settings.outputs.json }}
+        run: |
+          python3 -c '
+          import json, os, sys
+          data = json.loads(os.environ["JSON"])
+          expected = {
+              "UserPoolClientId": "client",
+              "CognitoDomain": "https://example.auth.ap-southeast-1.amazoncognito.com",
+          }
+          if data != expected:
+              sys.exit(1)
+          '
+
+  cfn-stack-outputs-fail:
+    name: CloudFormation stack outputs fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # An empty region fails before aws is invoked.
+      - name: Reject a missing region
+        id: settings
+        continue-on-error: true
+        uses: ./cfn-stack-outputs
+        with:
+          stack: findingalpha
+          outputs: UserPoolClientId
+          region: ""
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.settings.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   test:
     name: test
     runs-on: ubuntu-26.04
@@ -1143,6 +1209,8 @@ jobs:
       - cdk-bootstrap-fail
       - cdk-diff-pass
       - cdk-diff-fail
+      - cfn-stack-outputs-pass
+      - cfn-stack-outputs-fail
     if: always()
     steps:
       # Pinned to the merge on main. See the matching comment in lint.yml.
