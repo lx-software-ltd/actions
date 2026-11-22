@@ -1,6 +1,6 @@
 # Shared actions plan — progress
 
-**Status**: Done (CI scope)
+**Status**: Done (CI scope) except C04
 **Zone**: yellow
 
 The plan copy is `docs/plans/shared-actions-and-ci-convergence.md`. The approved plan is in that file in full. Recorded decisions at the top of that file win where they conflict with the approved text. Decision, owner-task, row, and step numbers keep the approved meanings. This file does not renumber them. An earlier progress table called the Node and macOS choices "O6". That was wrong. O6 is `AWS_ACCOUNT_ID`, and the decision is now that it stays a variable.
@@ -131,7 +131,7 @@ The action is on `actions` `main` at `61d2a58`. It fails unless the approving-re
 | SA-308, SA-309 | This pull request. The audit actions and `workflow-conformance` in enforce mode here. |
 | Later | Product waves pin `61b67ed4`. findingalpha is the first. Part B is deferred. G3, G4, and G5 stay closed. |
 | uses: anchor | Merged. #26 at `9235676`. `_uses` is `^\s*(-\s*)?uses:`. Product pins stay `61b67ed4`. Quoted `"statuses"` keys stay until a later pin bump. |
-| CI close-out | This pull request. The CI scope is done. Stages 5 and 6, SA-701, and SA-702 stay open. |
+| CI close-out | This pull request. Done (CI scope) except C04. Stages 5 and 6, SA-701, SA-702, the Flutter pins, and the pin bump stay open. |
 
 ## SA-306 evidence
 
@@ -154,12 +154,11 @@ Waves 0, 1, 2, and 3 are merged. This pull request is wave 4, the last wave of t
 | 0 | Harness pull requests. The SA-306 evidence is above. |
 | 1 | `actions` #24, merge `61b67ed4f686659433f6ca4cb10c80707e365cd0`. That SHA is still the product pin. |
 | 2 | `findingalpha` #78, merge `7fd1553`. |
+| 2 follow-up | `findingalpha` #79, merge `24e6b0c`, 20:03 HKT. Removes the repository-wide Semgrep urllib exclusion. |
 | 3 | `lx-software` #664, merge `ca04022`. `evolvesprouts` #2275, merge `fc2629f`. `siutindei` #926, merge `0f77d451`. |
 | Checker | `actions` #26, merge `9235676`. Product pins stay `61b67ed4`. `lx-software` lighthouse still has `"statuses": write`. `siutindei` board merge still has `"statuses": read`. |
 
 All four product `main` branches run `workflow-conformance` with `mode: enforce`. No caller passes `mode: warn`, `mode: ci`, or `allow-skipped`.
-
-`findingalpha` #79 is open. It removes the repository-wide Semgrep urllib exclusion. It is not merged.
 
 ### Inputs that kept an older behaviour
 
@@ -171,7 +170,7 @@ Measured on the four `main` commits above.
 
 `framework` is `cloudformation` in all four. Nobody passes an empty framework.
 
-Semgrep `exclude-rules`: `findingalpha` `main` still excludes `python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected` for the whole repository. That removal is #79. `siutindei` excludes `yaml.github-actions.security.gha-curl-pipe-shell.gha-curl-pipe-shell` because the rule warns on `${{ }}` in `run:` blocks. `lx-software` and `evolvesprouts` pass no `exclude-rules`.
+Semgrep `exclude-rules`: `findingalpha` #79 is merged, and `findingalpha` `main` does not exclude the urllib rule. `siutindei` excludes `yaml.github-actions.security.gha-curl-pipe-shell.gha-curl-pipe-shell` because the rule warns on `${{ }}` in `run:` blocks. `lx-software` and `evolvesprouts` pass no `exclude-rules`.
 
 `flutter-version` stays. C06 makes it required. `evolvesprouts` passes `3.50.1`. `siutindei` passes `3.47.9`.
 
@@ -179,6 +178,8 @@ Stage 5 and Stage 6 actions are not called. Those workflows still contain their 
 
 ### Still open
 
+- C04 for the workflows a pull request does not run. Pair B keeps the previous `node-version`: `lts/*` in `evolvesprouts`, and `"24"`, `'24'`, or `"lts/*"` in `siutindei`. Jobs a pull request runs pass `"26"`.
+- Flutter pins differ. C06 requires a pin, not one shared version. `evolvesprouts` passes `3.50.1`. `siutindei` passes `3.47.9`.
 - Stage 5, all of it. It needs O5, G3, and O7. G3 stays closed. O5 is approved and not started.
 - Stage 6. SA-601 needs G4. SA-603 needs a design note and G5. Both gates stay closed. SA-602, `lighthouse-ci`, was not added. The product Lighthouse workflows are still inline.
 - SA-701. The pair B mobile and promote workflows (`deploy-ios.yml`, `deploy-mobile.yml`, `promote-public-www.yml`, `smoke-public-www-staging.yml`) were not compared for a shared block of ten lines.
