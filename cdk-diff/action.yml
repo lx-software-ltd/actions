@@ -1,0 +1,54 @@
+name: CDK diff
+description: >-
+  Run cdk diff, strip the account id from the log and the step summary,
+  and keep the diff's exit code.
+
+inputs:
+  working-directory:
+    description: Directory that contains the CDK app package.json.
+    required: true
+  stacks:
+    description: >-
+      Space or comma separated stack names. Empty passes no stack names,
+      so CDK diffs every stack. The caller passes its own default when
+      it always names stacks.
+    required: false
+    default: ""
+  args:
+    description: >-
+      Extra arguments, split on whitespace, placed before the stack
+      names. Use args-file when a value contains spaces.
+    required: false
+    default: ""
+  args-file:
+    description: >-
+      Path to a null-delimited argument list. Used instead of args when
+      it is set.
+    required: false
+    default: ""
+  account-id:
+    description: >-
+      Account id from secrets.AWS_ACCOUNT_ID. Stripped from the log and
+      the step summary. A variable is printed in the step header before
+      any mask runs. Empty leaves the text unchanged.
+    required: true
+  summary:
+    description: >-
+      When true, write the masked diff to the step summary. Default
+      true. false keeps a caller that does not write a summary.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Run CDK diff
+      shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        STACKS: ${{ inputs.stacks }}
+        ARGS: ${{ inputs.args }}
+        ARGS_FILE: ${{ inputs.args-file }}
+        ACCOUNT_ID: ${{ inputs.account-id }}
+        SUMMARY: ${{ inputs.summary }}
+      run: python3 "$GITHUB_ACTION_PATH/cdk_diff.py"

@@ -148,10 +148,14 @@ class FixtureWorkflowTest(unittest.TestCase):
             "playwright-fail:",
             "aws-oidc-skip:",
             "aws-oidc-fail:",
+            "cdk-bootstrap-pass:",
+            "cdk-bootstrap-fail:",
+            "cdk-diff-pass:",
+            "cdk-diff-fail:",
         ):
             self.assertIn(job, text)
-        self.assertEqual(text.count("continue-on-error: true"), 23)
-        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 22)
+        self.assertEqual(text.count("continue-on-error: true"), 25)
+        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 24)
 
 
 if __name__ == "__main__":
