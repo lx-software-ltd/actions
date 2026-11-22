@@ -130,6 +130,7 @@ The action is on `actions` `main` at `61d2a58`. It fails unless the approving-re
 | SA-307 | This pull request publishes the hook definitions. Deleting the product script copies is Wave 2. |
 | SA-308, SA-309 | This pull request. The audit actions and `workflow-conformance` in enforce mode here. |
 | Later | Product waves pin `61b67ed4`. findingalpha is the first. Part B is deferred. G3, G4, and G5 stay closed. |
+| uses: anchor | This pull request. `_uses` is `^\s*(-\s*)?uses:`. `statuses: write` is not an action pin. Product pins stay `61b67ed4`. Quoted `"statuses"` keys stay until a later pin bump. |
 
 ## SA-306 evidence
 

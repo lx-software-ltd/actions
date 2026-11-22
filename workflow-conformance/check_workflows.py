@@ -35,10 +35,11 @@ PRODUCT_SECURITY_JOBS = (
 
 
 def _uses(line: str) -> str | None:
-    match = re.search(r"uses:\s+(\S+)", line)
+    # Anchor at the line. "statuses: write" contains the letters uses:.
+    match = re.search(r"^\s*(-\s*)?uses:\s+(\S+)", line)
     if not match:
         return None
-    return match.group(1)
+    return match.group(2)
 
 
 def _workflows(workflow_dir: Path) -> list[Path]:
