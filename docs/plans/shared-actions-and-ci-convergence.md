@@ -9,7 +9,7 @@ An earlier copy of this file was a shortened rewrite. It dropped the catalog, th
 **Status**: Done (CI scope) except C04
 **Zone**: red
 
-22 Nov 2026: the CI scope is done except C04. `docs/plans/progress.md` records the merges, the inputs that are still passed, and what stays open. Stages 5 and 6, SA-701, SA-702, and the two Flutter pins are not done. The step text below is unchanged.
+22 Nov 2026: the CI scope is done except C04. C04 and the pin bump to `9235676` are `findingalpha` #80, `lx-software` #669, `evolvesprouts` #2276, and `siutindei` #927. `docs/plans/progress.md` records their merge commits before the actions record merges. Stages 5 and 6, SA-701, SA-702, and the two Flutter pins are not done. The step text below is unchanged.
 
 This is a hand-off plan. An agent can execute it across five
 repositories of the `lx-software-ltd` organisation: `findingalpha`,
