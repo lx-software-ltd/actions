@@ -1,0 +1,57 @@
+name: AWS OIDC
+description: >-
+  Mask the account id, check the account and region, and assume
+  GitHubActionsRole. Output ready is true only when the role is assumed.
+
+inputs:
+  account-id:
+    description: >-
+      AWS account id. The caller passes
+      secrets.AWS_ACCOUNT_ID || vars.AWS_ACCOUNT_ID. The action cannot
+      read secrets or variables itself.
+    required: true
+  region:
+    description: AWS region. The caller passes vars.AWS_REGION.
+    required: true
+  role-name:
+    description: IAM role to assume. Default GitHubActionsRole.
+    required: false
+    default: GitHubActionsRole
+  required:
+    description: >-
+      When true, a missing account id or region fails the step. When
+      false, ready is false and the step warns. Default true.
+    required: false
+    default: "true"
+  subject:
+    description: >-
+      OIDC subject in ID form, repo:<org>@<org-id>/<repo>@<repo-id>:...
+      Leave empty to skip the check. The name form is rejected.
+    required: false
+    default: ""
+
+outputs:
+  ready:
+    description: true when the account and region were set and the role assume step ran.
+    value: ${{ steps.check.outputs.ready }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check the account, region, and subject
+      id: check
+      shell: bash
+      env:
+        ACCOUNT_ID: ${{ inputs.account-id }}
+        AWS_REGION: ${{ inputs.region }}
+        REQUIRED: ${{ inputs.required }}
+        SUBJECT: ${{ inputs.subject }}
+      run: python3 "$GITHUB_ACTION_PATH/aws_oidc.py"
+
+    - name: Configure AWS credentials
+      if: steps.check.outputs.ready == 'true'
+      uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+      with:
+        role-to-assume: arn:aws:iam::${{ inputs.account-id }}:role/${{ inputs.role-name }}
+        aws-region: ${{ inputs.region }}
+        role-session-name: GitHubActions-${{ github.run_id }}
