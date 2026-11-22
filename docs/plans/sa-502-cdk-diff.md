@@ -1,13 +1,13 @@
 # Plan: SA-502 cdk-bootstrap-check and cdk-diff
 
-**Status**: In progress
+**Status**: Merged in actions #32. The findingalpha pilot is #84. The other three are not updated.
 **Zone**: yellow
 
 ## Goal
 
 Add `cdk-bootstrap-check` and `cdk-diff`. The check reads the bootstrap version from SSM and fails with a hint when it is missing. It does not run `cdk bootstrap`. The diff runs `cdk diff`, strips the account id from the log and the step summary, and keeps the diff's exit code.
 
-The findingalpha pilot comes after this pull request merges. The other three keep their current triggers. Callers that do not write a summary pass `summary: "false"`. Callers that do not name stacks pass an empty `stacks` list.
+The findingalpha pilot is merged at `24d9267` and pins `12ce754`. The other three keep their current triggers and are not updated. Callers that do not write a summary pass `summary: "false"`. Callers that do not name stacks pass an empty `stacks` list.
 
 ## Non-goals
 
