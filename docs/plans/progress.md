@@ -137,8 +137,8 @@ The action is on `actions` `main` at `61d2a58`. It fails unless the approving-re
 | SA-308, SA-309 | This pull request. The audit actions and `workflow-conformance` in enforce mode here. |
 | Later | Product waves pin `61b67ed4`. findingalpha is the first. Part B is deferred. G3, G4, and G5 stay closed. |
 | uses: anchor | Merged. #26 at `9235676`. `_uses` is `^\s*(-\s*)?uses:`. Product pins stay `61b67ed4`. Quoted `"statuses"` keys stay until a later pin bump. |
-| SA-501 | Merged. `actions` #30 at `839efa2`. `findingalpha` #83 at `a007feb`. CDK Diff on that pull request passed, and the `main` dispatch `45039311163` passed. The credentials step masked the account id and the diff summary was written. `findingalpha-admin-web` had differences. The job passed. |
-| SA-502 | In progress. `cdk-bootstrap-check` reads the SSM version and does not bootstrap. `cdk-diff` masks the account id and writes the summary. The findingalpha pilot waits until this merges. The other three keep their current triggers. |
+| SA-501 | Merged. `actions` #30 at `839efa2`. `findingalpha` #83 at `a007feb`. CDK Diff on that pull request passed (`45038363292`), and the `main` dispatch `45039311163` passed. The credentials step masked the account id and the diff summary was written. `findingalpha-admin-web` had differences. The job passed. |
+| SA-502 | Merged. `actions` #32 at `12ce754`. `findingalpha` #84 at `24d9267`. CDK Diff run `45040680793` on that pull request passed: the bootstrap check read the SSM version, the credentials step masked the account id, and the diff summary was written. `findingalpha-admin-web` had differences. The job passed. `lx-software`, `evolvesprouts`, and `siutindei` stay on `9235676200771b2f93bc01ac85f3de1392133182` and keep their current triggers. |
 | CI close-out | Merged. #27. Done (CI scope) except C04. |
 | C04 and pin | Merged. `findingalpha` #80 `e829c7900d496cd7aaaa98619807ed28dd46a3c8`. `lx-software` #669 `6ce6213ac6a54d5c6c08fbcdee5a9e04a1296bdb`. `evolvesprouts` #2276 `aa0d8d379017b98e4e879ae0ca50111ab1348c75`. `siutindei` #927 `b19167534cf9ba1e23ca805aee483d851bf31961`. The record pull request #28 merged before these SHAs were written. This pull request adds them. |
 
@@ -183,13 +183,13 @@ Semgrep `exclude-rules`: `findingalpha` #79 is merged, and `findingalpha` `main`
 
 `flutter-version` stays. C06 makes it required. `evolvesprouts` passes `3.50.1`. `siutindei` passes `3.47.9`.
 
-Stage 5 and Stage 6 actions are not called. Those workflows still contain their own AWS and deploy steps.
+findingalpha `cdk-diff.yml` calls `aws-oidc`, `cdk-bootstrap-check`, and `cdk-diff`. The other product workflows still contain their own AWS and deploy steps. Stage 6 actions are not called.
 
 ### Still open
 
 - C04 is merged. `findingalpha` #80 `e829c7900d496cd7aaaa98619807ed28dd46a3c8`. `lx-software` #669 `6ce6213ac6a54d5c6c08fbcdee5a9e04a1296bdb`. `evolvesprouts` #2276 `aa0d8d379017b98e4e879ae0ca50111ab1348c75`. `siutindei` #927 `b19167534cf9ba1e23ca805aee483d851bf31961`. The product pin is `9235676200771b2f93bc01ac85f3de1392133182`. The owner still needs to dispatch `e2e-admin-web.yml` and Deploy Admin Web on `siutindei` `main`. Those are the first Node 26 runs of those paths.
 - Flutter pins differ. C06 requires a pin, not one shared version. `evolvesprouts` passes `3.50.1`. `siutindei` passes `3.47.9`.
-- Stage 5. G3 is approved. The owner reported O5 complete on 22 Nov 2026. SA-501 is merged, and CDK Diff on findingalpha `main` passed (`45039311163`). SA-502 is `cdk-bootstrap-check` and `cdk-diff`. The findingalpha pilot starts after this pull request merges. SA-503 has not started. Each repository waits for an O7 run before the next one starts.
+- Stage 5. G3 is approved. The owner reported O5 complete on 22 Nov 2026. SA-501 is merged, and CDK Diff on findingalpha `main` passed (`45039311163`). SA-502 is merged: `cdk-bootstrap-check` and `cdk-diff`, piloted in findingalpha #84. That pull request's CDK Diff passed (`45040680793`). The other three repositories are not updated. SA-503 has not started. Each repository waits for an O7 run before the next one starts.
 - Stage 6. G4 is approved for SA-601. SA-603 is the design note only; implementation needs a second G5 approval. SA-602 stays out of scope.
 - SA-701. The pair B mobile and promote workflows (`deploy-ios.yml`, `deploy-mobile.yml`, `promote-public-www.yml`, `smoke-public-www-staging.yml`) were not compared for a shared block of ten lines.
 - SA-702. `mypy` where Python is linted, a type-check for every Node app, a coverage floor at the measured value, and OpenAPI lint where an OpenAPI file exists. Each is its own plan in the repository it changes.
