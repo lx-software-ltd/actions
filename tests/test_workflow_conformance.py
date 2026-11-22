@@ -171,6 +171,13 @@ class WorkflowConformanceTest(unittest.TestCase):
         self.assertTrue(found)
         self.assertEqual(revs, [""])
 
+    def test_statuses_permission_is_not_an_action_use(self) -> None:
+        self.assertIsNone(checker._uses("  statuses: write"))
+        self.assertIsNone(checker._uses('  "statuses": write'))
+        self.assertIsNone(checker._uses("permissions: {contents: read, statuses: write}"))
+        self.assertEqual(checker._uses("        uses: actions/checkout@v4"), "actions/checkout@v4")
+        self.assertEqual(checker._uses("      - uses: actions/checkout@v4"), "actions/checkout@v4")
+
     def test_product_profile_requires_the_target_jobs(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
