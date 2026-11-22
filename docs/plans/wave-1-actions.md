@@ -21,7 +21,7 @@ Playwright 1.49.1's Chromium download on `ubuntu-26.04` reached 100% and then di
 
 Checkov writes `checkov-results.sarif` in the workspace. The runner temp directory is not mounted into Checkov's container, so a SARIF written there was discarded and the filter uploaded an empty file. The fail fixture checks that the workspace SARIF has a finding.
 
-`semgrep ci` passes rules through `SEMGREP_RULES` and fails on a command error. `workflow-conformance` checks image digests, `paths-ignore`, the gate shape, and, for `profile: product`, the target security jobs.
+`semgrep ci` passes rules through `SEMGREP_RULES` and fails on a command error. The ci fixture commits its hit during the job. On a pull request, Semgrep checks out the head sha recorded in the event and ignores a file that is already on that commit, so the job replaces that sha with the new commit. `workflow-conformance` checks image digests, `paths-ignore`, the gate shape, and, for `profile: product`, the target security jobs.
 
 ## Out of scope
 

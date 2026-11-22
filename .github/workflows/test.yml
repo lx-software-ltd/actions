@@ -664,6 +664,37 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # On a pull request, semgrep ci checks out the head sha from the event
+      # and scans only files changed since the base. A file already on that
+      # head is invisible once the pull request merges. Commit the hit during
+      # the job and replace the event's head sha with that commit so the scan
+      # sees a file that is new on every run. GitHub ignores a step-level
+      # override of GITHUB_BASE_REF, so the baseline stays the real base.
+      - name: Commit a new Semgrep hit
+        shell: sh
+        run: |
+          set -eu
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global user.email fixture@example.com
+          git config --global user.name fixture
+          mkdir -p fixtures/semgrep
+          printf '%s\n' fixture-semgrep-hit > fixtures/semgrep/ci-hit.txt
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            head=$(python3 -c 'import json, os; print(json.load(open(os.environ["GITHUB_EVENT_PATH"]))["pull_request"]["head"]["sha"])')
+            git cat-file -e "$head^{commit}" || git fetch origin "$head"
+            git checkout --detach "$head"
+            git add fixtures/semgrep/ci-hit.txt
+            tree=$(git write-tree)
+            parent=$(git rev-parse "$head^")
+            new=$(git commit-tree "$tree" -p "$parent" -m "fixture semgrep hit")
+            git replace "$head" "$new"
+          else
+            git add fixtures/semgrep/ci-hit.txt
+            git commit -m "fixture semgrep hit"
+          fi
 
       - name: Run semgrep ci with the fixture rule
         uses: ./semgrep
