@@ -990,11 +990,14 @@ jobs:
           account-id: "000000000000"
           summary: "true"
 
+      # The job summary file is per step, so this reads the copy the
+      # action writes for a later step.
       - name: The summary hides the account id
         run: |
-          grep -F '### CDK diff' "$GITHUB_STEP_SUMMARY"
-          grep -F 'aws://***/ap-southeast-1' "$GITHUB_STEP_SUMMARY"
-          if grep -F '000000000000' "$GITHUB_STEP_SUMMARY"; then
+          file="$RUNNER_TEMP/cdk-diff-summary.md"
+          grep -F '### CDK diff' "$file"
+          grep -F 'aws://***/ap-southeast-1' "$file"
+          if grep -F '000000000000' "$file"; then
             echo "account id leaked into the summary"
             exit 1
           fi

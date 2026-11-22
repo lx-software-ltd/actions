@@ -10,6 +10,8 @@ The account id comes from `secrets.AWS_ACCOUNT_ID`. A variable is printed in the
 
 Set `summary` to `false` to keep a caller that does not write a step summary. The log is still masked.
 
+The same markdown is written to `$RUNNER_TEMP/cdk-diff-summary.md`. A later step can read that file. `GITHUB_STEP_SUMMARY` belongs to the step that writes it.
+
 ## Inputs
 
 | Input | Required | Default | Meaning |

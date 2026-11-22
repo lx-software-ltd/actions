@@ -38,11 +38,15 @@ def mask(text: str, account_id: str) -> str:
     return text.replace(account_id, "***")
 
 
+def summary_block(text: str) -> str:
+    """The markdown block written for one diff."""
+    return "### CDK diff\n\n```\n" + text.rstrip("\n") + "\n```\n"
+
+
 def write_summary(text: str, summary_path: str) -> None:
-    """Append the diff to the step summary."""
-    block = "### CDK diff\n\n```\n" + text.rstrip("\n") + "\n```\n"
+    """Append the diff to a summary file."""
     with open(summary_path, "a", encoding="utf-8") as handle:
-        handle.write(block)
+        handle.write(summary_block(text))
 
 
 def _run_cdk(command_args: list[str], directory: str) -> tuple[int, str]:
@@ -81,9 +85,17 @@ def main(run_cdk: Runner | None = None) -> int:
     masked = mask(output, account_id)
     sys.stdout.write(masked)
     if write:
+        # Each step has its own GITHUB_STEP_SUMMARY, so a later step cannot
+        # read this one. The copy under RUNNER_TEMP is the same text.
         summary_path = os.environ.get("GITHUB_STEP_SUMMARY", "").strip()
         if summary_path:
             write_summary(masked, summary_path)
+        temp = os.environ.get("RUNNER_TEMP", "").strip()
+        if temp:
+            Path(temp, "cdk-diff-summary.md").write_text(
+                summary_block(masked),
+                encoding="utf-8",
+            )
     return code
 
 

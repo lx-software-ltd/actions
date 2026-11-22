@@ -96,12 +96,15 @@ class CdkDiffTest(unittest.TestCase):
                 "ACCOUNT_ID": "000000000000",
                 "SUMMARY": "true",
                 "GITHUB_STEP_SUMMARY": str(summary),
+                "RUNNER_TEMP": directory,
             }
             with mock.patch.dict("os.environ", env, clear=False):
                 with mock.patch("sys.stdout") as stdout:
                     code = cdk_diff.main(run_cdk)
             text = summary.read_text(encoding="utf-8")
+            copy = (Path(directory) / "cdk-diff-summary.md").read_text(encoding="utf-8")
         self.assertEqual(code, 0)
+        self.assertEqual(text, copy)
         self.assertIn("### CDK diff", text)
         self.assertIn("aws://***/ap-southeast-1", text)
         self.assertNotIn("000000000000", text)
@@ -123,11 +126,13 @@ class CdkDiffTest(unittest.TestCase):
                 "ACCOUNT_ID": "",
                 "SUMMARY": "false",
                 "GITHUB_STEP_SUMMARY": str(summary),
+                "RUNNER_TEMP": directory,
             }
             with mock.patch.dict("os.environ", env, clear=False):
                 code = cdk_diff.main(run_cdk)
         self.assertEqual(code, 2)
         self.assertFalse(summary.exists())
+        self.assertFalse((Path(directory) / "cdk-diff-summary.md").exists())
 
     def test_args_file_is_used_instead_of_args(self) -> None:
         seen: list[list[str]] = []
