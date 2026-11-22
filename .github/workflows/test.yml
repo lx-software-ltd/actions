@@ -927,7 +927,6 @@ jobs:
           account-id: ""
           region: ""
           required: "false"
-          subject: repo:lx-software-ltd@321652495/findingalpha@1456774357:*
 
       - name: The step is not ready
         env:
@@ -941,15 +940,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Reject a name-form subject
+      - name: Reject a required account that is unset
         id: aws
         continue-on-error: true
         uses: ./aws-oidc
         with:
           account-id: ""
           region: ""
-          required: "false"
-          subject: repo:lx-software-ltd/findingalpha:pull_request
+          required: "true"
 
       - name: Expect the action to fail
         env:

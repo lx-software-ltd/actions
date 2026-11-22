@@ -171,6 +171,18 @@ class WorkflowConformanceTest(unittest.TestCase):
         self.assertTrue(found)
         self.assertEqual(revs, [""])
 
+    def test_an_actions_pin_needs_a_main_date_comment(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _valid(root)
+            lint = (root / ".github" / "workflows" / "lint.yml").read_text(encoding="utf-8")
+            (root / ".github" / "workflows" / "lint.yml").write_text(
+                lint.replace(" # main 2026-11-20", " # sa-501 2026-11-22"),
+                encoding="utf-8",
+            )
+            found = checker.findings(root, "producer")
+            self.assertTrue(any("# main YYYY-MM-DD" in item for item in found), found)
+
     def test_statuses_permission_is_not_an_action_use(self) -> None:
         self.assertIsNone(checker._uses("  statuses: write"))
         self.assertIsNone(checker._uses('  "statuses": write'))
@@ -220,7 +232,7 @@ def _gated(name: str, gate: str, other: str) -> str:
               - {other}
             if: always()
             steps:
-              - uses: lx-software-ltd/actions/require-jobs@{REQUIRE}
+              - uses: lx-software-ltd/actions/require-jobs@{REQUIRE} # main 2026-11-20
         """
     )
 

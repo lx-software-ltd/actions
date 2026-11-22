@@ -1,14 +1,15 @@
 name: AWS OIDC
 description: >-
-  Mask the account id, check the account and region, and assume
-  GitHubActionsRole. Output ready is true only when the role is assumed.
+  Mask the account id, check the account, region, and OIDC subject, and
+  assume GitHubActionsRole. Output ready is true when those checks pass,
+  before the role is assumed.
 
 inputs:
   account-id:
     description: >-
-      AWS account id. The caller passes
-      secrets.AWS_ACCOUNT_ID || vars.AWS_ACCOUNT_ID. The action cannot
-      read secrets or variables itself.
+      AWS account id from a repository secret, secrets.AWS_ACCOUNT_ID.
+      A variable is printed in the step header before any mask runs.
+      The action cannot read secrets or variables itself.
     required: true
   region:
     description: AWS region. The caller passes vars.AWS_REGION.
@@ -23,29 +24,25 @@ inputs:
       false, ready is false and the step warns. Default true.
     required: false
     default: "true"
-  subject:
-    description: >-
-      OIDC subject in ID form, repo:<org>@<org-id>/<repo>@<repo-id>:...
-      Leave empty to skip the check. The name form is rejected.
-    required: false
-    default: ""
 
 outputs:
   ready:
-    description: true when the account and region were set and the role assume step ran.
+    description: >-
+      true when the account, region, and token subject were accepted.
+      The assume step runs after this is set. A failed assumption fails
+      the job. false when required is false and a setting is missing.
     value: ${{ steps.check.outputs.ready }}
 
 runs:
   using: composite
   steps:
-    - name: Check the account, region, and subject
+    - name: Check the account, region, and OIDC subject
       id: check
       shell: bash
       env:
         ACCOUNT_ID: ${{ inputs.account-id }}
         AWS_REGION: ${{ inputs.region }}
         REQUIRED: ${{ inputs.required }}
-        SUBJECT: ${{ inputs.subject }}
       run: python3 "$GITHUB_ACTION_PATH/aws_oidc.py"
 
     - name: Configure AWS credentials

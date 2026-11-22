@@ -5,7 +5,7 @@
 
 ## Goal
 
-Add `aws-oidc`. It masks the account id, checks that the account id and region are set, and assumes `GitHubActionsRole` with a session name. Output `ready`. A subject, when the caller passes one, must be the ID form `repo:<org>@<org-id>/<repo>@<repo-id>:...`. The findingalpha `cdk-diff.yml` pilot is the next pull request and pins this merge.
+Add `aws-oidc`. It masks the account id, checks that the account id and region are set, reads the job token's `sub` claim, and assumes `GitHubActionsRole` with a session name. `ready` is true after that check and before the role is assumed. The claim must be the ID form. There is no subject input. The caller passes `secrets.AWS_ACCOUNT_ID` only. The findingalpha pilot re-pins to this pull request's merge commit.
 
 ## Non-goals
 
@@ -23,7 +23,8 @@ Add `aws-oidc`. It masks the account id, checks that the account id and region a
 - Inputs reach the script through `env`. The `run` block does not interpolate `${{`.
 - `aws-actions/configure-aws-credentials` stays pinned at `e1253824e5c10ff9df46874f81ed3ec929e19cfd` with a version comment, and runs only when `ready` is true.
 - `required` false and a missing account or region set `ready` to false and exit 0. `required` true fails the step.
-- The name-form subject `repo:lx-software-ltd/findingalpha:pull_request` fails. Tests use `repo:lx-software-ltd@321652495/findingalpha@1456774357:*`.
+- The name-form subject and a `*` pattern fail. Tests use the token claim `repo:lx-software-ltd@321652495/findingalpha@1456774357:pull_request`.
+- A `lx-software-ltd/actions` pin has a `# main YYYY-MM-DD` comment.
 
 ## Done when
 
