@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import sys
 import tempfile
 import unittest
@@ -76,9 +77,12 @@ class CdkDiffTest(unittest.TestCase):
                 "GITHUB_STEP_SUMMARY": "",
             }
             with mock.patch.dict("os.environ", env, clear=False):
-                code = cdk_diff.main(run_cdk)
+                with mock.patch("sys.stdout") as stdout:
+                    code = cdk_diff.main(run_cdk)
+            printed = "".join(call.args[0] for call in stdout.write.call_args_list)
         self.assertEqual(code, 0)
         self.assertEqual(calls, [])
+        self.assertIn(f"::warning::Missing {directory}/package.json", printed)
 
     def test_summary_is_masked_and_the_exit_code_is_kept(self) -> None:
         def run_cdk(command: list[str], directory: str) -> tuple[int, str]:
@@ -157,6 +161,35 @@ class CdkDiffTest(unittest.TestCase):
                 cdk_diff.main(run_cdk)
         self.assertIn("app:Name=a value", seen[0])
         self.assertNotIn("ignored", seen[0])
+
+    def test_lines_are_masked_as_they_arrive(self) -> None:
+        written: list[str] = []
+        stream = cdk_diff.LineStream("000000000000", written.append)
+        stream.feed("aws://000000000000")
+        self.assertEqual(written, [])
+        stream.feed("/ap\nnext")
+        stream.finish()
+        self.assertEqual(written, ["aws://***/ap\n", "next"])
+        self.assertNotIn("000000000000", "".join(written))
+
+    def test_a_pty_command_streams_masked_output(self) -> None:
+        buffer = io.StringIO()
+        with mock.patch("sys.stdout", buffer):
+            code, raw = cdk_diff._run_cdk(
+                [
+                    "sh",
+                    "-c",
+                    "printf 'aws://000000000000/ap\\nsecond\\n'; exit 3",
+                ],
+                ".",
+                "000000000000",
+            )
+        text = buffer.getvalue()
+        self.assertEqual(code, 3)
+        self.assertIn("000000000000", raw)
+        self.assertIn("aws://***/ap", text)
+        self.assertIn("second", text)
+        self.assertNotIn("000000000000", text)
 
 
 if __name__ == "__main__":

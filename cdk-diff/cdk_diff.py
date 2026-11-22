@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import os
+import pty
 import re
 import subprocess
 import sys
+import termios
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Iterator
 
 SPLIT = re.compile(r"[,\s]+")
 
@@ -49,16 +51,87 @@ def write_summary(text: str, summary_path: str) -> None:
         handle.write(summary_block(text))
 
 
-def _run_cdk(command_args: list[str], directory: str) -> tuple[int, str]:
-    completed = subprocess.run(
+class LineStream:
+    """Mask complete lines and write them as they arrive."""
+
+    def __init__(self, account_id: str, write: Callable[[str], object]) -> None:
+        self._account_id = account_id
+        self._write = write
+        self._pending = ""
+        self.raw_parts: list[str] = []
+
+    def feed(self, chunk: str) -> None:
+        self.raw_parts.append(chunk)
+        text = self._pending + chunk.replace("\r\n", "\n").replace("\r", "\n")
+        lines = text.split("\n")
+        self._pending = lines.pop()
+        for line in lines:
+            self._emit(line + "\n")
+
+    def finish(self) -> str:
+        if self._pending:
+            self._emit(self._pending)
+            self._pending = ""
+        return "".join(self.raw_parts)
+
+    def _emit(self, piece: str) -> None:
+        self._write(mask(piece, self._account_id))
+        flush = getattr(self._write, "__self__", None)
+        if flush is sys.stdout:
+            sys.stdout.flush()
+
+
+def _pty_chunks(
+    command_args: list[str], directory: str
+) -> tuple[subprocess.Popen[bytes], Iterator[str]]:
+    """Run a command on a pseudo-terminal so Node flushes each line.
+
+    A pipe makes Node block-buffer stdout. A cancelled or timed-out job
+    would then show nothing from the diff.
+    """
+    master, slave = pty.openpty()
+    attrs = termios.tcgetattr(slave)
+    attrs[3] = attrs[3] & ~termios.ECHO
+    termios.tcsetattr(slave, termios.TCSANOW, attrs)
+    process = subprocess.Popen(
         command_args,
         cwd=directory,
-        capture_output=True,
-        text=True,
-        check=False,
+        stdin=subprocess.DEVNULL,
+        stdout=slave,
+        stderr=slave,
+        close_fds=True,
     )
-    output = (completed.stdout or "") + (completed.stderr or "")
-    return completed.returncode, output
+    os.close(slave)
+
+    def chunks() -> Iterator[str]:
+        try:
+            while True:
+                try:
+                    data = os.read(master, 4096)
+                except OSError:
+                    return
+                if not data:
+                    return
+                yield data.decode("utf-8", errors="replace")
+        finally:
+            os.close(master)
+
+    return process, chunks()
+
+
+def _run_cdk(command_args: list[str], directory: str, account_id: str) -> tuple[int, str]:
+    """Stream masked output. Return the exit code and the raw text."""
+    process, chunks = _pty_chunks(command_args, directory)
+    stream = LineStream(account_id, sys.stdout.write)
+    raw = ""
+    try:
+        for chunk in chunks:
+            stream.feed(chunk)
+        raw = stream.finish()
+    finally:
+        code = process.wait()
+    sys.stdout.flush()
+    return code, raw
 
 
 def main(run_cdk: Runner | None = None) -> int:
@@ -69,7 +142,9 @@ def main(run_cdk: Runner | None = None) -> int:
         return 1
     package = Path(directory) / "package.json"
     if not package.is_file():
-        print(f"Missing {directory}/package.json")
+        message = f"Missing {directory}/package.json"
+        print(f"::warning::{message}")
+        print(message)
         return 0
 
     args_file = os.environ.get("ARGS_FILE", "").strip()
@@ -81,9 +156,14 @@ def main(run_cdk: Runner | None = None) -> int:
     account_id = os.environ.get("ACCOUNT_ID", "")
     write = os.environ.get("SUMMARY", "true").strip() == "true"
 
-    code, output = (run_cdk or _run_cdk)(command(stacks, extra), directory)
-    masked = mask(output, account_id)
-    sys.stdout.write(masked)
+    if run_cdk is None:
+        code, output = _run_cdk(command(stacks, extra), directory, account_id)
+        masked = mask(output, account_id)
+    else:
+        code, output = run_cdk(command(stacks, extra), directory)
+        masked = mask(output, account_id)
+        sys.stdout.write(masked)
+        sys.stdout.flush()
     if write:
         # Each step has its own GITHUB_STEP_SUMMARY, so a later step cannot
         # read this one. The copy under RUNNER_TEMP is the same text.
