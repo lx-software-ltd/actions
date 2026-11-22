@@ -6,8 +6,10 @@ An earlier copy of this file was a shortened rewrite. It dropped the catalog, th
 
 ---
 
-**Status**: Draft
+**Status**: Done (CI scope)
 **Zone**: red
+
+22 Nov 2026: the CI scope is done. `docs/plans/progress.md` records the merges, the inputs that are still passed, and what stays open. Stages 5 and 6, SA-701, and SA-702 are not done. The step text below is unchanged.
 
 This is a hand-off plan. An agent can execute it across five
 repositories of the `lx-software-ltd` organisation: `findingalpha`,
