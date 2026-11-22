@@ -1002,6 +1002,15 @@ jobs:
             exit 1
           fi
 
+      # A typo in working-directory must not look like a successful diff.
+      - name: A missing package warns and succeeds
+        uses: ./cdk-diff
+        with:
+          working-directory: ${{ runner.temp }}/missing
+          stacks: ""
+          account-id: "000000000000"
+          summary: "false"
+
   cdk-diff-fail:
     name: CDK diff fail fixture
     runs-on: ubuntu-26.04
