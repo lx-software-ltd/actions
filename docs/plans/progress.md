@@ -86,7 +86,7 @@ The owner approved copying the 31 digests shared by `evolvesprouts` and `siutind
 
 That commit is still an ancestor of `main`. Force-push is blocked. The gates in this repository still pin it. Fixture jobs still use `uses: ./require-jobs`.
 
-One product repository uses one actions SHA. The harness pull requests moved all four to `aab84b76383d5a44838f9617ac47b23cfff7fdaf`: `findingalpha` #77 at `0e93c2b`, `lx-software` #663 at `a4b7033`, `evolvesprouts` #2274 at `58ab636`, `siutindei` #925 at `0fb8b5d`. findingalpha merged first. The next product pin is the merge commit of the wave 1 pull request, after it is on `main`.
+One product repository uses one actions SHA. The harness pull requests moved all four to `aab84b76383d5a44838f9617ac47b23cfff7fdaf`: `findingalpha` #77 at `0e93c2b`, `lx-software` #663 at `a4b7033`, `evolvesprouts` #2274 at `58ab636`, `siutindei` #925 at `0fb8b5d`. findingalpha merged first. The wave 1 merge is on `main` at `61b67ed4f686659433f6ca4cb10c80707e365cd0` (#24). That commit is the pin for the product waves.
 
 ## Dependabot
 
@@ -129,7 +129,7 @@ The action is on `actions` `main` at `61d2a58`. It fails unless the approving-re
 | SA-306 | Merged. `actions` #22 and #23 at `aab84b7`. Product: `findingalpha` #77, `lx-software` #663, `evolvesprouts` #2274, `siutindei` #925. Evidence is below. |
 | SA-307 | This pull request publishes the hook definitions. Deleting the product script copies is Wave 2. |
 | SA-308, SA-309 | This pull request. The audit actions and `workflow-conformance` in enforce mode here. |
-| Later | Product waves pin the wave 1 merge commit. Part B is deferred. G3, G4, and G5 stay closed. |
+| Later | Product waves pin `61b67ed4`. findingalpha is the first. Part B is deferred. G3, G4, and G5 stay closed. |
 
 ## SA-306 evidence
 
