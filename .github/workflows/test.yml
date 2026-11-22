@@ -911,6 +911,132 @@ jobs:
           OUTCOME: ${{ steps.scan.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  cdk-bootstrap-pass:
+    name: CDK bootstrap check pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # A stub. The job does not call AWS.
+      - name: Install a stub aws
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          cat > "$RUNNER_TEMP/bin/aws" << 'EOF'
+          #!/bin/sh
+          echo 21
+          exit 0
+          EOF
+          chmod +x "$RUNNER_TEMP/bin/aws"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Check bootstrap
+        uses: ./cdk-bootstrap-check
+        with:
+          qualifier: hnb659fds
+          region: ap-southeast-1
+
+  cdk-bootstrap-fail:
+    name: CDK bootstrap check fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # An empty region fails before aws is invoked.
+      - name: Reject a missing region
+        id: bootstrap
+        continue-on-error: true
+        uses: ./cdk-bootstrap-check
+        with:
+          qualifier: ""
+          region: ""
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.bootstrap.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  cdk-diff-pass:
+    name: CDK diff pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26"
+
+      # A local bin so npx --no-install does not download CDK.
+      - name: Install a stub cdk
+        run: |
+          mkdir -p "$RUNNER_TEMP/app/node_modules/.bin"
+          printf '%s\n' '{"name":"cdk-diff-fixture","private":true}' > "$RUNNER_TEMP/app/package.json"
+          cat > "$RUNNER_TEMP/app/node_modules/.bin/cdk" << 'EOF'
+          #!/bin/sh
+          echo "Stack app (aws://000000000000/ap-southeast-1)"
+          echo "There were no differences"
+          exit 0
+          EOF
+          chmod +x "$RUNNER_TEMP/app/node_modules/.bin/cdk"
+
+      - name: Run CDK diff
+        uses: ./cdk-diff
+        with:
+          working-directory: ${{ runner.temp }}/app
+          stacks: app
+          account-id: "000000000000"
+          summary: "true"
+
+      - name: The summary hides the account id
+        run: |
+          grep -F '### CDK diff' "$GITHUB_STEP_SUMMARY"
+          grep -F 'aws://***/ap-southeast-1' "$GITHUB_STEP_SUMMARY"
+          if grep -F '000000000000' "$GITHUB_STEP_SUMMARY"; then
+            echo "account id leaked into the summary"
+            exit 1
+          fi
+
+  cdk-diff-fail:
+    name: CDK diff fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26"
+
+      - name: Install a stub cdk that fails
+        run: |
+          mkdir -p "$RUNNER_TEMP/app/node_modules/.bin"
+          printf '%s\n' '{"name":"cdk-diff-fixture","private":true}' > "$RUNNER_TEMP/app/package.json"
+          cat > "$RUNNER_TEMP/app/node_modules/.bin/cdk" << 'EOF'
+          #!/bin/sh
+          echo "diff failed"
+          exit 2
+          EOF
+          chmod +x "$RUNNER_TEMP/app/node_modules/.bin/cdk"
+
+      - name: Run CDK diff
+        id: diff
+        continue-on-error: true
+        uses: ./cdk-diff
+        with:
+          working-directory: ${{ runner.temp }}/app
+          stacks: ""
+          account-id: ""
+          summary: "false"
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.diff.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   aws-oidc-skip:
     name: AWS OIDC skip fixture
     runs-on: ubuntu-26.04
@@ -1001,6 +1127,10 @@ jobs:
       - semgrep-mode-fail
       - aws-oidc-skip
       - aws-oidc-fail
+      - cdk-bootstrap-pass
+      - cdk-bootstrap-fail
+      - cdk-diff-pass
+      - cdk-diff-fail
     if: always()
     steps:
       # Pinned to the merge on main. See the matching comment in lint.yml.

@@ -1,0 +1,23 @@
+name: CDK bootstrap check
+description: >-
+  Read the CDK bootstrap version from SSM and fail with a hint when it
+  is missing. This does not run cdk bootstrap.
+
+inputs:
+  qualifier:
+    description: Bootstrap qualifier. Empty uses hnb659fds.
+    required: false
+    default: ""
+  region:
+    description: AWS region. The caller passes vars.AWS_REGION.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Check CDK bootstrap
+      shell: bash
+      env:
+        QUALIFIER: ${{ inputs.qualifier }}
+        AWS_REGION: ${{ inputs.region }}
+      run: python3 "$GITHUB_ACTION_PATH/check_bootstrap.py"
