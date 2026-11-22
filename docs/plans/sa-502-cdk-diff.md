@@ -28,6 +28,8 @@ The findingalpha pilot is merged at `24d9267` and pins `12ce754`. The other thre
 - An empty stack list passes no stack names. `args-file` is a null-delimited list and wins over `args`.
 - `summary: "false"` writes no step summary. The diff's exit code is the step's exit code.
 - The account id is removed from the log and the summary. An empty account id leaves the text unchanged and is not printed.
+- A missing `package.json` prints `::warning::` and exits 0. It does not run CDK.
+- Diff lines are written as CDK prints them. The command runs on a pseudo-terminal so Node does not block-buffer the log.
 - A `lx-software-ltd/actions` pin has a `# main YYYY-MM-DD` comment.
 
 ## Done when

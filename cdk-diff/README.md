@@ -1,6 +1,6 @@
 # CDK diff
 
-Runs `npx --no-install cdk diff --no-color` in `working-directory`, then removes the account id from the log and the step summary. The step exits with the diff's own status.
+Runs `npx --no-install cdk diff --no-color` in `working-directory`, then removes the account id from the log and the step summary. The step exits with the diff's own status. Diff lines are written as CDK prints them. A missing `package.json` prints a warning and does not run CDK. The step still succeeds, so a caller can skip a repository that has no CDK app.
 
 `npm ci` has already installed `aws-cdk`. `--no-install` does not download a package. Building the app, acknowledging notices, and loading parameter files stay in the caller. Those steps differ by repository. Pass the resulting arguments in `args` or, when a value contains spaces, in a null-delimited `args-file`.
 
