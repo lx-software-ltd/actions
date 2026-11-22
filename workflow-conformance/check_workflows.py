@@ -200,6 +200,10 @@ def findings(root: Path, profile: str = "product") -> list[str]:
                 continue
             if uses.startswith("lx-software-ltd/actions/"):
                 pins.append(ref)
+                if re.search(r"#\s*main\s+\d{4}-\d{2}-\d{2}\b", line) is None:
+                    errors.append(
+                        f"{rel}:{line_number}: {uses} needs a '# main YYYY-MM-DD' comment"
+                    )
         for line_number, image in _images(text):
             if not DIGEST.search(image):
                 errors.append(f"{rel}:{line_number}: image {image} is not pinned by digest")

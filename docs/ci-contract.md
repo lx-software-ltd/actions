@@ -42,7 +42,7 @@ Linux jobs use `ubuntu-26.04`. macOS jobs use `macos-26`. The owner chose that l
 ## Pins and permissions
 
 - Third-party actions are pinned by full 40-character SHA, with a version comment.
-- `uses` of `lx-software-ltd/actions/<name>` is pinned by the same SHA the pre-commit `rev` uses.
+- `uses` of `lx-software-ltd/actions/<name>` is pinned by the same SHA the pre-commit `rev` uses. The same line has a `# main YYYY-MM-DD` comment, and that commit is on `main`.
 - Every workflow has top-level `permissions: contents: read`. A job that needs more sets its own block.
 - No workflow adds a long-lived AWS key. Deploy jobs use OIDC.
 
@@ -88,6 +88,6 @@ CodeQL scans Python and GitHub Actions. The Actions language is the one that cov
 
 ## Checked by workflow-conformance
 
-The action checks the pin, runner, permission, image-digest, gate, path-filter, one-commit, and pre-commit `rev` rules above. A `pull_request` `paths-ignore` is a path filter. A gate job has `if: always()`, lists every other job in that file under `needs`, and pins `require-jobs` by commit SHA. `security-summary` is that gate in `security.yml`. Container and service images are pinned by digest, which is how row C14 is enforced.
+The action checks the pin, runner, permission, image-digest, gate, path-filter, one-commit, `# main YYYY-MM-DD` comment, and pre-commit `rev` rules above. A `pull_request` `paths-ignore` is a path filter. A gate job has `if: always()`, lists every other job in that file under `needs`, and pins `require-jobs` by commit SHA. `security-summary` is that gate in `security.yml`. Container and service images are pinned by digest, which is how row C14 is enforced.
 
 `profile: product` also requires the `security.yml` job ids in the table above and a `semgrep/ci` job. `profile: producer` is this repository, which does not have those product job ids. `mode: warn` prints findings and exits 0. `mode: enforce` exits 1. This repository runs enforce with `profile: producer`. Product repositories start in warn and switch to enforce on their last close-out commit.

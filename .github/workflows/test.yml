@@ -911,6 +911,49 @@ jobs:
           OUTCOME: ${{ steps.scan.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  aws-oidc-skip:
+    name: AWS OIDC skip fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # No account and no region. required is false, so the assume step
+      # does not run and this job does not request a token.
+      - name: Skip when the account is unset
+        id: aws
+        uses: ./aws-oidc
+        with:
+          account-id: ""
+          region: ""
+          required: "false"
+
+      - name: The step is not ready
+        env:
+          READY: ${{ steps.aws.outputs.ready }}
+        run: test "$READY" = "false"
+
+  aws-oidc-fail:
+    name: AWS OIDC fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reject a required account that is unset
+        id: aws
+        continue-on-error: true
+        uses: ./aws-oidc
+        with:
+          account-id: ""
+          region: ""
+          required: "true"
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.aws.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   test:
     name: test
     runs-on: ubuntu-26.04
@@ -956,6 +999,8 @@ jobs:
       - semgrep-ci
       - semgrep-ci-error
       - semgrep-mode-fail
+      - aws-oidc-skip
+      - aws-oidc-fail
     if: always()
     steps:
       # Pinned to the merge on main. See the matching comment in lint.yml.
