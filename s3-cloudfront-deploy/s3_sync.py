@@ -468,13 +468,16 @@ def resolve_destination(
             message = f"{message} {detail}"
         raise SyncError(message)
     try:
-        found = module.select(completed.stdout or "", names)
+        found = module.select(completed.stdout or "", [names[0]])
     except module.ReadError as exc:
         raise SyncError(str(exc)) from exc
-    resolved_bucket = found[bucket_output.strip()]
+    resolved_bucket = found[names[0]]
     resolved_distribution = distribution
-    if distribution_output.strip():
-        resolved_distribution = found[distribution_output.strip()]
+    if len(names) > 1:
+        try:
+            resolved_distribution = module.select(completed.stdout or "", [names[1]])[names[1]]
+        except module.ReadError:
+            resolved_distribution = ""
     return resolved_bucket, resolved_distribution
 
 
