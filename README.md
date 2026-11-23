@@ -61,8 +61,6 @@ Python payload uses the standard library and runs on Python 3.12.
 | `npm-audit` | `npm audit` at the caller's level. | All four. |
 | `setup-node` | Node 26, and `npm ci` when a working directory is set. | All four. |
 | `setup-python` | Python 3.12, and a pip cache when a requirements file is set. | All four. |
-| `setup-flutter` | Flutter 3.50.1. | `evolvesprouts`, `siutindei`, once the pin includes it. |
-| `lighthouse-ci` | Write the runtime Lighthouse config and run `@lhci/cli`. | The public-site repositories, once the pin includes it. |
 | `node-lockfiles` | Fail when `package-lock.json` is out of date. | All four. |
 | `python-requirements-pins` | Fail when a requirements file is unpinned. | All four. |
 | `flutter-lockfiles` | Fail when `pubspec.lock` is out of date. | `evolvesprouts`, `siutindei`. |
@@ -74,7 +72,7 @@ Python payload uses the standard library and runs on Python 3.12.
 | `cdk-deploy` | Deploy the stacks in a plan JSON from a parameters file. | All four, on backend deploy. |
 | `cfn-stack-outputs` | Read named CloudFormation outputs. | The repositories that read stack outputs. |
 | `s3-cloudfront-deploy` | Sync a build to S3 and invalidate CloudFront. | All four, on web deploy. |
-| `ios-export-options` | Write `ExportOptions.plist`. | `evolvesprouts`, `siutindei`. |
-| `appstore-api-key` | Load the App Store Connect API key into the environment. | `evolvesprouts`, `siutindei`. |
-| `android-signing` | Install the upload keystore. | `evolvesprouts`, `siutindei`. |
-| `play-prerequisites` | Skip the Play upload when a signing or track secret is missing. | `evolvesprouts`. `siutindei` stays inline until the pin includes `upload-enabled`. |
+| `ios-export-options` | Write `ExportOptions.plist`. | No caller yet. Adopt in `deploy-ios.yml`. |
+| `appstore-api-key` | Load the App Store Connect API key into the environment. | No caller yet. Adopt in `deploy-ios.yml`. |
+| `android-signing` | Install the upload keystore. | No caller yet. Adopt in `deploy-mobile.yml`. |
+| `play-prerequisites` | Skip the Play upload when a signing or track secret is missing. | No caller yet. Adopt in `deploy-mobile.yml`. |

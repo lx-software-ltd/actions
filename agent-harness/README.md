@@ -2,9 +2,9 @@
 
 Checks agent rules, file length, and test focus. `.github/harness.json` holds the lists that differ between repositories: required rules and skills, size limits, scan roots, and the allowlist path. A repository that does not run the file-length check omits that object.
 
-`rules.extra-rules` is `full`: every rule file is checked. `rules.verify-why-commits` checks that a `[why:]` tag names `convention` or a commit that exists. `rules.skills` is `all` or `required`.
+`rules.extra-rules` is `full` when every rule file is checked, and `always-only` when extra rules are only forbidden from `alwaysApply: true`. `rules.verify-why-commits` checks that a `[why:]` tag names `convention` or a commit that exists. `rules.skills` is `all` or `required`.
 
-`file-length.mode` is `typed`. Alembic `versions` and dot directories are skipped. `test-focus.mode` is `test-names`. It scans every file with a listed suffix and reports a focused test, an unconditional skip, and `@pytest.mark.skip`.
+`file-length.mode` is `typed`, `python-counted`, or `python-names`. `test-focus.mode` is `test-names` or `all-sources`.
 
 ## Inputs
 

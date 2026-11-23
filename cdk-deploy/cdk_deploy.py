@@ -24,7 +24,6 @@ FATAL = re.compile(
 EMAIL = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 SECRET = re.compile(r"^<FROM_GITHUB_SECRET:\s*([^>]+?)\s*>$")
 VARIABLE = re.compile(r"^<FROM_GITHUB_VAR:\s*([^>]+?)\s*>$")
-ENV_TOKEN = re.compile(r"\{([A-Z][A-Z0-9_]*)\}")
 DEFAULT_ROLLBACK = "is in UPDATE_ROLLBACK_FAILED state and can not be updated"
 
 Runner = Callable[[list[str]], subprocess.CompletedProcess[str]]
@@ -82,115 +81,6 @@ def _placeholder(text: str) -> str:
     if variable:
         return os.environ.get(variable.group(1), "")
     return text
-
-
-def _expand_token(text: str) -> str:
-    """Replace ``{NAME}`` in extra arguments. An unset name becomes empty."""
-    return ENV_TOKEN.sub(lambda match: os.environ.get(match.group(1), ""), text)
-
-
-def _expand_extra(extra: list[object]) -> list[object]:
-    """Expand tokens. An empty ``{NAME}`` value drops that argument and a preceding flag."""
-    expanded: list[object] = []
-    for item in extra:
-        if not isinstance(item, str):
-            expanded.append(item)
-            continue
-        text = _expand_token(item)
-        if text == "" and ENV_TOKEN.search(item):
-            if (
-                expanded
-                and isinstance(expanded[-1], str)
-                and expanded[-1].startswith("--")
-                and "=" not in expanded[-1]
-            ):
-                expanded.pop()
-            continue
-        expanded.append(text)
-    return expanded
-
-
-def load_plan_text(plan: str, plan_file: str) -> dict[str, object]:
-    """Read the plan JSON from the string or the file, not from both."""
-    if plan.strip() and plan_file.strip():
-        raise DeployError("Set plan or plan-file, not both")
-    raw = plan
-    if plan_file.strip():
-        path = _resolve_file(plan_file.strip())
-        if path is None:
-            raise DeployError("Set plan or plan-file")
-        raw = path.read_text(encoding="utf-8")
-    if not raw.strip():
-        raise DeployError("Set plan or plan-file")
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise DeployError("plan must be JSON") from exc
-    if not isinstance(data, dict):
-        raise DeployError("plan must be a JSON object")
-    groups = data.get("groups")
-    if isinstance(groups, list):
-        for group in groups:
-            if not isinstance(group, dict):
-                continue
-            extra = group.get("extra-args")
-            if isinstance(extra, list):
-                group["extra-args"] = _expand_extra(extra)
-    return data
-
-
-def _routing_plan(plan: dict[str, object]) -> dict[str, object]:
-    """The same groups without deploy-only extras, for a diff."""
-    groups = plan.get("groups")
-    if not isinstance(groups, list):
-        return plan
-    copied_groups: list[object] = []
-    for group in groups:
-        if not isinstance(group, dict):
-            copied_groups.append(group)
-            continue
-        copied = dict(group)
-        for key in ("extra-args", "append-if-set", "allowlist-env", "when-all-env"):
-            copied.pop(key, None)
-        copied_groups.append(copied)
-    routed = dict(plan)
-    routed["groups"] = copied_groups
-    return routed
-
-
-def parameter_arguments(
-    *,
-    plan: dict[str, object],
-    parameters: dict[str, object] | None,
-    fmt: str,
-    selected_stacks: list[str],
-    pass_empty: set[str],
-    escape_newlines: bool,
-    include_extras: bool,
-) -> list[str]:
-    """The ``--parameters`` arguments the deploy would pass."""
-    source = plan if include_extras else _routing_plan(plan)
-    commands = build_commands(
-        plan=source,
-        parameters=parameters,
-        fmt=fmt,
-        selected_stacks=selected_stacks,
-        pass_empty=pass_empty,
-        escape_newlines=escape_newlines,
-        no_notices=False,
-        destroy=False,
-        run_seed=False,
-    )
-    collected: list[str] = []
-    for argv, _stacks in commands:
-        index = 0
-        while index < len(argv):
-            if argv[index] == "--parameters" and index + 1 < len(argv):
-                collected.extend(argv[index : index + 2])
-                index += 2
-                continue
-            index += 1
-    return collected
 
 
 def _load_object(path: Path) -> dict[str, object]:
@@ -596,7 +486,9 @@ def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
 
 def main(run: Runner = _run, sleep: Sleeper = time.sleep) -> int:
     try:
-        plan = load_plan_text(os.environ.get("PLAN") or "", os.environ.get("PLAN_FILE") or "")
+        plan = json.loads(os.environ.get("PLAN") or "")
+        if not isinstance(plan, dict):
+            raise DeployError("plan must be a JSON object")
         path = _resolve_file(os.environ.get("PARAM_FILE", ""))
         parameters = _load_object(path) if path else None
         directory = os.environ.get("WORKING_DIRECTORY", "")

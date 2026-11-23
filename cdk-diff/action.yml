@@ -23,41 +23,9 @@ inputs:
   args-file:
     description: >-
       Path to a null-delimited argument list. Used instead of args when
-      it is set. Appended after the plan parameters.
+      it is set.
     required: false
     default: ""
-  plan:
-    description: >-
-      The same JSON as cdk-deploy. Empty uses args only. {NAME} in
-      extra-args expands when include-extras is true.
-    required: false
-    default: ""
-  plan-file:
-    description: Path to that JSON. Set plan or plan-file, not both.
-    required: false
-    default: ""
-  param-file:
-    description: Parameters file, the same input cdk-deploy takes.
-    required: false
-    default: ""
-  format:
-    description: prefixed-json or plain-json.
-    required: false
-    default: prefixed-json
-  pass-empty:
-    description: Comma-separated names sent when the value is empty.
-    required: false
-    default: ""
-  escape-newlines:
-    description: Escape newlines in plain-json values.
-    required: false
-    default: "false"
-  include-extras:
-    description: >-
-      When true, include extra-args, append-if-set, and when-all-env.
-      A diff leaves this false so it only routes the parameters file.
-    required: false
-    default: "false"
   account-id:
     description: >-
       Account id from secrets.AWS_ACCOUNT_ID. Stripped from the log and
@@ -81,13 +49,6 @@ runs:
         STACKS: ${{ inputs.stacks }}
         ARGS: ${{ inputs.args }}
         ARGS_FILE: ${{ inputs.args-file }}
-        PLAN: ${{ inputs.plan }}
-        PLAN_FILE: ${{ inputs.plan-file }}
-        PARAM_FILE: ${{ inputs.param-file }}
-        FORMAT: ${{ inputs.format }}
-        PASS_EMPTY: ${{ inputs.pass-empty }}
-        ESCAPE_NEWLINES: ${{ inputs.escape-newlines }}
-        INCLUDE_EXTRAS: ${{ inputs.include-extras }}
         ACCOUNT_ID: ${{ inputs.account-id }}
         SUMMARY: ${{ inputs.summary }}
       run: python3 "$GITHUB_ACTION_PATH/cdk_diff.py"

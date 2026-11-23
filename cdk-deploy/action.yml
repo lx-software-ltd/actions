@@ -14,15 +14,8 @@ inputs:
       select prefixed-json keys. unprefixed-prefix, when set, maps a
       key with no colon onto that prefix. routes and api-stack route plain-json
       names. extra-args, when-all-env, allowlist-env, and append-if-set
-      stay on the group. {NAME} in extra-args is replaced from the
-      environment. Set plan or plan-file.
-    required: false
-    default: ""
-  plan-file:
-    description: >-
-      Path to the same JSON as plan. Set plan or plan-file, not both.
-    required: false
-    default: ""
+      stay on the group.
+    required: true
   param-file:
     description: >-
       CDK_PARAM_FILE. Empty skips the file. A path that does not exist
@@ -92,7 +85,6 @@ runs:
       env:
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
         PLAN: ${{ inputs.plan }}
-        PLAN_FILE: ${{ inputs.plan-file }}
         PARAM_FILE: ${{ inputs.param-file }}
         FORMAT: ${{ inputs.format }}
         STACKS: ${{ inputs.stacks }}
