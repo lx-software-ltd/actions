@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Callable, Iterator
 
 SPLIT = re.compile(r"[,\s]+")
+EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
 Runner = Callable[[list[str], str], tuple[int, str]]
 
@@ -34,10 +35,9 @@ def command(stacks: list[str], args: list[str]) -> list[str]:
 
 
 def mask(text: str, account_id: str) -> str:
-    """Replace the account id. An empty id leaves the text unchanged."""
-    if not account_id:
-        return text
-    return text.replace(account_id, "***")
+    """Hide the account id and any email address. Other text stays."""
+    cleaned = text.replace(account_id, "***") if account_id else text
+    return EMAIL.sub("***", cleaned)
 
 
 def summary_block(text: str) -> str:

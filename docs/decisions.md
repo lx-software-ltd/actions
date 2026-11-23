@@ -38,7 +38,11 @@ Node is major version 26. Python is 3.12. Linux jobs use `ubuntu-26.04`. macOS j
 
 `evolvesprouts` and `siutindei` must not run `cdk bootstrap` on every backend deploy. Bootstrap rewrites the CDK output, including zip timestamps, before the asset hash, so the next deploy updates every Lambda. Bootstrap stays in the manual `cdk-bootstrap.yml`. A deploy uses `cdk-bootstrap-check`, which reads the SSM version and does not bootstrap. A CDK upgrade that needs a newer bootstrap stack fails the deploy until someone runs that manual workflow. That failure is the intended trade-off.
 
-A pull request diff does not assume `GitHubActionsRole`. It assumes the role named by the repository variable `AWS_DIFF_ROLE_NAME`, and only when that variable is set. The role trusts `pull_request` and is read-only. Until the variable is set, the pull request warns and does not call AWS. A manual run still assumes `GitHubActionsRole`. `siutindei` manual diffs use the `production` environment, because that environment holds the parameter-file variable and the branch policy allows `main` only. A `siutindei` pull request does not diff.
+A pull request diff does not assume `GitHubActionsRole`. It assumes the role named by the repository variable `AWS_DIFF_ROLE_NAME`, and only when that variable is set. Until the variable is set, the pull request warns and does not call AWS. A manual run still assumes `GitHubActionsRole`. `siutindei` manual diffs use the `production` environment, because that environment holds the parameter-file variable and the branch policy allows `main` only. A `siutindei` pull request does not diff.
+
+The workflow step that refuses `GitHubActionsRole` is not a security boundary. A pull request can edit the workflow. The boundary is IAM. `GitHubActionsRole` must not trust `pull_request`. The role named by `AWS_DIFF_ROLE_NAME` is read-only and trusts only `pull_request`. This repository cannot create those roles.
+
+`cdk diff` masks the account id and any email address in the log and the step summary. A parameter value that is not an email is still printed. A public repository must not put personal data in such a value.
 
 `cdk-deploy` takes a plan JSON and a parameters file. The file is either prefixed JSON or plain JSON. The design is `docs/architecture/cdk-deploy.md`.
 

@@ -58,6 +58,10 @@ class CdkDiffTest(unittest.TestCase):
             "Stack app (aws://***/ap-southeast-1)",
         )
         self.assertEqual(cdk_diff.mask(raw, ""), raw)
+        self.assertEqual(
+            cdk_diff.mask("FallbackManagerEmail person@example.com", ""),
+            "FallbackManagerEmail ***",
+        )
 
     def test_missing_package_does_not_run_cdk(self) -> None:
         calls: list[list[str]] = []
