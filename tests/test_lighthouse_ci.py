@@ -45,6 +45,29 @@ class LighthousePrepareTest(unittest.TestCase):
             config = json.loads(destination.read_text(encoding="utf-8"))
         self.assertEqual(config["ci"]["collect"]["url"][0], "http://localhost:9000/en/")
         self.assertIn("x-staging-bypass", config["ci"]["collect"]["settings"]["extraHeaders"])
+
+    def test_a_bypass_secret_writes_the_report_to_the_filesystem(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".lighthouserc.json").write_text(
+                json.dumps({"ci": {"upload": {"target": "temporary-public-storage"}}}),
+                encoding="utf-8",
+            )
+            destination = prepare.write_config(
+                root,
+                ".lighthouserc.json",
+                ["https://staging.example/en/"],
+                "9000",
+                staging_origin="https://staging.example",
+                bypass_secret="secret",
+            )
+            config = json.loads(destination.read_text(encoding="utf-8"))
+            self.assertEqual(config["ci"]["upload"]["target"], "filesystem")
+            kept = prepare.write_config(root, ".lighthouserc.json", ["/"], "9000")
+            self.assertEqual(
+                json.loads(kept.read_text(encoding="utf-8"))["ci"]["upload"]["target"],
+                "temporary-public-storage",
+            )
         self.assertNotIn("secret", (root / ".lighthouseci").as_posix())
 
     def test_the_runtime_config_stays_outside_the_workspace(self) -> None:
