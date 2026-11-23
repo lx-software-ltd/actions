@@ -1,0 +1,50 @@
+name: Play prerequisites
+description: >-
+  Set should_upload when the Play service account, track, and Android
+  signing secrets are all present.
+
+outputs:
+  should_upload:
+    description: true when the upload should run.
+    value: ${{ steps.play.outputs.should_upload }}
+
+inputs:
+  service-account:
+    description: Play service-account JSON. The caller passes the secret.
+    required: false
+    default: ""
+  track:
+    description: Play track. The caller passes vars.ANDROID_RELEASE_TRACK.
+    required: false
+    default: ""
+  keystore-base64:
+    description: Base64-encoded keystore.
+    required: false
+    default: ""
+  keystore-password:
+    description: Keystore password.
+    required: false
+    default: ""
+  key-password:
+    description: Key password.
+    required: false
+    default: ""
+  key-alias:
+    description: Key alias.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Check Play Store upload prerequisites
+      id: play
+      shell: bash
+      env:
+        GOOGLE_PLAY_SERVICE_ACCOUNT: ${{ inputs.service-account }}
+        ANDROID_RELEASE_TRACK: ${{ inputs.track }}
+        ANDROID_KEYSTORE_BASE64: ${{ inputs.keystore-base64 }}
+        ANDROID_KEYSTORE_PASSWORD: ${{ inputs.keystore-password }}
+        ANDROID_KEY_PASSWORD: ${{ inputs.key-password }}
+        ANDROID_KEY_ALIAS: ${{ inputs.key-alias }}
+      run: sh "$GITHUB_ACTION_PATH/check_play.sh"
