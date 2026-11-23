@@ -166,10 +166,12 @@ class FixtureWorkflowTest(unittest.TestCase):
             "android-signing-fail:",
             "play-prerequisites-pass:",
             "play-prerequisites-skip:",
+            "cdk-deploy-pass:",
+            "cdk-deploy-fail:",
         ):
             self.assertIn(job, text)
-        self.assertEqual(text.count("continue-on-error: true"), 31)
-        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 30)
+        self.assertEqual(text.count("continue-on-error: true"), 32)
+        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 31)
 
 
 if __name__ == "__main__":
