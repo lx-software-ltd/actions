@@ -6,6 +6,7 @@ The config carries the lists and limits that differ between repositories.
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -277,6 +278,9 @@ def check_file_length(root: Path, cfg: dict) -> list[str]:
     mode = cfg.get("mode", "typed")
     if mode != "typed":
         return [f"file-length mode must be typed, got {mode}"]
+    for key in ("python-prefix", "typescript-app-prefix", "typescript-lib-prefix"):
+        if "__not_scanned__" in (cfg.get(key) or ""):
+            return [f"file-length {key} is a placeholder. Omit the key."]
     allowed = load_allowlist(root, cfg)
     counts: dict[str, int] = {}
     for relative in cfg["scan-roots"]:
@@ -354,10 +358,14 @@ def run(root: Path, config_path: Path) -> list[str]:
     return errors
 
 
-def main() -> int:
-    root_text = os.environ.get("HARNESS_ROOT", "").strip()
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="check_harness.py")
+    parser.add_argument("config", nargs="?", help="Harness config. Defaults to HARNESS_CONFIG or .github/harness.json.")
+    parser.add_argument("--root", help="Directory to check. Defaults to HARNESS_ROOT or the working directory.")
+    parsed = parser.parse_args(argv)
+    root_text = (parsed.root or os.environ.get("HARNESS_ROOT", "")).strip()
     root = Path(root_text).resolve() if root_text else Path.cwd().resolve()
-    config_text = os.environ.get("HARNESS_CONFIG", ".github/harness.json")
+    config_text = parsed.config or os.environ.get("HARNESS_CONFIG", ".github/harness.json")
     config_path = Path(config_text)
     if not config_path.is_absolute():
         config_path = root / config_path
