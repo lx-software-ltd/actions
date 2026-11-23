@@ -1,0 +1,17 @@
+[
+  {
+    "name": "bug",
+    "color": "D73A4A",
+    "description": "Something isn't working"
+  },
+  {
+    "name": "dependencies",
+    "color": "0366d6",
+    "description": "Dependency updates (Dependabot)"
+  },
+  {
+    "name": "lambda",
+    "color": "c2e0c6",
+    "description": "Lambda packages"
+  }
+]

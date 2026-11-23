@@ -231,6 +231,65 @@ jobs:
           OUTCOME: ${{ steps.verify.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  sync-labels-pass:
+    name: Sync labels pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Load the matching labels
+        id: pass
+        run: |
+          {
+            echo "labels-json<<EOF"
+            cat fixtures/sync-labels/pass/labels.json
+            echo "EOF"
+            echo "live-json<<EOF"
+            cat fixtures/sync-labels/pass/live.json
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check labels
+        uses: ./sync-labels
+        with:
+          labels-json: ${{ steps.pass.outputs.labels-json }}
+          live-json: ${{ steps.pass.outputs.live-json }}
+          mode: check
+
+  sync-labels-fail:
+    name: Sync labels fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Load the drifted labels
+        id: fail
+        run: |
+          {
+            echo "labels-json<<EOF"
+            cat fixtures/sync-labels/fail/labels.json
+            echo "EOF"
+            echo "live-json<<EOF"
+            cat fixtures/sync-labels/fail/live.json
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check labels
+        id: sync
+        continue-on-error: true
+        uses: ./sync-labels
+        with:
+          labels-json: ${{ steps.fail.outputs.labels-json }}
+          live-json: ${{ steps.fail.outputs.live-json }}
+          mode: check
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.sync.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   pii-denylist-pass:
     name: PII denylist pass fixture
     runs-on: ubuntu-26.04
@@ -1439,6 +1498,8 @@ jobs:
       - setup-python-fail
       - verify-rulesets-pass
       - verify-rulesets-fail
+      - sync-labels-pass
+      - sync-labels-fail
       - pii-denylist-pass
       - pii-denylist-fail
       - gitleaks-pass
