@@ -44,7 +44,7 @@ The workflow step that refuses `GitHubActionsRole` is not a security boundary. A
 
 `cdk diff` masks the account id and any email address in the log and the step summary. A parameter value that is not an email is still printed. A public repository must not put personal data in such a value.
 
-`cdk-deploy` takes a plan JSON and a parameters file. The file is either prefixed JSON or plain JSON. The design is `docs/architecture/cdk-deploy.md`.
+`cdk-deploy` takes a plan JSON and a parameters file. The file is either prefixed JSON or plain JSON. `plan-file` is that same JSON on disk. `{NAME}` in `extra-args` expands from the caller environment, and an empty value stays in the argument. `cdk-diff` reads the same plan through `lib/cdk_plan.py` and does not import `cdk-deploy`. The design is `docs/architecture/cdk-deploy.md`.
 
 ## Denylist
 

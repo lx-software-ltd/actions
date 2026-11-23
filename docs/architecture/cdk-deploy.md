@@ -23,6 +23,8 @@ The workflow still maps the GitHub secret or variable into the environment. The 
 
 ## Routing a parameter to a stack
 
+`{NAME}` in `extra-args` is replaced from the environment. An empty replacement stays, so `Name={VAR}` becomes `Name=` and CloudFormation clears the parameter. Dropping the argument would keep the previously deployed value. That is the behaviour the findingalpha builder had when it always passed `Name=`.
+
 `findingalpha` splits the prefixed file into three argv lists by key prefix: `findingalpha:`, `findingalpha-admin-web:`, and `findingalpha-public-www:`. It then deploys `findingalpha` and `findingalpha-admin-web` together, and deploys `findingalpha-public-www` only when both the domain and the certificate variable are set. Extra `--parameters` flags in the workflow override or add the domain, Google, mail, API, Cognito, and WAF values. Those flags stay caller inputs (`extra-args`), because they are not in the file.
 
 `lx-software` uses the same prefixed file. It deploys `lxsoftware-public-www` first, with only that stack's parameters. It then checks the email allow-list and, only when `SIUTINDEI_BOARD_META_VERIFY_TOKEN` is non-empty, appends `lxsoftware:SiutindeiBoardMetaVerifyToken`. An empty secret must not be sent, so CloudFormation keeps the previous token. The admin stacks (`lxsoftware`, `lxsoftware-admin-web`) deploy second, without `--exclusively`. The allow-list check and the public-first order stay caller inputs: `order` and `allowlist`.

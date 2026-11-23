@@ -15,6 +15,12 @@ from typing import Callable, Iterator
 SPLIT = re.compile(r"[,\s]+")
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
+_LIB = Path(__file__).resolve().parents[1] / "lib"
+if str(_LIB) not in sys.path:
+    sys.path.insert(0, str(_LIB))
+
+from cdk_plan import DeployError, _load_object, _resolve_file, load_plan_text, parameter_arguments  # noqa: E402
+
 Runner = Callable[[list[str], str], tuple[int, str]]
 
 
@@ -134,6 +140,30 @@ def _run_cdk(command_args: list[str], directory: str, account_id: str) -> tuple[
     return code, raw
 
 
+def _plan_arguments(extra: list[str]) -> list[str]:
+    """Parameter arguments from the same plan the deploy uses."""
+    plan_text = os.environ.get("PLAN", "")
+    plan_file = os.environ.get("PLAN_FILE", "").strip()
+    if not plan_text.strip() and not plan_file:
+        return extra
+    try:
+        plan = load_plan_text(plan_text, plan_file)
+        path = _resolve_file(os.environ.get("PARAM_FILE", ""))
+        parameters = _load_object(path) if path else None
+        arguments = parameter_arguments(
+            plan=plan,
+            parameters=parameters,
+            fmt=os.environ.get("FORMAT", "prefixed-json") or "prefixed-json",
+            selected_stacks=split_list(os.environ.get("STACKS", "")),
+            pass_empty={part for part in os.environ.get("PASS_EMPTY", "").split(",") if part},
+            escape_newlines=os.environ.get("ESCAPE_NEWLINES", "false").lower() == "true",
+            include_extras=os.environ.get("INCLUDE_EXTRAS", "false").lower() == "true",
+        )
+    except DeployError as exc:
+        raise SystemExit(str(exc)) from exc
+    return [*arguments, *extra]
+
+
 def main(run_cdk: Runner | None = None) -> int:
     """Run the diff. Return the CDK exit code."""
     directory = os.environ.get("WORKING_DIRECTORY", "").strip()
@@ -152,6 +182,11 @@ def main(run_cdk: Runner | None = None) -> int:
         extra = read_args_file(args_file)
     else:
         extra = split_list(os.environ.get("ARGS", ""))
+    try:
+        extra = _plan_arguments(extra)
+    except SystemExit as exc:
+        print(f"::error::{exc}", file=sys.stderr)
+        return 1
     stacks = split_list(os.environ.get("STACKS", ""))
     account_id = os.environ.get("ACCOUNT_ID", "")
     write = os.environ.get("SUMMARY", "true").strip() == "true"
