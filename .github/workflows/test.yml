@@ -656,6 +656,61 @@ jobs:
           OUTCOME: ${{ steps.scan.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  dependency-graph-pass:
+    name: dependency-graph pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build a snapshot from pinned manifests
+        uses: ./dependency-graph
+        with:
+          manifests: |
+            fixtures/dependency-graph/pass/requirements.txt
+            fixtures/dependency-graph/pass/package-lock.json
+            fixtures/dependency-graph/pass/workflow.yml
+          snapshot-path: dependency-graph-snapshot.json
+
+      - name: The snapshot lists each ecosystem
+        run: |
+          python3 - << 'PY'
+          import json
+          payload = json.load(open("dependency-graph-snapshot.json", encoding="utf-8"))
+          purls = [
+              item["package_url"]
+              for manifest in payload["manifests"].values()
+              for item in manifest["resolved"].values()
+          ]
+          needed = [
+              "pkg:pypi/demo@1.2.3",
+              "pkg:npm/left@1.0.0",
+              "pkg:githubactions/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          ]
+          missing = [item for item in needed if item not in purls]
+          if missing:
+              raise SystemExit(missing)
+          PY
+
+  dependency-graph-fail:
+    name: dependency-graph fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Refuse an unpinned requirement
+        id: scan
+        continue-on-error: true
+        uses: ./dependency-graph
+        with:
+          manifests: fixtures/dependency-graph/fail/requirements.txt
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   pip-audit-pass:
     name: pip-audit pass fixture
     runs-on: ubuntu-26.04
@@ -1455,6 +1510,8 @@ jobs:
       - flutter-lockfiles-pass
       - flutter-lockfiles-fail
       - flutter-version-fail
+      - dependency-graph-pass
+      - dependency-graph-fail
       - pip-audit-pass
       - pip-audit-fail
       - bandit-pass

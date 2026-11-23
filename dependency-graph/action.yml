@@ -1,0 +1,39 @@
+name: Dependency graph
+description: >-
+  Submit pinned Python requirements, npm lockfiles, and pinned GitHub
+  Actions uses to the repository dependency graph.
+
+inputs:
+  root:
+    description: Directory to scan when manifests is empty.
+    required: false
+    default: ""
+  manifests:
+    description: Newline-separated manifest paths relative to root. Empty scans the tree.
+    required: false
+    default: ""
+  submit:
+    description: Post the snapshot when true. Any other value only writes it.
+    required: false
+    default: "false"
+  token:
+    description: Token with contents write. Required when submit is true.
+    required: false
+    default: ""
+  snapshot-path:
+    description: Where to write the snapshot JSON. Empty skips the file.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Build dependency snapshot
+      shell: bash
+      env:
+        DEPENDENCY_GRAPH_ROOT: ${{ inputs.root }}
+        DEPENDENCY_GRAPH_MANIFESTS: ${{ inputs.manifests }}
+        DEPENDENCY_GRAPH_SUBMIT: ${{ inputs.submit }}
+        DEPENDENCY_GRAPH_TOKEN: ${{ inputs.token }}
+        DEPENDENCY_GRAPH_SNAPSHOT: ${{ inputs.snapshot-path }}
+      run: python3 "$GITHUB_ACTION_PATH/snapshot.py"
