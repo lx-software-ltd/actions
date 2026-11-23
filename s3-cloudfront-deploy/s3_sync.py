@@ -30,6 +30,23 @@ def _run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(command, check=False, capture_output=True, text=True)
 
 
+def _with_dryrun(command: list[str], dry_run: bool) -> list[str]:
+    if dry_run and command[:2] == ["aws", "s3"]:
+        return [command[0], command[1], command[2], "--dryrun", *command[3:]]
+    return command
+
+
+def _dry_run_runner(run_aws: Runner) -> Runner:
+    def wrapped(command: list[str]) -> subprocess.CompletedProcess[str]:
+        command = _with_dryrun(command, True)
+        result = run_aws(command)
+        if result.returncode == 0 and result.stdout:
+            print(result.stdout, end="" if result.stdout.endswith("\n") else "\n")
+        return result
+
+    return wrapped
+
+
 def _redact(text: str) -> str:
     return ACCOUNT_ID.sub("************", text)
 
@@ -125,8 +142,11 @@ def _sync(run_aws: Runner, source: Path, dest: str, extra: list[str]) -> None:
         raise SyncError(_redact(result.stderr or result.stdout or "s3 sync failed"))
 
 
-def _invalidate(run_aws: Runner, distribution: str) -> None:
+def _invalidate(run_aws: Runner, distribution: str, dry_run: bool) -> None:
     if not distribution:
+        return
+    if dry_run:
+        print(f"Dry run: skipping CloudFront invalidation for {distribution}")
         return
     result = run_aws(
         [
@@ -193,7 +213,9 @@ def _upload_hashed_root(run_aws: Runner, source: Path, bucket: str) -> set[str]:
     return desired
 
 
-def _deploy_public_hashed(run_aws: Runner, source: Path, bucket: str, distribution: str) -> None:
+def _deploy_public_hashed(
+    run_aws: Runner, source: Path, bucket: str, distribution: str, dry_run: bool
+) -> None:
     assets = source / "assets"
     if assets.is_dir():
         print("Uploading hashed assets under dist/assets with long cache…")
@@ -207,10 +229,12 @@ def _deploy_public_hashed(run_aws: Runner, source: Path, bucket: str, distributi
     desired = _upload_hashed_root(run_aws, source, bucket)
     print("Pruning retired root objects…")
     _prune_root(run_aws, bucket, desired)
-    _invalidate(run_aws, distribution)
+    _invalidate(run_aws, distribution, dry_run)
 
 
-def _deploy_admin_hashed(run_aws: Runner, source: Path, bucket: str, distribution: str) -> None:
+def _deploy_admin_hashed(
+    run_aws: Runner, source: Path, bucket: str, distribution: str, dry_run: bool
+) -> None:
     assets = source / "assets"
     print("Uploading hashed assets under dist/assets with long cache…")
     if assets.is_dir():
@@ -234,7 +258,7 @@ def _deploy_admin_hashed(run_aws: Runner, source: Path, bucket: str, distributio
         ROOT_CACHE,
         "text/html; charset=utf-8",
     )
-    _invalidate(run_aws, distribution)
+    _invalidate(run_aws, distribution, dry_run)
 
 
 def _deploy_public_routes(
@@ -243,6 +267,7 @@ def _deploy_public_routes(
     bucket: str,
     distribution: str,
     indexnow: bool,
+    dry_run: bool,
 ) -> None:
     assets = source / "assets"
     if not assets.is_dir():
@@ -289,7 +314,10 @@ def _deploy_public_routes(
         f"s3://{bucket}/assets",
         ["--delete", "--cache-control", IMMUTABLE],
     )
-    _invalidate(run_aws, distribution)
+    _invalidate(run_aws, distribution, dry_run)
+    if indexnow and dry_run:
+        print("Dry run: skipping IndexNow")
+        return
     if indexnow:
         _indexnow(source)
 
@@ -363,22 +391,26 @@ def deploy(
     distribution: str,
     profile: str,
     indexnow: bool,
+    dry_run: bool = False,
     run_aws: Runner,
 ) -> None:
     bucket = _require_bucket(bucket)
     distribution = _distribution(distribution)
+    if dry_run:
+        print("Dry run: every s3 command uses --dryrun and CloudFront is not invalidated.")
+        run_aws = _dry_run_runner(run_aws)
     if profile == "public-hashed":
         if not source.is_dir():
             raise SyncError(f"Build output not found at {source}")
-        _deploy_public_hashed(run_aws, source, bucket, distribution)
+        _deploy_public_hashed(run_aws, source, bucket, distribution, dry_run)
         return
     if profile == "admin-hashed":
         if not source.is_dir():
             raise SyncError(f"Build output not found at {source}")
-        _deploy_admin_hashed(run_aws, source, bucket, distribution)
+        _deploy_admin_hashed(run_aws, source, bucket, distribution, dry_run)
         return
     if profile == "public-routes":
-        _deploy_public_routes(run_aws, source, bucket, distribution, indexnow)
+        _deploy_public_routes(run_aws, source, bucket, distribution, indexnow, dry_run)
         return
     raise SyncError(f"Unsupported profile: {profile}")
 
@@ -389,6 +421,7 @@ def main(run_aws: Runner = _run_aws) -> int:
     distribution = os.environ.get("DISTRIBUTION_ID", "")
     profile = os.environ.get("PROFILE", "public-hashed") or "public-hashed"
     indexnow = os.environ.get("INDEXNOW", "false").lower() == "true"
+    dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"
     try:
         deploy(
             source=source,
@@ -396,6 +429,7 @@ def main(run_aws: Runner = _run_aws) -> int:
             distribution=distribution,
             profile=profile,
             indexnow=indexnow,
+            dry_run=dry_run,
             run_aws=run_aws,
         )
     except SyncError as error:

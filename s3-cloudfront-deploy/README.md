@@ -12,6 +12,8 @@ Syncs a built site to a bucket and invalidates CloudFront. The job needs AWS cre
 
 An empty `distribution-id` skips the invalidation, which is what a missing distribution output does today.
 
+`dry-run: true` adds `--dryrun` to every `aws s3` command and does not create an invalidation. The planned uploads and deletes are printed. IndexNow is not called.
+
 ## Inputs
 
 | Input | Required | Default | Meaning |
@@ -21,6 +23,7 @@ An empty `distribution-id` skips the invalidation, which is what a missing distr
 | `distribution-id` | no | empty | CloudFront distribution. Empty skips invalidation. |
 | `profile` | no | `public-hashed` | Upload rules. |
 | `indexnow` | no | `false` | Ping IndexNow after `public-routes`. |
+| `dry-run` | no | `false` | Plan the S3 changes and skip CloudFront. |
 
 ## Example
 

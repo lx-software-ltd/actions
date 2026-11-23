@@ -26,6 +26,12 @@ inputs:
       from pinging. INDEXNOW_DISABLED=1 still skips the ping.
     required: false
     default: "false"
+  dry-run:
+    description: >-
+      Pass --dryrun to every aws s3 command and skip the CloudFront
+      invalidation. IndexNow is skipped too.
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -38,4 +44,5 @@ runs:
         DISTRIBUTION_ID: ${{ inputs.distribution-id }}
         PROFILE: ${{ inputs.profile }}
         INDEXNOW: ${{ inputs.indexnow }}
+        DRY_RUN: ${{ inputs.dry-run }}
       run: python3 "$GITHUB_ACTION_PATH/s3_sync.py"

@@ -164,6 +164,39 @@ class SyncProfileTest(unittest.TestCase):
         self.assertNotIn("123456789012", text)
         self.assertIn("************", text)
 
+    def test_dry_run_plans_s3_changes_and_skips_invalidation(self) -> None:
+        calls: list[list[str]] = []
+        printed: list[str] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            if command[1:3] == ["s3api", "list-objects-v2"]:
+                return _ok("index.html\told.txt\n")
+            if command[1:3] == ["s3", "rm"]:
+                return _ok("(dryrun) delete: s3://site-bucket/old.txt\n")
+            return _ok("(dryrun) upload: dist/index.html to s3://site-bucket/index.html\n")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            self._tree(source)
+            with mock.patch("builtins.print", side_effect=lambda *args, **kwargs: printed.append(" ".join(map(str, args)))):
+                s3_sync.deploy(
+                    source=source,
+                    bucket="site-bucket",
+                    distribution="E123",
+                    profile="public-hashed",
+                    indexnow=False,
+                    dry_run=True,
+                    run_aws=run_aws,
+                )
+        s3_calls = [call for call in calls if call[1] == "s3"]
+        self.assertTrue(s3_calls)
+        self.assertTrue(all(call[3] == "--dryrun" for call in s3_calls))
+        self.assertTrue(any(call[1:3] == ["s3api", "list-objects-v2"] for call in calls))
+        self.assertFalse(any(call[1] == "cloudfront" for call in calls))
+        self.assertIn("(dryrun) delete: s3://site-bucket/old.txt", "\n".join(printed))
+        self.assertTrue(any("skipping CloudFront invalidation" in line for line in printed))
+
     def test_main_reads_the_profile_from_the_environment(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp)
