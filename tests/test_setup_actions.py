@@ -165,10 +165,12 @@ class FixtureWorkflowTest(unittest.TestCase):
             "cdk-deploy-fail:",
             "setup-flutter-pass:",
             "setup-flutter-fail:",
+            "lighthouse-pass:",
+            "lighthouse-fail:",
         ):
             self.assertIn(job, text)
-        self.assertEqual(text.count("continue-on-error: true"), 30)
-        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 29)
+        self.assertEqual(text.count("continue-on-error: true"), 31)
+        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 30)
 
 
 if __name__ == "__main__":

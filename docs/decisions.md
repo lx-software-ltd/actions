@@ -46,6 +46,10 @@ The workflow step that refuses `GitHubActionsRole` is not a security boundary. A
 
 `cdk-deploy` takes a plan JSON and a parameters file. The file is either prefixed JSON or plain JSON. The design is `docs/architecture/cdk-deploy.md`.
 
+`s3-cloudfront-deploy` reads the bucket and distribution from stack outputs when `stack` and `region` are set. The reader is `lib/stack_outputs.py`. A missing distribution output warns and skips invalidation. A missing bucket output fails.
+
+`lighthouse-ci` writes its runtime config under `RUNNER_TEMP` and deletes it after the run. When `bypass-secret` is set, `ci.upload.target` is `filesystem`, so autorun does not upload the report to temporary-public-storage. The action also removes `x-staging-bypass` from `.lighthouseci`, because a Lighthouse result can copy request headers into the report that a public artifact uploads.
+
 `setup-flutter` installs Flutter 3.50.1 through the pinned `subosito/flutter-action`. An empty version fails before that action runs.
 
 ## Denylist
@@ -55,7 +59,7 @@ The workflow step that refuses `GitHubActionsRole` is not a security boundary. A
 ## Not finished
 
 - A Dependabot path that bumps this pin, and a measured cooldown exclusion.
-- A Lighthouse action.
+- The public-site release action. The design is written. The scripts stay until a dry-run matches them.
 - The read-only diff role named by `AWS_DIFF_ROLE_NAME`. The workflows do not create it.
 - The siutindei Play upload still checks `PLAY_STORE_UPLOAD_ENABLED` and the package name inline. `play-prerequisites` now has `upload-enabled` and `require-package-name` for that caller. It moves with the pin bump. The other three mobile actions, and evolvesprouts Play, match the current pin. Those signing workflows run on a release, so they have not run yet.
 - S3 `public-routes` uploads `.js` and `.css` as `application/octet-stream`. Changing that, or renaming the profiles, needs a dry-run comparison against the live buckets.
