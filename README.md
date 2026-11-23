@@ -58,6 +58,7 @@ Python payload uses the standard library and runs on Python 3.12.
 | `semgrep` | `semgrep scan`, then a SARIF upload. | All four. |
 | `bandit` | Bandit on the caller's paths. | All four. |
 | `pip-audit` | `pip-audit` on requirements files. | All four. |
+| `dependency-graph` | Submit pinned requirements and npm lockfiles. Check workflow uses without submitting them. | This repository and all four product repositories. |
 | `npm-audit` | `npm audit` at the caller's level. | All four. |
 | `setup-node` | Node 26, and `npm ci` when a working directory is set. | All four. |
 | `setup-python` | Python 3.12, and a pip cache when a requirements file is set. | All four. |
