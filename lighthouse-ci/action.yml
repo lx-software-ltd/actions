@@ -1,0 +1,99 @@
+name: Lighthouse CI
+description: >-
+  Write a runtime Lighthouse config from page paths and run
+  @lhci/cli autorun. The caller has already built the site.
+
+inputs:
+  working-directory:
+    description: Directory that contains the Lighthouse config and the build.
+    required: true
+  config:
+    description: Config file inside the working directory.
+    required: false
+    default: .lighthouserc.json
+  page-paths:
+    description: >-
+      Comma or newline separated paths or full URLs. Empty uses
+      default-paths.
+    required: false
+    default: ""
+  default-paths:
+    description: Paths used when page-paths is empty.
+    required: false
+    default: /
+  port:
+    description: Local port for a path that is not already a URL.
+    required: false
+    default: "9000"
+  root-alias:
+    description: >-
+      Path used when a requested path is exactly /. Empty keeps /.
+    required: false
+    default: ""
+  staging-origin:
+    description: >-
+      When a collect URL has this origin, the action sends
+      x-staging-bypass. Empty skips the header.
+    required: false
+    default: ""
+  bypass-secret:
+    description: >-
+      Value of x-staging-bypass. Required when a collect URL matches
+      staging-origin. The caller passes the secret.
+    required: false
+    default: ""
+  lhci-version:
+    description: npm version of @lhci/cli.
+    required: false
+    default: "0.15.1"
+  github-token:
+    description: >-
+      Token Lighthouse uses for a GitHub status. The caller passes
+      secrets.GITHUB_TOKEN. Empty skips the status.
+    required: false
+    default: ""
+  dry-run:
+    description: Write the runtime config and do not run Lighthouse.
+    required: false
+    default: "false"
+
+outputs:
+  config-path:
+    description: Runtime config path. It is outside the workspace.
+    value: ${{ steps.prepare.outputs.config-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Write the Lighthouse runtime config
+      id: prepare
+      shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        CONFIG: ${{ inputs.config }}
+        LIGHTHOUSE_PAGE_PATHS: ${{ inputs.page-paths }}
+        DEFAULT_PATHS: ${{ inputs.default-paths }}
+        PORT: ${{ inputs.port }}
+        ROOT_ALIAS: ${{ inputs.root-alias }}
+        STAGING_ORIGIN: ${{ inputs.staging-origin }}
+        BYPASS_SECRET: ${{ inputs.bypass-secret }}
+        DRY_RUN: ${{ inputs.dry-run }}
+      run: python3 "$GITHUB_ACTION_PATH/prepare.py"
+
+    - name: Run Lighthouse CI
+      if: inputs.dry-run != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        LHCI_VERSION: ${{ inputs.lhci-version }}
+        LHCI_GITHUB_TOKEN: ${{ inputs.github-token }}
+        CONFIG_PATH: ${{ steps.prepare.outputs.config-path }}
+        BYPASS_SECRET: ${{ inputs.bypass-secret }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: |
+        set +e
+        npx --yes "@lhci/cli@${LHCI_VERSION}" autorun --config="$CONFIG_PATH"
+        status=$?
+        set -e
+        python3 "$GITHUB_ACTION_PATH/prepare.py" scrub
+        exit "$status"
