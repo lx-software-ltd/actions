@@ -26,6 +26,18 @@ python3 /path/to/actions/scripts/bump_pins.py . <40-hex> --date <yyyy-mm-dd>
 
 The script rewrites every `lx-software-ltd/actions` pin, the `# main YYYY-MM-DD` comment, and the pre-commit `rev`. Review the diff and open one pull request. The SHA has to be on `main` before that pull request merges.
 
+## Sync labels
+
+`sync-labels/labels.json` is the shared catalogue: the GitHub defaults, plus `dependencies`, `ci`, `infrastructure`, and `mobile`. `mobile` is colour `0e8a16` and description "Flutter app". The action creates a missing label and updates colour, description, and letter case. A label that is not in the catalogue stays on the repository.
+
+This repository applies the catalogue on `main`. `github.token` writes labels here. From a checkout, with `gh` authenticated for every target:
+
+```sh
+SYNC_LABELS_MODE=apply SYNC_LABELS_REPOSITORIES=siblings python3 sync-labels/sync_labels.py
+```
+
+`siblings` is this repository plus `evolvesprouts`, `findingalpha`, `lx-software`, and `siutindei`. `check` prints the drift and exits 1.
+
 ## Add an action
 
 1. Add `<name>/action.yml` (`runs.using: composite`) and `<name>/README.md`.
@@ -50,6 +62,7 @@ Python payload uses the standard library and runs on Python 3.12.
 | `require-jobs` | Fail unless every job in `needs` succeeded. | All four product repositories, and the gates in this repository. |
 | `workflow-conformance` | Check workflows against `docs/ci-contract.md`. | All four, and `lint.yml` here. |
 | `verify-rulesets` | Fail unless `main-protection` requires the three gates and zero reviews, and the tag rulesets block `v*`. | All four, weekly. |
+| `sync-labels` | Create and update the shared issue labels, including `mobile`. Other labels stay. | This repository. |
 | `agent-harness` | Check agent rules, file length, and test focus from `.github/harness.json`. | All four. |
 | `pii-denylist` | Fail when tracked source matches a SHA-256 denylist. The match text is not printed. | All four, and `security.yml` here. |
 | `gitleaks` | Secret scan with the gitleaks CLI. | All four, and `security.yml` here. |
@@ -58,6 +71,7 @@ Python payload uses the standard library and runs on Python 3.12.
 | `semgrep` | `semgrep scan`, then a SARIF upload. | All four. |
 | `bandit` | Bandit on the caller's paths. | All four. |
 | `pip-audit` | `pip-audit` on requirements files. | All four. |
+| `dependency-graph` | Submit pinned requirements and npm lockfiles. Check workflow uses without submitting them. | This repository and all four product repositories. |
 | `npm-audit` | `npm audit` at the caller's level. | All four. |
 | `setup-node` | Node 26, and `npm ci` when a working directory is set. | All four. |
 | `setup-python` | Python 3.12, and a pip cache when a requirements file is set. | All four. |

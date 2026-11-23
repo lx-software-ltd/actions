@@ -54,6 +54,12 @@ The workflow step that refuses `GitHubActionsRole` is not a security boundary. A
 
 `setup-flutter` installs Flutter 3.50.1 through the pinned `subosito/flutter-action`. An empty version fails before that action runs.
 
+## Labels
+
+`sync-labels/labels.json` is the shared catalogue for this repository and the four product repositories. It holds the GitHub defaults plus `dependencies`, `ci`, `infrastructure`, and `mobile`. `mobile` is colour `0e8a16` and description "Flutter app", the value already on `evolvesprouts` and `siutindei`. The action creates a missing label and updates colour, description, and letter case. A label that is not in the catalogue stays, so a product label such as `lambda` or `board-ready` remains on that product.
+
+This repository applies the catalogue with `github.token`. That token writes labels here. Applying it to a product repository needs a token that can write issues on that repository, or the product runs the action itself after the pin moves.
+
 ## Denylist
 
 `scripts/pii-denylist.sha256` holds the 31 organisation digests approved on 20 Nov 2026. No plaintext. `lx-software` holds 30 of them. That omission was deliberate: the copy decision does not add the missing digest there. Holding the organisation list only in this repository would apply that digest to `lx-software`, so the five copies stay until a new approval.
@@ -70,3 +76,4 @@ The workflow step that refuses `GitHubActionsRole` is not a security boundary. A
 - Templates for the workflow files that are the same across product repositories. Conformance compares a checkout to a template before any return to reusable workflows.
 - Lockfile and Semgrep jobs folded under the required gates.
 - The same 31 digests held once, which waits on the denylist decision above.
+- Product repositories do not run `sync-labels` yet. This repository applies the catalogue to itself. `SYNC_LABELS_REPOSITORIES=siblings` applies it to the five repositories when `gh` can write issues on each.

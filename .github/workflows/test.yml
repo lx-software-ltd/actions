@@ -231,6 +231,65 @@ jobs:
           OUTCOME: ${{ steps.verify.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  sync-labels-pass:
+    name: Sync labels pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Load the matching labels
+        id: pass
+        run: |
+          {
+            echo "labels-json<<EOF"
+            cat fixtures/sync-labels/pass/labels.json
+            echo "EOF"
+            echo "live-json<<EOF"
+            cat fixtures/sync-labels/pass/live.json
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check labels
+        uses: ./sync-labels
+        with:
+          labels-json: ${{ steps.pass.outputs.labels-json }}
+          live-json: ${{ steps.pass.outputs.live-json }}
+          mode: check
+
+  sync-labels-fail:
+    name: Sync labels fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Load the drifted labels
+        id: fail
+        run: |
+          {
+            echo "labels-json<<EOF"
+            cat fixtures/sync-labels/fail/labels.json
+            echo "EOF"
+            echo "live-json<<EOF"
+            cat fixtures/sync-labels/fail/live.json
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check labels
+        id: sync
+        continue-on-error: true
+        uses: ./sync-labels
+        with:
+          labels-json: ${{ steps.fail.outputs.labels-json }}
+          live-json: ${{ steps.fail.outputs.live-json }}
+          mode: check
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.sync.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   pii-denylist-pass:
     name: PII denylist pass fixture
     runs-on: ubuntu-26.04
@@ -650,6 +709,68 @@ jobs:
         uses: ./agent-harness
         with:
           root: fixtures/agent-harness/fail
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  dependency-graph-pass:
+    name: dependency-graph pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build a snapshot from pinned manifests
+        uses: ./dependency-graph
+        with:
+          manifests: |
+            fixtures/dependency-graph/pass/requirements.txt
+            fixtures/dependency-graph/pass/package-lock.json
+            fixtures/dependency-graph/pass/workflow.yml
+            fixtures/dependency-graph/pass/action.yml
+          snapshot-path: dependency-graph-snapshot.json
+
+      - name: The snapshot lists each ecosystem
+        run: |
+          python3 - << 'PY'
+          import json
+          payload = json.load(open("dependency-graph-snapshot.json", encoding="utf-8"))
+          purls = [
+              item["package_url"]
+              for manifest in payload["manifests"].values()
+              for item in manifest["resolved"].values()
+          ]
+          needed = [
+              "pkg:pypi/demo@1.2.3",
+              "pkg:npm/left@1.0.0",
+              "pkg:githubactions/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          ]
+          missing = [item for item in needed if item not in purls]
+          workflow_only = "pkg:githubactions/actions/setup-python@a26af69be951a213d495a4c5e4e4022e16d87065"
+          absolute = [
+              name
+              for name, manifest in payload["manifests"].items()
+              if name.startswith("/") or manifest["file"]["source_location"] != name
+          ]
+          if missing or workflow_only in purls or absolute or any(name.endswith("workflow.yml") for name in payload["manifests"]):
+              raise SystemExit(missing or absolute or workflow_only)
+          PY
+
+  dependency-graph-fail:
+    name: dependency-graph fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Refuse an unpinned requirement
+        id: scan
+        continue-on-error: true
+        uses: ./dependency-graph
+        with:
+          manifests: fixtures/dependency-graph/fail/requirements.txt
 
       - name: Expect the action to fail
         env:
@@ -1567,6 +1688,8 @@ jobs:
       - setup-python-fail
       - verify-rulesets-pass
       - verify-rulesets-fail
+      - sync-labels-pass
+      - sync-labels-fail
       - pii-denylist-pass
       - pii-denylist-fail
       - gitleaks-pass
@@ -1583,6 +1706,8 @@ jobs:
       - flutter-lockfiles-pass
       - flutter-lockfiles-fail
       - flutter-version-fail
+      - dependency-graph-pass
+      - dependency-graph-fail
       - pip-audit-pass
       - pip-audit-fail
       - bandit-pass

@@ -1,0 +1,49 @@
+name: Sync labels
+description: >-
+  Create and update the shared issue labels from the catalogue in this
+  action. Labels that are not in the catalogue stay.
+
+inputs:
+  token:
+    description: >-
+      Token that can write issues on each repository in repositories.
+      Defaults to github.token, which writes the calling repository.
+      Pass another token to write other repositories. Ignored when
+      live-json is set.
+    required: false
+    default: ${{ github.token }}
+  mode:
+    description: check fails on drift. apply writes. Default check.
+    required: false
+    default: check
+  repositories:
+    description: >-
+      Space-separated owner/repo list. siblings is this repository and
+      the four product repositories. Empty uses GITHUB_REPOSITORY.
+    required: false
+    default: ""
+  labels-json:
+    description: >-
+      Catalogue JSON array. When set, the bundled labels.json is not read.
+      Used by the fixtures.
+    required: false
+    default: ""
+  live-json:
+    description: >-
+      Current labels, as a JSON list or as an object keyed by owner/repo.
+      When set, the action does not call GitHub. check only.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Sync labels
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        SYNC_LABELS_MODE: ${{ inputs.mode }}
+        SYNC_LABELS_REPOSITORIES: ${{ inputs.repositories }}
+        SYNC_LABELS_JSON: ${{ inputs.labels-json }}
+        SYNC_LABELS_LIVE_JSON: ${{ inputs.live-json }}
+      run: python3 "$GITHUB_ACTION_PATH/sync_labels.py"
