@@ -1,6 +1,6 @@
 name: Lint
 
-# main-protection applies. The check named lint is required on main.
+# main-protection requires the check named lint.
 
 on:
   workflow_dispatch:
@@ -8,6 +8,10 @@ on:
   push:
     branches:
       - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -28,19 +32,37 @@ jobs:
           python-version: "3.12"
 
       - name: Compile Python
-        run: python3 -m compileall -q -f require-jobs pii-denylist lib gitleaks python-requirements-pins agent-harness workflow-conformance aws-oidc cdk-bootstrap-check cdk-diff cfn-stack-outputs cdk-deploy s3-cloudfront-deploy amplify-release ios-export-options appstore-api-key scripts tests
+        run: python3 -m compileall -q -f .
 
       - name: Check action layout
         run: python3 scripts/check_action_layout.py
 
-      # These scans also run in security.yml. They sit on this job so the
-      # lint check fails when they fail. The denylist has no digests, so
-      # the PII step checks nothing until the owner adds hashes.
-      - name: Check hashed PII denylist
-        uses: ./pii-denylist
+      - name: Run Ruff
+        run: |
+          python3 -m pip install --disable-pip-version-check ruff==0.17.6
+          ruff check .
 
-      - name: Run Gitleaks
-        uses: ./gitleaks
+      - name: Install shellcheck
+        run: |
+          version=0.11.0
+          curl -fsSL -o /tmp/shellcheck.tar.xz "https://github.com/koalaman/shellcheck/releases/download/v${version}/shellcheck-v${version}.linux.x86_64.tar.xz"
+          tar -xJf /tmp/shellcheck.tar.xz -C /tmp
+          sudo install -m 755 "/tmp/shellcheck-v${version}/shellcheck" /usr/local/bin/shellcheck
+
+      - name: Run shellcheck
+        run: |
+          mapfile -t scripts < <(find . -type f -not -path './.git/*' -exec grep -IlZ '^#!.*sh' {} + | tr '\0' '\n')
+          shellcheck "${scripts[@]}"
+
+      - name: Install actionlint
+        run: |
+          version=1.7.12
+          curl -fsSL -o /tmp/actionlint.tar.gz "https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz"
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          sudo install -m 755 /tmp/actionlint /usr/local/bin/actionlint
+
+      - name: Run actionlint
+        run: actionlint
 
   workflow-conformance:
     name: Workflow conformance
@@ -52,7 +74,6 @@ jobs:
       - name: Enforce the CI contract
         uses: ./workflow-conformance
         with:
-          mode: enforce
           profile: producer
 
   lint:

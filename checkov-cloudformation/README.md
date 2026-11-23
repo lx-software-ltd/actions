@@ -4,7 +4,7 @@ Runs Checkov on a directory the caller has already synthesised. Findings whose S
 
 Checkov runs in a container. GitHub mounts the workspace into that container and does not mount the runner temp directory, so the SARIF is `checkov-results.sarif` in the workspace, outside the scanned directory. If the scan ran and that file is missing, the action fails instead of uploading an empty result.
 
-The calling job needs `contents: read`, `security-events: write`, and `actions: read` when it uploads. The caller keeps its own synth step.
+The action always passes `framework: cloudformation`. The calling job needs `contents: read`, `security-events: write`, and `actions: read` when it uploads. The caller keeps its own synth step.
 
 ## Inputs
 
@@ -12,7 +12,6 @@ The calling job needs `contents: read`, `security-events: write`, and `actions: 
 | --- | --- | --- | --- |
 | `directory` | yes | | Synthesised template directory. |
 | `config-file` | no | empty | Checkov config. |
-| `framework` | no | empty | Empty leaves Checkov's own default in place. |
 | `skip-if-missing` | no | `false` | A missing directory writes an empty SARIF and passes. |
 | `upload` | no | `true` | `false` skips the SARIF upload. |
 

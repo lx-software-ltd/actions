@@ -2,8 +2,9 @@
 """Fail unless main requires exactly the expected reviews and checks.
 
 The expected approving-review count defaults to 0. The required status
-checks must equal the caller's list, default lint and test, and each of
-those names must be a job id or a job-level name in .github/workflows.
+checks must equal the caller's list, default lint, test, and
+security-summary, and each of those names must be a job id or a
+job-level name in .github/workflows.
 """
 
 from __future__ import annotations
@@ -170,14 +171,11 @@ def evaluate_branch_rulesets(
     return errors
 
 
-def evaluate_tag_protection(rulesets: list[dict[str, Any]], legacy_tags: list[Any] | None) -> list[str]:
+def evaluate_tag_protection(rulesets: list[dict[str, Any]]) -> list[str]:
     """Require creation, update, and deletion blocks on refs/tags/v*.
 
-    The three rules may be split across rulesets. Classic tag protection
-    does not satisfy them. legacy_tags is accepted and ignored so older
-    callers keep the same argument.
+    The three rules may be split across rulesets.
     """
-    del legacy_tags
     protecting = [ruleset for ruleset in rulesets if targets_release_tags(ruleset)]
     if not protecting:
         return ["No active ruleset protects v* tags."]
@@ -196,7 +194,6 @@ def evaluate_tag_protection(rulesets: list[dict[str, Any]], legacy_tags: list[An
 def evaluate(
     *,
     rulesets: list[dict[str, Any]],
-    legacy_tags: list[Any] | None,
     job_names: set[str],
     expected_reviews: int,
     required_checks: set[str],
@@ -206,13 +203,7 @@ def evaluate(
         job_names,
         expected_reviews=expected_reviews,
         required_checks=required_checks,
-    ) + evaluate_tag_protection(rulesets, legacy_tags)
-
-
-def legacy_read_is_absent(detail: str) -> bool:
-    """Classic protection endpoints 404 when unset and 403 without admin rights."""
-    text = detail.lower()
-    return "404" in text or "not found" in text or "403" in text or "resource not accessible" in text
+    ) + evaluate_tag_protection(rulesets)
 
 
 def _gh_json(path: str) -> Any:
@@ -230,7 +221,7 @@ def _gh_json(path: str) -> Any:
     return json.loads(result.stdout)
 
 
-def load_live(repo: str) -> tuple[list[dict[str, Any]], list[Any] | None]:
+def load_live(repo: str) -> list[dict[str, Any]]:
     summaries = _gh_json(f"repos/{repo}/rulesets") or []
     rulesets: list[dict[str, Any]] = []
     for summary in summaries:
@@ -240,16 +231,7 @@ def load_live(repo: str) -> tuple[list[dict[str, Any]], list[Any] | None]:
         detail = _gh_json(f"repos/{repo}/rulesets/{ruleset_id}")
         if isinstance(detail, dict):
             rulesets.append(detail)
-    legacy_tags: list[Any] | None
-    try:
-        tags = _gh_json(f"repos/{repo}/tags/protection")
-        legacy_tags = tags if isinstance(tags, list) and tags else None
-    except RuntimeError as exc:
-        if legacy_read_is_absent(str(exc)):
-            legacy_tags = None
-        else:
-            raise
-    return rulesets, legacy_tags
+    return rulesets
 
 
 def workspace_root() -> Path:
@@ -262,7 +244,9 @@ def workspace_root() -> Path:
 def main() -> int:
     try:
         expected_reviews = parse_expected_reviews(os.environ.get("EXPECTED_REVIEWS", "0"))
-        required_checks = parse_required_checks(os.environ.get("REQUIRED_CHECKS", "lint test"))
+        required_checks = parse_required_checks(
+            os.environ.get("REQUIRED_CHECKS", "lint test security-summary")
+        )
     except ValueError as exc:
         print(f"verify-rulesets: {exc}", file=sys.stderr)
         return 1
@@ -277,22 +261,18 @@ def main() -> int:
             print("verify-rulesets: rulesets JSON must be a list.", file=sys.stderr)
             return 1
         rulesets = [item for item in parsed if isinstance(item, dict)]
-        legacy_tags = None
     else:
-        repo = os.environ.get("VERIFY_RULESETS_REPOSITORY", "").strip() or os.environ.get(
-            "GITHUB_REPOSITORY", ""
-        ).strip()
+        repo = os.environ.get("GITHUB_REPOSITORY", "").strip()
         if not repo:
-            print("VERIFY_RULESETS_REPOSITORY or GITHUB_REPOSITORY is required.", file=sys.stderr)
+            print("GITHUB_REPOSITORY is required.", file=sys.stderr)
             return 1
         try:
-            rulesets, legacy_tags = load_live(repo)
+            rulesets = load_live(repo)
         except RuntimeError as exc:
             print(f"Ruleset verification could not read GitHub protection: {exc}", file=sys.stderr)
             return 1
     errors = evaluate(
         rulesets=rulesets,
-        legacy_tags=legacy_tags,
         job_names=workflow_job_names(workspace_root()),
         expected_reviews=expected_reviews,
         required_checks=required_checks,

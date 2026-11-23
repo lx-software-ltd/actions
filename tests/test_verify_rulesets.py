@@ -1,4 +1,4 @@
-"""verify-rulesets expects exactly 0 reviews and exactly lint and test."""
+"""verify-rulesets expects exactly 0 reviews and exactly the three gates."""
 
 from __future__ import annotations
 
@@ -16,7 +16,10 @@ _SPEC.loader.exec_module(rulesets)
 
 
 def _main(*, enforcement: str = "active", contexts: list[str] | None = None, reviews: int = 0) -> dict:
-    checks = [{"context": context} for context in (contexts if contexts is not None else ["lint", "test"])]
+    checks = [
+        {"context": context}
+        for context in (contexts if contexts is not None else ["lint", "test", "security-summary"])
+    ]
     return {
         "name": "main-protection",
         "target": "branch",
@@ -44,10 +47,9 @@ def _tags() -> dict:
 def _evaluate(items: list[dict], job_names: set[str] | None = None, reviews: int = 0) -> list[str]:
     return rulesets.evaluate(
         rulesets=items,
-        legacy_tags=None,
-        job_names=job_names if job_names is not None else {"lint", "test"},
+        job_names=job_names if job_names is not None else {"lint", "test", "security-summary"},
         expected_reviews=reviews,
-        required_checks={"lint", "test"},
+        required_checks={"lint", "test", "security-summary"},
     )
 
 
@@ -67,7 +69,10 @@ class VerifyRulesetsTest(unittest.TestCase):
 
     def test_checks_must_match_exactly(self) -> None:
         only_test = _evaluate([_main(contexts=["test"]), _tags()])
-        extra = _evaluate([_main(contexts=["lint", "test", "build"]), _tags()], job_names={"lint", "test", "build"})
+        extra = _evaluate(
+            [_main(contexts=["lint", "test", "security-summary", "build"]), _tags()],
+            job_names={"lint", "test", "security-summary", "build"},
+        )
         self.assertTrue(any("expected exactly" in error for error in only_test))
         self.assertTrue(any("expected exactly" in error for error in extra))
 
@@ -131,15 +136,11 @@ jobs:
         self.assertEqual(_evaluate(passing), [])
         self.assertTrue(_evaluate(failing))
 
-    def test_action_does_not_override_github_repository(self) -> None:
+    def test_action_reads_the_calling_repository(self) -> None:
         text = (ROOT / "verify-rulesets" / "action.yml").read_text(encoding="utf-8")
-        self.assertIn("target-repository:", text)
-        self.assertNotIn("\n  repository:", text)
-        self.assertIn("VERIFY_RULESETS_REPOSITORY:", text)
+        self.assertNotIn("target-repository:", text)
         self.assertNotIn("GITHUB_REPOSITORY:", text)
-
-    def test_legacy_403_is_treated_as_absent(self) -> None:
-        self.assertTrue(rulesets.legacy_read_is_absent("gh api failed: HTTP 403"))
+        self.assertIn('default: "lint test security-summary"', text)
 
 
 if __name__ == "__main__":

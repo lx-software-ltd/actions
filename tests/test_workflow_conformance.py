@@ -190,6 +190,30 @@ class WorkflowConformanceTest(unittest.TestCase):
         self.assertEqual(checker._uses("        uses: actions/checkout@v4"), "actions/checkout@v4")
         self.assertEqual(checker._uses("      - uses: actions/checkout@v4"), "actions/checkout@v4")
 
+    def test_top_level_write_permission_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _valid(root)
+            lint = (root / ".github" / "workflows" / "lint.yml").read_text(encoding="utf-8")
+            (root / ".github" / "workflows" / "lint.yml").write_text(
+                lint.replace("  contents: read\n", "  contents: write\n"),
+                encoding="utf-8",
+            )
+            found = checker.findings(root, "producer")
+            self.assertTrue(any("contents: read" in item for item in found), found)
+
+    def test_security_path_filter_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _valid(root)
+            security = (root / ".github" / "workflows" / "security.yml").read_text(encoding="utf-8")
+            (root / ".github" / "workflows" / "security.yml").write_text(
+                security.replace("pull_request:\n", "pull_request:\n    paths:\n      - src/**\n"),
+                encoding="utf-8",
+            )
+            found = checker.findings(root, "producer")
+            self.assertTrue(any("security.yml: pull_request has a path filter" in item for item in found), found)
+
     def test_product_profile_requires_the_target_jobs(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

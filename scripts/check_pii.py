@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
-"""Run the shared PII check against this repository.
-
-CI calls ``pii-denylist``. This file stays so a local command still works
-until pre-commit moves to the shared hook.
-"""
+"""Run the shared PII check against this repository."""
 
 from __future__ import annotations
 
 import os
 import runpy
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,4 +20,4 @@ globals().update(
 )
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(_NS["main"]())

@@ -106,7 +106,7 @@ def main(run_aws: Runner | None = None) -> int:
         sys.stdout.write(hint(parameter, qualifier))
         return 1
     print(f"CDK Bootstrap version {value}.")
-    print("CDK Bootstrap found. Proceeding with diff...")
+    print("CDK Bootstrap found.")
     return 0
 
 

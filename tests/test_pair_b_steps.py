@@ -139,3 +139,18 @@ class ShellStepTest(unittest.TestCase):
             ready = subprocess.run(["sh", str(script)], check=False, env=env, capture_output=True, text=True)
             self.assertEqual(ready.returncode, 0)
             self.assertEqual(output.read_text(encoding="utf-8").strip(), "should_upload=true")
+            output.write_text("", encoding="utf-8")
+            held = dict(env)
+            held["PLAY_STORE_UPLOAD_ENABLED"] = "false"
+            blocked = subprocess.run(["sh", str(script)], check=False, env=held, capture_output=True, text=True)
+            self.assertEqual(blocked.returncode, 0)
+            self.assertIn("PLAY_STORE_UPLOAD_ENABLED", blocked.stdout)
+            self.assertIn("should_upload=false", output.read_text(encoding="utf-8"))
+            output.write_text("", encoding="utf-8")
+            held["PLAY_STORE_UPLOAD_ENABLED"] = "true"
+            held["REQUIRE_ANDROID_PACKAGE_NAME"] = "true"
+            held["ANDROID_PACKAGE_NAME"] = ""
+            missing_package = subprocess.run(["sh", str(script)], check=False, env=held, capture_output=True, text=True)
+            self.assertEqual(missing_package.returncode, 0)
+            self.assertIn("missing config", missing_package.stdout)
+            self.assertIn("should_upload=false", output.read_text(encoding="utf-8"))

@@ -1,9 +1,7 @@
 name: Security Scanning
 
 # security-summary aggregates this workflow. main-protection requires
-# lint and test, not security-summary, so a failure that exists only here
-# does not block a merge. PII and Gitleaks also run inside lint.yml, and
-# those two do fail the required lint check.
+# lint, test, and security-summary.
 
 on:
   workflow_dispatch:
@@ -13,6 +11,10 @@ on:
       - main
   schedule:
     - cron: "0 8 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

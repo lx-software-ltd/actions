@@ -1,0 +1,6 @@
+target-version = "py312"
+
+[lint]
+# Pyflakes and the pycodestyle errors that name a real mistake.
+# Style-only rules stay off so a payload change is not a formatting drive-by.
+select = ["E4", "E7", "E9", "F"]

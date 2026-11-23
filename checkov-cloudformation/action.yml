@@ -13,10 +13,6 @@ inputs:
     description: Checkov config file. Empty uses Checkov's defaults.
     required: false
     default: ""
-  framework:
-    description: Checkov framework. Empty leaves the input out, which is Checkov's own default.
-    required: false
-    default: ""
   skip-if-missing:
     description: When true, a missing directory writes an empty SARIF and passes.
     required: false
@@ -51,41 +47,22 @@ runs:
         echo "present=true" >> "$GITHUB_OUTPUT"
 
     - name: Run Checkov
-      if: steps.templates.outputs.present == 'true' && inputs.config-file == '' && inputs.framework == ''
+      if: steps.templates.outputs.present == 'true' && inputs.config-file == ''
       uses: bridgecrewio/checkov-action@3f0caf0c3aa9f56ade6b49f6e60b63aaeafb75a3 # v12.3141.0
       with:
         directory: ${{ inputs.directory }}
-        output_format: cli,sarif
-        output_file_path: console,checkov-results.sarif
-        quiet: true
-
-    - name: Run Checkov for one framework
-      if: steps.templates.outputs.present == 'true' && inputs.config-file == '' && inputs.framework != ''
-      uses: bridgecrewio/checkov-action@3f0caf0c3aa9f56ade6b49f6e60b63aaeafb75a3 # v12.3141.0
-      with:
-        directory: ${{ inputs.directory }}
-        framework: ${{ inputs.framework }}
+        framework: cloudformation
         output_format: cli,sarif
         output_file_path: console,checkov-results.sarif
         quiet: true
 
     - name: Run Checkov with a config file
-      if: steps.templates.outputs.present == 'true' && inputs.config-file != '' && inputs.framework == ''
+      if: steps.templates.outputs.present == 'true' && inputs.config-file != ''
       uses: bridgecrewio/checkov-action@3f0caf0c3aa9f56ade6b49f6e60b63aaeafb75a3 # v12.3141.0
       with:
         directory: ${{ inputs.directory }}
         config_file: ${{ inputs.config-file }}
-        output_format: cli,sarif
-        output_file_path: console,checkov-results.sarif
-        quiet: true
-
-    - name: Run Checkov with a config file and a framework
-      if: steps.templates.outputs.present == 'true' && inputs.config-file != '' && inputs.framework != ''
-      uses: bridgecrewio/checkov-action@3f0caf0c3aa9f56ade6b49f6e60b63aaeafb75a3 # v12.3141.0
-      with:
-        directory: ${{ inputs.directory }}
-        config_file: ${{ inputs.config-file }}
-        framework: ${{ inputs.framework }}
+        framework: cloudformation
         output_format: cli,sarif
         output_file_path: console,checkov-results.sarif
         quiet: true

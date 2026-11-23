@@ -18,11 +18,11 @@ assert _SPEC is not None and _SPEC.loader is not None
 aws_oidc = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(aws_oidc)
 
-ID_FORM_PULL_REQUEST = "repo:lx-software-ltd@321652495/findingalpha@1456774357:pull_request"
-ID_FORM_REF = "repo:lx-software-ltd@321652495/findingalpha@1456774357:ref:refs/heads/main"
-ID_FORM_ENVIRONMENT = "repo:lx-software-ltd@321652495/findingalpha@1456774357:environment:production"
-NAME_FORM_SUBJECT = "repo:lx-software-ltd/findingalpha:pull_request"
-PATTERN_SUBJECT = "repo:lx-software-ltd@321652495/findingalpha@1456774357:*"
+ID_FORM_PULL_REQUEST = "repo:example-org@100000001/example-repo@100000002:pull_request"
+ID_FORM_REF = "repo:example-org@100000001/example-repo@100000002:ref:refs/heads/main"
+ID_FORM_ENVIRONMENT = "repo:example-org@100000001/example-repo@100000002:environment:production"
+NAME_FORM_SUBJECT = "repo:example-org/example-repo:pull_request"
+PATTERN_SUBJECT = "repo:example-org@100000001/example-repo@100000002:*"
 
 
 def _jwt(subject: str) -> str:
@@ -42,9 +42,9 @@ class AwsOidcSubjectTest(unittest.TestCase):
     def test_name_form_and_pattern_do_not_match(self) -> None:
         self.assertFalse(aws_oidc.subject_is_id_form(NAME_FORM_SUBJECT))
         self.assertFalse(aws_oidc.subject_is_id_form(PATTERN_SUBJECT))
-        self.assertFalse(aws_oidc.subject_is_id_form("repo:lx-software-ltd@321652495/*"))
+        self.assertFalse(aws_oidc.subject_is_id_form("repo:example-org@100000001/*"))
         self.assertFalse(
-            aws_oidc.subject_is_id_form("repo:lx-software-ltd@321652495/findingalpha:pull_request")
+            aws_oidc.subject_is_id_form("repo:example-org@100000001/example-repo:pull_request")
         )
 
     def test_subject_is_read_from_the_token(self) -> None:

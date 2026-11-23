@@ -2,7 +2,7 @@
 
 Writes `ios/ExportOptions.plist` in the Flutter app directory. A provisioning profile selects manual signing. An empty profile stays automatic.
 
-The App Store method, bitcode flags, and `Apple Distribution` certificate match the pair B `deploy-ios.yml` step this replaces.
+The plist uses the App Store method, with bitcode off and the `Apple Distribution` certificate.
 
 ## Inputs
 

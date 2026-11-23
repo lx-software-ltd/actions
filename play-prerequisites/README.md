@@ -14,6 +14,9 @@ The Play upload `uses:` stays in the caller.
 | `keystore-password` | no | empty | Keystore password. |
 | `key-password` | no | empty | Key password. |
 | `key-alias` | no | empty | Key alias. |
+| `upload-enabled` | no | empty | When set, only `true` continues. Empty does not check. |
+| `package-name` | no | empty | Android package name. |
+| `require-package-name` | no | `false` | `true` skips the upload when `package-name` is empty. |
 
 ## Example
 

@@ -33,6 +33,20 @@ inputs:
     description: Key alias.
     required: false
     default: ""
+  upload-enabled:
+    description: >-
+      When set, the upload runs only if the value is true. Empty skips
+      this check.
+    required: false
+    default: ""
+  package-name:
+    description: Android package name, checked when require-package-name is true.
+    required: false
+    default: ""
+  require-package-name:
+    description: true skips the upload when package-name is empty.
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -47,4 +61,7 @@ runs:
         ANDROID_KEYSTORE_PASSWORD: ${{ inputs.keystore-password }}
         ANDROID_KEY_PASSWORD: ${{ inputs.key-password }}
         ANDROID_KEY_ALIAS: ${{ inputs.key-alias }}
+        PLAY_STORE_UPLOAD_ENABLED: ${{ inputs.upload-enabled }}
+        ANDROID_PACKAGE_NAME: ${{ inputs.package-name }}
+        REQUIRE_ANDROID_PACKAGE_NAME: ${{ inputs.require-package-name }}
       run: sh "$GITHUB_ACTION_PATH/check_play.sh"

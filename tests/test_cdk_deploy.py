@@ -362,3 +362,97 @@ class PlanTest(unittest.TestCase):
         self.assertIn("api:Name=one", seen[0])
         self.assertNotIn("123456789012", printed)
         self.assertIn("************", printed)
+
+    def test_plan_file_expands_an_environment_token(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            app = Path(tmp) / "app"
+            app.mkdir()
+            plan = Path(tmp) / "plan.json"
+            plan.write_text(
+                json.dumps(
+                    {
+                        "groups": [
+                            {
+                                "stacks": ["api"],
+                                "prefixes": ["api:"],
+                                "extra-args": ["--parameters", "api:Token={P_TOKEN}"],
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            seen: list[list[str]] = []
+
+            def run(command: list[str]) -> subprocess.CompletedProcess[str]:
+                seen.append(command)
+                return _ok("ok")
+
+            env = {
+                "WORKING_DIRECTORY": str(app),
+                "PLAN": "",
+                "PLAN_FILE": str(plan),
+                "PARAM_FILE": "",
+                "FORMAT": "prefixed-json",
+                "ATTEMPTS": "1",
+                "NO_NOTICES": "false",
+                "PASS_EMPTY": "",
+                "DESTROY": "false",
+                "RUN_SEED": "false",
+                "STACKS": "",
+                "ESCAPE_NEWLINES": "false",
+                "SKIP_RESOURCE": "",
+                "REGION": "",
+                "P_TOKEN": "from-env",
+            }
+            previous = Path.cwd()
+            try:
+                with mock.patch.dict(os.environ, env, clear=False):
+                    code = cdk_deploy.main(run, lambda seconds: None)
+            finally:
+                os.chdir(previous)
+        self.assertEqual(code, 0)
+        self.assertIn("api:Token=from-env", seen[0])
+
+    def test_an_empty_token_stays_an_explicit_empty_value(self) -> None:
+        with mock.patch.dict(os.environ, {"CDK_BOOTSTRAP_QUALIFIER": "", "P_NAME": ""}, clear=False):
+            plan = cdk_deploy.load_plan_text(
+                json.dumps(
+                    {
+                        "groups": [
+                            {
+                                "stacks": ["api"],
+                                "extra-args": [
+                                    "--qualifier",
+                                    "{CDK_BOOTSTRAP_QUALIFIER}",
+                                    "--parameters",
+                                    "api:Name={P_NAME}",
+                                ],
+                            }
+                        ]
+                    }
+                ),
+                "",
+            )
+        extra = plan["groups"][0]["extra-args"]
+        self.assertEqual(extra, ["--qualifier", "", "--parameters", "api:Name="])
+
+    def test_an_unset_token_fails_the_plan(self) -> None:
+        env = os.environ.copy()
+        env.pop("P_MISSING_PLAN_TOKEN", None)
+        with mock.patch.dict(os.environ, env, clear=True):
+            with self.assertRaises(cdk_deploy.DeployError) as raised:
+                cdk_deploy.load_plan_text(
+                    json.dumps(
+                        {
+                            "groups": [
+                                {
+                                    "stacks": ["api"],
+                                    "extra-args": ["--parameters", "api:Name={P_MISSING_PLAN_TOKEN}"],
+                                }
+                            ]
+                        }
+                    ),
+                    "",
+                )
+        self.assertIn("P_MISSING_PLAN_TOKEN is unset", str(raised.exception))

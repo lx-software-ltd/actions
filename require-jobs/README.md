@@ -9,9 +9,8 @@ The calling job needs `python3` on `PATH`. The action runs `python3 "$GITHUB_ACT
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
 | `needs-json` | yes | | JSON object. Either `{"job-id":"success"}` or the object `toJson(needs)` returns. Must be non-empty. |
-| `allow-skipped` | no | `false` | When `true`, `skipped` counts as success. |
 
-A result other than `success` fails the step. With `allow-skipped`, `skipped` also passes. `failure` and `cancelled` always fail.
+A result other than `success` fails the step. `skipped`, `failure`, and `cancelled` all fail.
 
 ## Permissions
 
@@ -33,4 +32,4 @@ Pin a commit that is on `main`. Do not pin a tag, and do not point a merge gate 
           needs-json: ${{ toJson(needs) }}
 ```
 
-In this repository the pass and fail fixture jobs use `uses: ./require-jobs` so they test the pull request's copy. The `lint`, `test`, and `security-summary` gates pin the SHA recorded in `docs/plans/progress.md`. `main-protection` applies, so a force-push cannot drop that SHA. Product repositories may pin it. Do not pin a tag until the owner splits `release-tags`.
+In this repository the pass and fail fixture jobs use `uses: ./require-jobs` so they test the pull request's copy. The `lint`, `test`, and `security-summary` gates pin `1a3cca7c38163f8164c262323601c34a4df5b7a4`. `main-protection` applies, so a force-push cannot drop that SHA. Callers pin a commit SHA.

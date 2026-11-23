@@ -1,13 +1,13 @@
 name: Workflow conformance
 description: >-
-  Check workflows against the CI contract. warn prints findings and
-  passes. enforce fails when there is a finding.
+  Check workflows against the CI contract. enforce fails when there is
+  a finding. warn prints findings and passes.
 
 inputs:
   mode:
-    description: warn or enforce.
+    description: enforce or warn.
     required: false
-    default: warn
+    default: enforce
   root:
     description: Directory to check. Empty uses the workspace.
     required: false
