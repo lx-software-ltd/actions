@@ -8,8 +8,31 @@ inputs:
     description: Build directory to upload.
     required: true
   bucket:
-    description: Destination bucket. The caller resolves it.
-    required: true
+    description: >-
+      Destination bucket. Empty when stack is set: the action reads
+      bucket-output from that stack.
+    required: false
+    default: ""
+  stack:
+    description: >-
+      CloudFormation stack whose outputs name the bucket and the
+      distribution. Empty keeps bucket and distribution-id.
+    required: false
+    default: ""
+  region:
+    description: AWS region for the stack read. Required when stack is set.
+    required: false
+    default: ""
+  bucket-output:
+    description: Output key for the bucket. Used when stack is set.
+    required: false
+    default: PublicWebsiteBucketName
+  distribution-output:
+    description: >-
+      Output key for the distribution when stack is set. Empty keeps
+      distribution-id.
+    required: false
+    default: PublicWebsiteDistributionId
   distribution-id:
     description: CloudFront distribution. Empty skips the invalidation.
     required: false
@@ -42,6 +65,10 @@ runs:
         SOURCE: ${{ inputs.source }}
         BUCKET: ${{ inputs.bucket }}
         DISTRIBUTION_ID: ${{ inputs.distribution-id }}
+        STACK: ${{ inputs.stack }}
+        AWS_REGION: ${{ inputs.region }}
+        BUCKET_OUTPUT: ${{ inputs.bucket-output }}
+        DISTRIBUTION_OUTPUT: ${{ inputs.distribution-output }}
         PROFILE: ${{ inputs.profile }}
         INDEXNOW: ${{ inputs.indexnow }}
         DRY_RUN: ${{ inputs.dry-run }}
