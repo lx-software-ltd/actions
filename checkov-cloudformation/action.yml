@@ -48,7 +48,7 @@ runs:
 
     - name: Run Checkov
       if: steps.templates.outputs.present == 'true' && inputs.config-file == ''
-      uses: bridgecrewio/checkov-action@3f0caf0c3aa9f56ade6b49f6e60b63aaeafb75a3 # v12.3141.0
+      uses: bridgecrewio/checkov-action@b17b606d6ec72bb8ba5721ad5b7e340b80a9fc39 # v12.3142.0
       with:
         directory: ${{ inputs.directory }}
         framework: cloudformation
@@ -58,7 +58,7 @@ runs:
 
     - name: Run Checkov with a config file
       if: steps.templates.outputs.present == 'true' && inputs.config-file != ''
-      uses: bridgecrewio/checkov-action@3f0caf0c3aa9f56ade6b49f6e60b63aaeafb75a3 # v12.3141.0
+      uses: bridgecrewio/checkov-action@b17b606d6ec72bb8ba5721ad5b7e340b80a9fc39 # v12.3142.0
       with:
         directory: ${{ inputs.directory }}
         config_file: ${{ inputs.config-file }}
@@ -85,7 +85,7 @@ runs:
 
     - name: Upload SARIF results
       if: always() && inputs.upload == 'true' && steps.filter.outputs.filtered_sarif != ''
-      uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+      uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
       continue-on-error: true
       with:
         sarif_file: ${{ steps.filter.outputs.filtered_sarif }}
