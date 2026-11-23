@@ -1,12 +1,13 @@
 """Sync a built site to S3 and invalidate CloudFront.
 
 Profiles keep the upload rules of the repository that already deploys
-that way. The caller passes the bucket and distribution. This does not
-read a stack and does not print an account id.
+that way. The caller passes the bucket, or a stack whose outputs name
+the bucket and the distribution. This does not print an account id.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import re
 import shutil
@@ -428,10 +429,72 @@ def deploy(
     raise SyncError(f"Unsupported profile: {profile}")
 
 
+def _read_outputs():
+    path = Path(__file__).resolve().parents[1] / "cfn-stack-outputs" / "read_outputs.py"
+    spec = importlib.util.spec_from_file_location("cfn_read_outputs", path)
+    if spec is None or spec.loader is None:
+        raise SyncError("CloudFormation output reader is missing")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def resolve_destination(
+    *,
+    bucket: str,
+    distribution: str,
+    stack: str,
+    region: str,
+    bucket_output: str,
+    distribution_output: str,
+    run_aws: Runner,
+) -> tuple[str, str]:
+    """Return the bucket and distribution. A stack replaces both."""
+    if not stack.strip():
+        return bucket, distribution
+    module = _read_outputs()
+    keys = bucket_output.strip()
+    if distribution_output.strip():
+        keys = f"{keys},{distribution_output.strip()}"
+    try:
+        chosen_stack, chosen_region, names = module.decide(stack, region, keys)
+    except module.ReadError as exc:
+        raise SyncError(str(exc)) from exc
+    completed = run_aws(module.command(chosen_stack, chosen_region))
+    if completed.returncode != 0:
+        detail = module.redact((completed.stderr or "") + (completed.stdout or "")).strip()
+        message = f"Could not read stack {chosen_stack} in {chosen_region}."
+        if detail:
+            message = f"{message} {detail}"
+        raise SyncError(message)
+    try:
+        found = module.select(completed.stdout or "", names)
+    except module.ReadError as exc:
+        raise SyncError(str(exc)) from exc
+    resolved_bucket = found[bucket_output.strip()]
+    resolved_distribution = distribution
+    if distribution_output.strip():
+        resolved_distribution = found[distribution_output.strip()]
+    return resolved_bucket, resolved_distribution
+
+
 def main(run_aws: Runner = _run_aws) -> int:
     source = Path(os.environ.get("SOURCE", ""))
     bucket = os.environ.get("BUCKET", "")
     distribution = os.environ.get("DISTRIBUTION_ID", "")
+    try:
+        bucket, distribution = resolve_destination(
+            bucket=bucket,
+            distribution=distribution,
+            stack=os.environ.get("STACK", ""),
+            region=os.environ.get("AWS_REGION", ""),
+            bucket_output=os.environ.get("BUCKET_OUTPUT", "") or "PublicWebsiteBucketName",
+            distribution_output=os.environ.get("DISTRIBUTION_OUTPUT", ""),
+            run_aws=run_aws,
+        )
+    except SyncError as error:
+        print(str(error), file=sys.stderr)
+        return 1
     profile = os.environ.get("PROFILE", "public-hashed") or "public-hashed"
     indexnow = os.environ.get("INDEXNOW", "false").lower() == "true"
     dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"

@@ -50,7 +50,7 @@ class AgentHarnessTest(unittest.TestCase):
                 ["backend/lambda/app.py is 501 lines (limit 500); split it or, if it already exists, allowlist 501"],
             )
 
-    def test_python_counted_skips_alembic_versions(self) -> None:
+    def test_typed_skips_alembic_versions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             versions = root / "backend" / "src" / "alembic" / "versions"
@@ -60,51 +60,49 @@ class AgentHarnessTest(unittest.TestCase):
             app.write_text("\n".join(["x"] * 501) + "\n", encoding="utf-8")
             errors = harness.check_file_length(
                 root,
-                {"mode": "python-counted", "limit": 500, "allowlist": "missing.txt", "scan-roots": ["backend/src"]},
+                {
+                    "mode": "typed",
+                    "allowlist": "missing.txt",
+                    "python-limit": 500,
+                    "typescript-limit": 800,
+                    "python-prefix": "backend/src/",
+                    "typescript-app-prefix": "apps/",
+                    "typescript-lib-prefix": "backend/infrastructure/lib/",
+                    "generated-suffix": "src/lib/contracts/generated.ts",
+                    "scan-roots": ["backend/src"],
+                },
             )
             self.assertEqual(
                 errors,
                 ["backend/src/app.py is 501 lines (limit 500); split it or, if it already exists, allowlist 501"],
             )
 
-    def test_python_names_requires_an_over_limit_entry(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            target = root / "backend" / "src"
-            target.mkdir(parents=True)
-            (target / "app.py").write_text("ok\n", encoding="utf-8")
-            allow = root / "scripts"
-            allow.mkdir()
-            (allow / "python-file-length-allowlist.txt").write_text("backend/src/app.py\n", encoding="utf-8")
-            errors = harness.check_file_length(
-                root,
-                {
-                    "mode": "python-names",
-                    "limit": 500,
-                    "allowlist": "scripts/python-file-length-allowlist.txt",
-                    "scan-roots": ["backend/src"],
-                },
-            )
-            self.assertEqual(errors, ["allowlist entry is now within 500 lines; remove backend/src/app.py"])
+    def test_other_file_length_modes_are_rejected(self) -> None:
+        errors = harness.check_file_length(Path("."), {"mode": "python-names"})
+        self.assertEqual(errors, ["file-length mode must be typed, got python-names"])
 
-    def test_pair_b_skip_message(self) -> None:
+    def test_pytest_skip_is_reported_for_any_python_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             tests = root / "tests"
             tests.mkdir()
             (tests / "test_app.py").write_text("@pytest.mark.skip\ndef test_x():\n    pass\n", encoding="utf-8")
+            (tests / "helper.py").write_text("@pytest.mark.skip\n", encoding="utf-8")
             errors = harness.check_test_focus(
                 root,
                 {
-                    "mode": "all-sources",
+                    "mode": "test-names",
                     "roots": ["tests"],
                     "suffixes": [".py"],
                     "skip-parts": ["node_modules"],
                 },
             )
             self.assertEqual(
-                errors,
-                ["tests/test_app.py:1: unconditional pytest skip: @pytest.mark.skip"],
+                sorted(errors),
+                [
+                    "tests/helper.py:1: unconditional pytest skip: @pytest.mark.skip",
+                    "tests/test_app.py:1: unconditional pytest skip: @pytest.mark.skip",
+                ],
             )
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import tempfile
@@ -281,3 +282,40 @@ class SyncProfileTest(unittest.TestCase):
             with mock.patch.dict("os.environ", env, clear=False):
                 code = s3_sync.main(lambda command: _ok())
         self.assertEqual(code, 1)
+
+    def test_stack_outputs_replace_the_bucket_and_distribution(self) -> None:
+        document = json.dumps(
+            {
+                "Stacks": [
+                    {
+                        "Outputs": [
+                            {"OutputKey": "PublicWebsiteBucketName", "OutputValue": "from-stack"},
+                            {"OutputKey": "PublicWebsiteDistributionId", "OutputValue": "E999"},
+                        ]
+                    }
+                ]
+            }
+        )
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            if command[1] == "cloudformation":
+                return _ok(document)
+            return _ok()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            self._tree(source)
+            bucket, distribution = s3_sync.resolve_destination(
+                bucket="",
+                distribution="",
+                stack="findingalpha-public-www",
+                region="ap-east-1",
+                bucket_output="PublicWebsiteBucketName",
+                distribution_output="PublicWebsiteDistributionId",
+                run_aws=run_aws,
+            )
+            self.assertEqual(bucket, "from-stack")
+            self.assertEqual(distribution, "E999")
+            self.assertEqual(calls[0][1], "cloudformation")

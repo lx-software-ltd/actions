@@ -1,6 +1,6 @@
 # S3 CloudFront deploy
 
-Syncs a built site to a bucket and invalidates CloudFront. The job needs AWS credentials already, from `aws-oidc`. This action does not request a token and does not read a stack.
+Syncs a built site to a bucket and invalidates CloudFront. The job needs AWS credentials already, from `aws-oidc`. This action does not request a token. Set `bucket`, or set `stack` and `region` and the action reads `bucket-output` and `distribution-output`.
 
 `profile` keeps the upload rules that site already uses:
 
@@ -20,7 +20,11 @@ An empty `distribution-id` skips the invalidation, which is what a missing distr
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
 | `source` | yes | | Build directory. |
-| `bucket` | yes | | Destination bucket. |
+| `bucket` | no | empty | Destination bucket. Empty when `stack` is set. |
+| `stack` | no | empty | Stack whose outputs name the bucket and distribution. |
+| `region` | no | empty | Region for that stack read. |
+| `bucket-output` | no | `PublicWebsiteBucketName` | Output key for the bucket. |
+| `distribution-output` | no | `PublicWebsiteDistributionId` | Output key for the distribution. |
 | `distribution-id` | no | empty | CloudFront distribution. Empty skips invalidation. |
 | `profile` | no | `public-hashed` | Upload rules. |
 | `indexnow` | no | `false` | Ping IndexNow after `public-routes`. |

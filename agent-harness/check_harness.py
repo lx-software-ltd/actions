@@ -126,31 +126,6 @@ def _check_rule(
     return errors
 
 
-def _check_rule_presence(name: str, path: Path, *, always: bool, limit: int) -> list[str]:
-    """evolvesprouts: [why:] must be present, and the line number is the body line."""
-    errors: list[str] = []
-    text = path.read_text(encoding="utf-8")
-    count = len(_lines(path))
-    if count > limit:
-        errors.append(f"{name} is {count} lines; limit is {limit}")
-    try:
-        fields = _front_matter(text)
-    except ValueError as exc:
-        errors.append(f"{name}: {exc}")
-        return errors
-    expected = "true" if always else "false"
-    if fields.get("alwaysApply") != expected:
-        errors.append(f"{name} alwaysApply must be {expected}")
-    if not always and not fields.get("globs"):
-        errors.append(f"{name} must set globs")
-    if always and fields.get("globs"):
-        errors.append(f"{name} is always applied and must not set globs")
-    for line_number, line in enumerate(_body(text).splitlines(), start=1):
-        if line.startswith("- ") and "[why:" not in line:
-            errors.append(f"{name}:{line_number} rule bullet is missing [why:]")
-    return errors
-
-
 def check_rules(root: Path, cfg: dict) -> list[str]:
     errors: list[str] = []
     agents_limit = int(cfg["agents-limit"])
@@ -188,34 +163,16 @@ def check_rules(root: Path, cfg: dict) -> list[str]:
     rules_dir = root / ".cursor" / "rules"
     found = {path.name: path for path in rules_dir.glob("*.mdc")} if rules_dir.exists() else {}
     extra = cfg["extra-rules"]
+    if extra != "full":
+        errors.append("rules.extra-rules must be full")
     verify = bool(cfg.get("verify-why-commits"))
-    for name, always in required_rules.items():
-        path = found.get(name)
-        if path is None:
+    for name in required_rules:
+        if name not in found:
             errors.append(f"Missing rule {name}")
-            continue
-        if extra == "full":
-            continue
-        if verify:
-            errors.extend(_check_rule(name, path, always=bool(always), limit=rule_limit, verify_commits=True, root=root))
-        else:
-            errors.extend(_check_rule_presence(name, path, always=bool(always), limit=rule_limit))
-    if extra == "full":
-        for name, path in sorted(found.items()):
-            errors.extend(
-                _check_rule(name, path, always=name == core, limit=rule_limit, verify_commits=verify, root=root)
-            )
-    else:
-        for name, path in sorted(found.items()):
-            if name in required_rules:
-                continue
-            try:
-                fields = _front_matter(path.read_text(encoding="utf-8"))
-            except ValueError as exc:
-                errors.append(f"{name}: {exc}")
-                continue
-            if fields.get("alwaysApply") == "true":
-                errors.append(f"Only {core} may set alwaysApply: true ({name})")
+    for name, path in sorted(found.items()):
+        errors.extend(
+            _check_rule(name, path, always=name == core, limit=rule_limit, verify_commits=verify, root=root)
+        )
 
     skills_dir = root / ".cursor" / "skills"
     found_skills = {path.parent.name for path in skills_dir.glob("*/SKILL.md")} if skills_dir.exists() else set()
@@ -307,107 +264,10 @@ def length_problems(counts: dict[str, int], allowed: dict[str, int], cfg: dict) 
     return errors
 
 
-def check_python_counted(root: Path, cfg: dict) -> list[str]:
-    """evolvesprouts: counted allowlist, Alembic versions and dot paths skipped."""
-    limit = int(cfg["limit"])
-    allowlist_path = root / cfg["allowlist"]
-    allowed: dict[str, int] = {}
-    if allowlist_path.exists():
-        for line_number, raw in enumerate(allowlist_path.read_text(encoding="utf-8").splitlines(), start=1):
-            line = raw.strip()
-            if not line or line.startswith("#"):
-                continue
-            try:
-                rel_path, count_text = line.rsplit(None, 1)
-                count = int(count_text)
-            except ValueError as exc:
-                raise SystemExit(f"{allowlist_path}:{line_number}: expected '<path> <lines>'") from exc
-            if count <= limit:
-                raise SystemExit(
-                    f"{allowlist_path}:{line_number}: {rel_path} allowance {count} is not above {limit}; remove it"
-                )
-            if rel_path in allowed:
-                raise SystemExit(f"{allowlist_path}:{line_number}: duplicate entry for {rel_path}")
-            allowed[rel_path] = count
-    seen: set[str] = set()
-    errors: list[str] = []
-    for relative in cfg["scan-roots"]:
-        scan = root / relative
-        if not scan.exists():
-            continue
-        for path in scan.rglob("*.py"):
-            parts = path.parts
-            if "alembic" in parts:
-                alembic_at = parts.index("alembic")
-                if alembic_at + 1 < len(parts) and parts[alembic_at + 1] == "versions":
-                    continue
-            if any(part.startswith(".") for part in parts):
-                continue
-            rel = path.relative_to(root).as_posix()
-            seen.add(rel)
-            count = len(_lines(path))
-            allowance = allowed.get(rel)
-            if count <= limit:
-                if allowance is not None:
-                    errors.append(f"{rel} is {count} lines; remove it from the allowlist")
-                continue
-            if allowance is None:
-                errors.append(f"{rel} is {count} lines (limit {limit}); split it or, if it already exists, allowlist {count}")
-            elif count > allowance:
-                errors.append(f"{rel} grew from {allowance} to {count} lines")
-            elif count < allowance:
-                errors.append(f"{rel} shrank from {allowance} to {count} lines; lower its allowlist entry")
-    for rel in sorted(set(allowed) - seen):
-        errors.append(f"{rel} is allowlisted but was not found")
-    return errors
-
-
-def check_python_names(root: Path, cfg: dict) -> list[str]:
-    """siutindei: the allowlist names files and only shrinks."""
-    limit = int(cfg["limit"])
-    allowlist_path = root / cfg["allowlist"]
-    allowed: list[str] = []
-    if allowlist_path.exists():
-        for line in allowlist_path.read_text(encoding="utf-8").splitlines():
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            allowed.append(stripped)
-    allowed_set = set(allowed)
-    seen: set[str] = set()
-    errors: list[str] = []
-    for relative in cfg["scan-roots"]:
-        scan = root / relative
-        if not scan.exists():
-            continue
-        for path in scan.rglob("*.py"):
-            rel = path.relative_to(root).as_posix()
-            count = len(_lines(path))
-            seen.add(rel)
-            if count <= limit:
-                continue
-            if rel in allowed_set:
-                continue
-            errors.append(f"{rel} is {count} lines (max {limit})")
-    for rel in sorted(allowed_set):
-        path = root / rel
-        if not path.exists():
-            errors.append(f"allowlist entry does not exist: {rel}")
-            continue
-        if rel not in seen:
-            errors.append(f"allowlist entry is outside the scan: {rel}")
-            continue
-        if len(_lines(path)) <= limit:
-            errors.append(f"allowlist entry is now within {limit} lines; remove {rel}")
-    return errors
-
-
 def check_file_length(root: Path, cfg: dict) -> list[str]:
     mode = cfg.get("mode", "typed")
-    if mode == "python-counted":
-        return check_python_counted(root, cfg)
-    if mode == "python-names":
-        return check_python_names(root, cfg)
+    if mode != "typed":
+        return [f"file-length mode must be typed, got {mode}"]
     allowed = load_allowlist(root, cfg)
     counts: dict[str, int] = {}
     for relative in cfg["scan-roots"]:
@@ -417,7 +277,14 @@ def check_file_length(root: Path, cfg: dict) -> list[str]:
         for path in scan.rglob("*"):
             if not path.is_file():
                 continue
-            if any(part in {"node_modules", "dist"} for part in path.parts):
+            parts = path.parts
+            if any(part in {"node_modules", "dist"} for part in parts):
+                continue
+            if "alembic" in parts:
+                alembic_at = parts.index("alembic")
+                if alembic_at + 1 < len(parts) and parts[alembic_at + 1] == "versions":
+                    continue
+            if any(part.startswith(".") for part in parts):
                 continue
             rel = path.relative_to(root).as_posix()
             if limit_for(rel, cfg) is None:
@@ -437,9 +304,11 @@ def _is_test_file(path: Path, suffixes: set[str]) -> bool:
 
 def check_test_focus(root: Path, cfg: dict) -> list[str]:
     errors: list[str] = []
+    mode = cfg.get("mode", "test-names")
+    if mode != "test-names":
+        return [f"test-focus mode must be test-names, got {mode}"]
     suffixes = set(cfg["suffixes"])
     skip_parts = set(cfg.get("skip-parts", ["node_modules"]))
-    mode = cfg["mode"]
     for relative in cfg["roots"]:
         scan = root / relative
         if not scan.exists():
@@ -449,27 +318,20 @@ def check_test_focus(root: Path, cfg: dict) -> list[str]:
                 continue
             if any(part in skip_parts for part in path.parts):
                 continue
-            if mode == "test-names":
-                if not _is_test_file(path, suffixes):
-                    continue
-            elif path.suffix not in suffixes:
+            if path.suffix not in suffixes:
                 continue
             rel = path.relative_to(root).as_posix()
             text = path.read_text(encoding="utf-8", errors="replace")
+            is_test = _is_test_file(path, suffixes)
             for line_number, line in enumerate(text.splitlines(), start=1):
-                if mode == "test-names":
-                    problem = None
-                    if FOCUSED.search(line) or UNCONDITIONAL_SKIP.search(line):
-                        problem = line.strip()
-                    elif path.suffix == ".py" and UNITTEST_SKIP.search(line) and not re.search(r"['\"]", line):
-                        problem = line.strip()
-                    if problem:
-                        errors.append(f"{rel}:{line_number}: {problem}")
-                else:
-                    if PAIR_B_JS.search(line):
-                        errors.append(f"{rel}:{line_number}: focused or skipped test: {line.strip()}")
-                    if path.suffix == ".py" and PAIR_B_PY.search(line):
-                        errors.append(f"{rel}:{line_number}: unconditional pytest skip: {line.strip()}")
+                if FOCUSED.search(line) or UNCONDITIONAL_SKIP.search(line) or PAIR_B_JS.search(line):
+                    errors.append(f"{rel}:{line_number}: {line.strip()}")
+                    continue
+                if path.suffix == ".py" and PAIR_B_PY.search(line):
+                    errors.append(f"{rel}:{line_number}: unconditional pytest skip: {line.strip()}")
+                    continue
+                if is_test and path.suffix == ".py" and UNITTEST_SKIP.search(line) and not re.search(r"['\"]", line):
+                    errors.append(f"{rel}:{line_number}: {line.strip()}")
     return errors
 
 

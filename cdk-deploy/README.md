@@ -4,6 +4,8 @@ Deploys the stacks named in `plan`. The job needs AWS credentials already, from 
 
 `format` is `prefixed-json` or `plain-json`. An empty `param-file` skips the file. A set path that is not a file fails. `prefixed-json` rejects a key whose prefix is not declared on a group. Empty values are omitted unless the name is in `pass-empty`.
 
+`plan-file` is the same JSON as `plan`. Set one of them. `{NAME}` inside `extra-args` is replaced from the environment, and an unset name becomes empty. The secret values stay in the caller environment.
+
 `plan.groups` is the deploy order. Each group is one `cdk deploy`. `prefixes` choose prefixed keys. `routes` and `api-stack` choose plain-json stacks, and a name in `also-api` is also sent to `api-stack`. `extra-args` are the caller's extra `--parameters` flags. `when-all-env` skips the group unless every named variable is set. `allowlist-env` checks a comma-separated email list and reports the entry position, not the address. `append-if-set` adds one parameter only when that variable is non-empty.
 
 `attempts` defaults to 1. A log line matching `HandlerErrorCode: InvalidRequest`, `HandlerErrorCode: AlreadyExists`, `must be in ARN format or "*"`, or `already exists.` fails immediately. Otherwise the action waits `45 * attempt` seconds. `rollback-match` triggers `continue-update-rollback` before the next try. `skip-resource` is empty except where a failed migration resource must be skipped; a failed rollback then fails the job.
@@ -15,7 +17,8 @@ Deploys the stacks named in `plan`. The job needs AWS credentials already, from 
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
 | `working-directory` | yes | | CDK app directory. |
-| `plan` | yes | | JSON deploy order and routing. |
+| `plan` | no | empty | JSON deploy order and routing. Set this or `plan-file`. |
+| `plan-file` | no | empty | Path to that JSON. |
 | `param-file` | no | empty | Parameters file. Empty skips it. |
 | `format` | no | `prefixed-json` | File shape. |
 | `stacks` | no | empty | Subset of the plan. Empty deploys every named stack. |

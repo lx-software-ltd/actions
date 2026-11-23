@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 import sys
 import tempfile
 import unittest
@@ -161,6 +162,44 @@ class CdkDiffTest(unittest.TestCase):
                 cdk_diff.main(run_cdk)
         self.assertIn("app:Name=a value", seen[0])
         self.assertNotIn("ignored", seen[0])
+
+    def test_plan_file_supplies_the_parameter_arguments(self) -> None:
+        seen: list[list[str]] = []
+
+        def run_cdk(command: list[str], directory: str) -> tuple[int, str]:
+            seen.append(command)
+            return 0, "ok\n"
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "package.json").write_text("{}\n", encoding="utf-8")
+            params = root / "params.json"
+            params.write_text(json.dumps({"api:Name": "one"}), encoding="utf-8")
+            plan = root / "plan.json"
+            plan.write_text(
+                json.dumps({"groups": [{"stacks": ["api"], "prefixes": ["api:"]}]}),
+                encoding="utf-8",
+            )
+            env = {
+                "WORKING_DIRECTORY": directory,
+                "STACKS": "api",
+                "ARGS": "",
+                "ARGS_FILE": "",
+                "PLAN": "",
+                "PLAN_FILE": str(plan),
+                "PARAM_FILE": str(params),
+                "FORMAT": "prefixed-json",
+                "PASS_EMPTY": "",
+                "ESCAPE_NEWLINES": "false",
+                "INCLUDE_EXTRAS": "false",
+                "ACCOUNT_ID": "",
+                "SUMMARY": "false",
+            }
+            with mock.patch.dict("os.environ", env, clear=False):
+                code = cdk_diff.main(run_cdk)
+        self.assertEqual(code, 0)
+        self.assertIn("--parameters", seen[0])
+        self.assertIn("api:Name=one", seen[0])
 
     def test_lines_are_masked_as_they_arrive(self) -> None:
         written: list[str] = []

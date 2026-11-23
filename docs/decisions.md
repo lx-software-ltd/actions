@@ -40,7 +40,13 @@ Node is major version 26. Python is 3.12. Linux jobs use `ubuntu-26.04`. macOS j
 
 A pull request diff does not assume `GitHubActionsRole`. It assumes the role named by the repository variable `AWS_DIFF_ROLE_NAME`, and only when that variable is set. The role trusts `pull_request` and is read-only. Until the variable is set, the pull request warns and does not call AWS. A manual run still assumes `GitHubActionsRole`. `siutindei` manual diffs use the `production` environment, because that environment holds the parameter-file variable and the branch policy allows `main` only. A `siutindei` pull request does not diff.
 
-`cdk-deploy` takes a plan JSON and a parameters file. The file is either prefixed JSON or plain JSON. The design is `docs/architecture/cdk-deploy.md`.
+`cdk-deploy` takes a plan JSON and a parameters file. The file is either prefixed JSON or plain JSON. `plan-file` is that same JSON on disk. `{NAME}` in `extra-args` expands from the caller environment. `cdk-diff` reads the same plan and parameters file and builds the parameter arguments, without the deploy-only extras unless `include-extras` is true. The design is `docs/architecture/cdk-deploy.md`.
+
+`s3-cloudfront-deploy` reads the bucket and distribution from stack outputs when `stack` and `region` are set. `public-routes` still uploads `.js` and `.css` as `application/octet-stream`.
+
+The public-site release in `evolvesprouts` and `siutindei` stays the shell scripts. The design, and the reason it is not an action yet, is `docs/architecture/public-site-release.md`.
+
+The agent harness has one mode of each kind: file length `typed`, test focus `test-names`, and rules `full`. `rules.skills` stays `all` or `required` because that list is the caller's, not a second checker.
 
 ## Denylist
 
@@ -49,11 +55,10 @@ A pull request diff does not assume `GitHubActionsRole`. It assumes the role nam
 ## Not finished
 
 - A Dependabot path that bumps this pin, and a measured cooldown exclusion.
-- A Lighthouse action.
 - The read-only diff role named by `AWS_DIFF_ROLE_NAME`. The workflows do not create it.
 - The siutindei Play upload still checks `PLAY_STORE_UPLOAD_ENABLED` and the package name inline. `play-prerequisites` now has `upload-enabled` and `require-package-name` for that caller. It moves with the pin bump. The other three mobile actions, and evolvesprouts Play, match the current pin. Those signing workflows run on a release, so they have not run yet.
 - S3 `public-routes` uploads `.js` and `.css` as `application/octet-stream`. Changing that, or renaming the profiles, needs a dry-run comparison against the live buckets.
-- One harness mode of each kind. Three file-length modes, two test-focus modes, and two rule modes still exist.
 - Templates for the workflow files that are the same across product repositories. Conformance compares a checkout to a template before any return to reusable workflows.
+- The public-site release action. The design is written. The scripts stay until a dry-run matches them.
 - Lockfile and Semgrep jobs folded under the required gates.
 - The same 31 digests held once, which waits on the denylist decision above.
