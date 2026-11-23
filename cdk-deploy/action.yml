@@ -11,7 +11,9 @@ inputs:
   plan:
     description: >-
       JSON object. groups lists each cdk deploy in order. prefixes
-      select prefixed-json keys. routes and api-stack route plain-json
+      select prefixed-json keys. unprefixed-prefix, when set, maps a
+      key with no colon onto that prefix (lx-software uses
+      lxsoftware-public-www:). routes and api-stack route plain-json
       names. extra-args, when-all-env, allowlist-env, and append-if-set
       stay on the group.
     required: true
@@ -46,7 +48,9 @@ inputs:
   escape-newlines:
     description: >-
       For plain-json, turn newlines into the two characters \n.
-      prefixed-json always does this.
+      false leaves the resolved value unchanged, which is what
+      evolvesprouts does. siutindei passes true. prefixed-json always
+      escapes newlines.
     required: false
     default: "false"
   rollback-match:

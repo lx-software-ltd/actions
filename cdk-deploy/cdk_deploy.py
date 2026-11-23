@@ -119,11 +119,26 @@ def _matching_prefix(key: str, prefixes: list[str]) -> str:
     return max(matches, key=len)
 
 
+def _prefixed_key(key: str, unprefixed_prefix: str) -> str:
+    if ":" in key:
+        return key
+    if not unprefixed_prefix:
+        raise DeployError("unknown parameter key prefix")
+    return f"{unprefixed_prefix}{key}"
+
+
+def _prefixed_value(raw: object) -> str:
+    if isinstance(raw, str):
+        return _normalize(_placeholder(raw.strip()), True)
+    return _normalize(raw, True)
+
+
 def _prefixed_args(
     data: dict[str, object],
     groups: list[dict[str, object]],
     selected: set[str],
     pass_empty: set[str],
+    unprefixed_prefix: str,
 ) -> dict[int, list[str]]:
     prefixes = _prefixes(groups)
     if not prefixes:
@@ -132,18 +147,19 @@ def _prefixed_args(
     for key, raw in data.items():
         if raw is None:
             continue
-        prefix = _matching_prefix(str(key), prefixes)
+        text = _prefixed_key(str(key), unprefixed_prefix)
+        prefix = _matching_prefix(text, prefixes)
         if not prefix:
             raise DeployError("unknown parameter key prefix")
-        value = _normalize(raw, True)
-        name = str(key)[len(prefix) :]
+        value = _prefixed_value(raw)
+        name = text[len(prefix) :]
         if name not in pass_empty and value == "":
             continue
         for index, group in enumerate(groups):
             group_prefixes = [str(item) for item in group.get("prefixes") or []]
             stacks = [str(item) for item in group.get("stacks") or []]
             if prefix in group_prefixes and any(stack in selected for stack in stacks):
-                by_group[index].extend(["--parameters", f"{key}={value}"])
+                by_group[index].extend(["--parameters", f"{text}={value}"])
     return by_group
 
 
@@ -192,7 +208,9 @@ def _plain_args(
 
 def _plain_value(raw: object, escape_newlines: bool) -> str:
     text = _placeholder(raw.strip()) if isinstance(raw, str) else _as_text(raw)
-    return _normalize(text, escape_newlines)
+    if not escape_newlines:
+        return text
+    return _normalize(text, True)
 
 
 def _check_allowlist(value: str) -> None:
@@ -278,7 +296,13 @@ def build_commands(
     if parameters is None:
         grouped: dict[int, list[str]] = {}
     elif fmt == "prefixed-json":
-        grouped = _prefixed_args(parameters, groups, selected, pass_empty)
+        grouped = _prefixed_args(
+            parameters,
+            groups,
+            selected,
+            pass_empty,
+            str(plan.get("unprefixed-prefix") or ""),
+        )
     elif fmt == "plain-json":
         grouped = _plain_args(parameters, plan, selected, pass_empty, escape_newlines)
     else:

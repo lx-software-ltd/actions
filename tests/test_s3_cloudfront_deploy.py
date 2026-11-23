@@ -84,6 +84,56 @@ class SyncProfileTest(unittest.TestCase):
         index = next(call for call in calls if call[4].endswith("/index.html"))
         self.assertIn("no-cache,must-revalidate", index)
 
+    def test_admin_hashed_skips_dotfiles(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            return _ok()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            self._tree(source)
+            (source / ".gitkeep").write_text("", encoding="utf-8")
+            s3_sync.deploy(
+                source=source,
+                bucket="admin-bucket",
+                distribution="",
+                profile="admin-hashed",
+                indexnow=False,
+                run_aws=run_aws,
+            )
+        dests = [call[4] for call in calls if call[1:3] == ["s3", "cp"]]
+        self.assertFalse(any(dest.endswith("/.gitkeep") for dest in dests))
+        self.assertTrue(any(dest.endswith("/favicon.ico") for dest in dests))
+
+    def test_next_export_syncs_the_tree_and_deletes(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            return _ok()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            (source / "index.html").write_text("<html>", encoding="utf-8")
+            (source / "_next").mkdir()
+            (source / "_next" / "chunk.js").write_text("js", encoding="utf-8")
+            s3_sync.deploy(
+                source=source,
+                bucket="admin-bucket",
+                distribution="E123",
+                profile="next-export",
+                indexnow=False,
+                run_aws=run_aws,
+            )
+        self.assertEqual(calls[0][1:3], ["s3", "sync"])
+        self.assertEqual(calls[0][3], str(source))
+        self.assertEqual(calls[0][4], "s3://admin-bucket")
+        self.assertEqual(calls[0][5:], ["--delete"])
+        self.assertEqual(calls[1][1:3], ["cloudfront", "create-invalidation"])
+        self.assertIn("/*", calls[1])
+
     def test_public_routes_writes_extensionless_keys_and_media(self) -> None:
         calls: list[list[str]] = []
 
