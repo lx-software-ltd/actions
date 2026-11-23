@@ -291,6 +291,16 @@ def _lines(raw: str) -> list[str]:
     return [line.strip() for line in raw.splitlines() if line.strip()]
 
 
+def _ignored(path: Path, root: Path, ignored: set[str]) -> bool:
+    if not ignored:
+        return False
+    try:
+        relative = path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        relative = path.as_posix()
+    return relative in ignored
+
+
 def main() -> int:
     root = Path(
         os.environ.get("DEPENDENCY_GRAPH_ROOT")
@@ -298,7 +308,9 @@ def main() -> int:
         or "."
     )
     listed = _lines(os.environ.get("DEPENDENCY_GRAPH_MANIFESTS", ""))
+    ignored = set(_lines(os.environ.get("DEPENDENCY_GRAPH_IGNORE", "")))
     files = [root / line for line in listed] if listed else discover(root)
+    files = [path for path in files if not _ignored(path, root, ignored)]
     sha = os.environ.get("GITHUB_SHA", "")
     ref = os.environ.get("GITHUB_REF", "")
     if not sha or not ref:

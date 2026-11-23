@@ -12,6 +12,7 @@ An unpinned requirement or action fails the run and nothing is posted. `fixtures
 | --- | --- | --- | --- |
 | `root` | no | workspace | Directory scanned when `manifests` is empty. |
 | `manifests` | no | empty | Newline-separated paths relative to `root`. |
+| `ignore` | no | empty | Paths relative to `root` left out of the snapshot. |
 | `submit` | no | `false` | `true` posts the snapshot. |
 | `token` | when submitting | empty | Token with contents write. |
 | `snapshot-path` | no | empty | File that receives the snapshot JSON. |

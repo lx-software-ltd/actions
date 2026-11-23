@@ -12,6 +12,10 @@ inputs:
     description: Newline-separated manifest paths relative to root. Empty scans the tree.
     required: false
     default: ""
+  ignore:
+    description: Newline-separated paths, relative to root, left out of the snapshot.
+    required: false
+    default: ""
   submit:
     description: Post the snapshot when true. Any other value only writes it.
     required: false
@@ -33,6 +37,7 @@ runs:
       env:
         DEPENDENCY_GRAPH_ROOT: ${{ inputs.root }}
         DEPENDENCY_GRAPH_MANIFESTS: ${{ inputs.manifests }}
+        DEPENDENCY_GRAPH_IGNORE: ${{ inputs.ignore }}
         DEPENDENCY_GRAPH_SUBMIT: ${{ inputs.submit }}
         DEPENDENCY_GRAPH_TOKEN: ${{ inputs.token }}
         DEPENDENCY_GRAPH_SNAPSHOT: ${{ inputs.snapshot-path }}
