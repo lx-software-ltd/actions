@@ -5,7 +5,7 @@ Syncs a built site to a bucket and invalidates CloudFront. The job needs AWS cre
 `profile` keeps the upload rules that site already uses:
 
 | Profile | Rules |
-| --- | --- | --- |
+| --- | --- |
 | `public-hashed` | Hashed `assets/` with `--delete`, root files with a content type, `index.html` last and `no-cache`, then delete retired root keys. |
 | `admin-hashed` | Hashed `assets/` with `--delete`. Other root files are immutable and have no content type. `index.html` is last and `no-cache`. Root keys are not pruned. |
 | `public-routes` | Assets, size-only `media/`, extensionless HTML routes, unhashed directories, then a second assets sync with `--delete`. `indexnow: true` pings IndexNow and does not fail the deploy. `.js` and `.css` are uploaded as `application/octet-stream`. |
