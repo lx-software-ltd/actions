@@ -58,6 +58,26 @@ class SyncProfileTest(unittest.TestCase):
         self.assertEqual(calls[-1][1:3], ["cloudfront", "create-invalidation"])
         self.assertIn("E123", calls[-1])
 
+    def test_a_failed_root_listing_fails_the_deploy(self) -> None:
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            if command[1:3] == ["s3api", "list-objects-v2"]:
+                return subprocess.CompletedProcess(args=command, returncode=1, stdout="", stderr="AccessDenied")
+            return _ok()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            self._tree(source)
+            with self.assertRaises(s3_sync.SyncError) as caught:
+                s3_sync.deploy(
+                    source=source,
+                    bucket="site-bucket",
+                    distribution="E123",
+                    profile="public-hashed",
+                    indexnow=False,
+                    run_aws=run_aws,
+                )
+        self.assertIn("AccessDenied", str(caught.exception))
+
     def test_admin_hashed_skips_content_type_on_other_files_and_does_not_prune(self) -> None:
         calls: list[list[str]] = []
 

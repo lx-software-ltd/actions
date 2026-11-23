@@ -22,7 +22,7 @@ Write a short plan under `docs/plans/` before editing.
 - `AGENTS.md`
 - `docs/ci-contract.md` (conformance enforces this file in the product repositories and in this one)
 - `docs/architecture/zones.md` (this map)
-- `docs/plans/shared-actions-and-ci-convergence.md` (the plan executing agents follow)
+- `docs/plans/*.md` (the short plan for a yellow change; the pull request that finishes it deletes the note)
 - `scripts/**`, other than the denylist
 - `fixtures/**` (weakening a must-fail fixture weakens a gate)
 

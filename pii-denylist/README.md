@@ -28,4 +28,4 @@ The calling job needs `contents: read` for the checkout. The action does not cal
       - uses: lx-software-ltd/actions/pii-denylist@<40-hex> # main YYYY-MM-DD
 ```
 
-Pin the same commit as the repository's other `lx-software-ltd/actions` references. The local `scripts/check_pii.py` stays until pre-commit stops calling it.
+Pin the same commit as the repository's other `lx-software-ltd/actions` references.

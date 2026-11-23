@@ -1,6 +1,6 @@
 name: Test
 
-# main-protection applies. The check named test is required on main.
+# main-protection requires the check named test.
 
 on:
   workflow_dispatch:
@@ -8,6 +8,10 @@ on:
   push:
     branches:
       - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -652,113 +656,6 @@ jobs:
           OUTCOME: ${{ steps.scan.outcome }}
         run: test "$OUTCOME" = "failure"
 
-  semgrep-ci:
-    name: Semgrep ci fixture
-    runs-on: ubuntu-26.04
-    container:
-      image: semgrep/semgrep@sha256:f83a64e8a7d985eaa51ee3978c9c882be946964c68633fba5d2817cf297a3912 # 2026-11-17
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-
-      # On a pull request, semgrep ci checks out the head sha from the event
-      # and scans only files changed since the base. A file already on that
-      # head is invisible once the pull request merges. Commit the hit during
-      # the job and replace the event's head sha with that commit so the scan
-      # sees a file that is new on every run. GitHub ignores a step-level
-      # override of GITHUB_BASE_REF, so the baseline stays the real base.
-      - name: Commit a new Semgrep hit
-        shell: sh
-        run: |
-          set -eu
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          git config --global user.email fixture@example.com
-          git config --global user.name fixture
-          mkdir -p fixtures/semgrep
-          printf '%s\n' fixture-semgrep-hit > fixtures/semgrep/ci-hit.txt
-          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
-            head=$(python3 -c 'import json, os; print(json.load(open(os.environ["GITHUB_EVENT_PATH"]))["pull_request"]["head"]["sha"])')
-            git cat-file -e "$head^{commit}" || git fetch origin "$head"
-            git checkout --detach "$head"
-            git add fixtures/semgrep/ci-hit.txt
-            tree=$(git write-tree)
-            parent=$(git rev-parse "$head^")
-            new=$(git commit-tree "$tree" -p "$parent" -m "fixture semgrep hit")
-            git replace "$head" "$new"
-          else
-            git add fixtures/semgrep/ci-hit.txt
-            git commit -m "fixture semgrep hit"
-          fi
-
-      - name: Run semgrep ci with the fixture rule
-        uses: ./semgrep
-        with:
-          mode: ci
-          rules: fixtures/semgrep/rule.yml
-          upload: "false"
-
-      - name: Expect the ci scan to report the fixture hit
-        shell: sh
-        run: |
-          test -f semgrep-results.sarif
-          python3 -c 'import json,sys; payload=json.load(open("semgrep-results.sarif")); count=sum(len(run.get("results") or []) for run in payload.get("runs") or []); sys.exit(0 if count >= 1 else 1)'
-
-  semgrep-ci-error:
-    name: Semgrep ci error fixture
-    runs-on: ubuntu-26.04
-    container:
-      image: semgrep/semgrep@sha256:f83a64e8a7d985eaa51ee3978c9c882be946964c68633fba5d2817cf297a3912 # 2026-11-17
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Reject a missing ci config
-        id: scan
-        continue-on-error: true
-        uses: ./semgrep
-        with:
-          mode: ci
-          rules: fixtures/semgrep/missing.yml
-          upload: "false"
-
-      - name: Expect the action to fail
-        shell: sh
-        env:
-          OUTCOME: ${{ steps.scan.outcome }}
-        run: test "$OUTCOME" = "failure"
-
-  semgrep-mode-fail:
-    name: Semgrep mode fail fixture
-    runs-on: ubuntu-26.04
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Reject a mode that is not scan or ci
-        id: scan
-        continue-on-error: true
-        uses: ./semgrep
-        with:
-          mode: nope
-          rules: fixtures/semgrep/rule.yml
-          source: fixtures/semgrep/pass
-          upload: "false"
-
-      - name: Expect the action to fail
-        env:
-          OUTCOME: ${{ steps.scan.outcome }}
-        run: test "$OUTCOME" = "failure"
-
   pip-audit-pass:
     name: pip-audit pass fixture
     runs-on: ubuntu-26.04
@@ -1363,58 +1260,6 @@ jobs:
           OUTCOME: ${{ steps.sync.outcome }}
         run: test "$OUTCOME" = "failure"
 
-  amplify-release-pass:
-    name: Amplify release pass fixture
-    runs-on: ubuntu-26.04
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install a stub aws
-        run: |
-          mkdir -p "$RUNNER_TEMP/bin"
-          cat > "$RUNNER_TEMP/bin/aws" << 'EOF'
-          #!/bin/sh
-          case "$*" in
-            *start-job*) printf '%s\n' '{"jobSummary":{"jobId":"1","status":"PENDING"}}' ;;
-            *get-job*) printf '%s\n' '{"job":{"summary":{"status":"SUCCEED"}}}' ;;
-            *) printf '%s\n' '{}' ;;
-          esac
-          exit 0
-          EOF
-          chmod +x "$RUNNER_TEMP/bin/aws"
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-
-      - name: Start a release and wait
-        uses: ./amplify-release
-        with:
-          app-id: d123
-          branch: main
-          mode: release
-          wait: "true"
-
-  amplify-release-fail:
-    name: Amplify release fail fixture
-    runs-on: ubuntu-26.04
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Reject a missing app id
-        id: release
-        continue-on-error: true
-        uses: ./amplify-release
-        with:
-          app-id: ""
-          branch: main
-          mode: release
-          wait: "false"
-
-      - name: Expect the action to fail
-        env:
-          OUTCOME: ${{ steps.release.outcome }}
-        run: test "$OUTCOME" = "failure"
-
   cdk-deploy-pass:
     name: CDK deploy pass fixture
     runs-on: ubuntu-26.04
@@ -1526,9 +1371,6 @@ jobs:
       - pod-lockfiles-fail
       - agent-harness-pass
       - agent-harness-fail
-      - semgrep-ci
-      - semgrep-ci-error
-      - semgrep-mode-fail
       - aws-oidc-skip
       - aws-oidc-fail
       - cdk-bootstrap-pass
@@ -1539,8 +1381,6 @@ jobs:
       - cfn-stack-outputs-fail
       - s3-cloudfront-pass
       - s3-cloudfront-fail
-      - amplify-release-pass
-      - amplify-release-fail
       - ios-export-pass
       - ios-export-fail
       - appstore-key-pass

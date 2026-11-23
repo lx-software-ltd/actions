@@ -2,7 +2,7 @@ name: Verify rulesets
 description: >-
   Fail unless the active main ruleset requires exactly the expected
   approving-review count and exactly the named status checks. The
-  default is 0 reviews and the checks lint and test.
+  default is 0 reviews and the checks lint, test, and security-summary.
 
 inputs:
   token:
@@ -12,19 +12,14 @@ inputs:
     required: false
     default: ""
   required-checks:
-    description: Space-separated check names. Default lint and test.
+    description: >-
+      Space-separated check names. Default lint, test, and security-summary.
     required: false
-    default: "lint test"
+    default: "lint test security-summary"
   expected-reviews:
     description: Required approving-review count. Default 0.
     required: false
     default: "0"
-  target-repository:
-    description: >-
-      owner/name to read. Leave empty to use the calling repository.
-      No current caller sets this.
-    required: false
-    default: ""
   rulesets-json:
     description: >-
       JSON array of ruleset objects. When set, the action does not call
@@ -41,6 +36,5 @@ runs:
         GH_TOKEN: ${{ inputs.token }}
         REQUIRED_CHECKS: ${{ inputs.required-checks }}
         EXPECTED_REVIEWS: ${{ inputs.expected-reviews }}
-        VERIFY_RULESETS_REPOSITORY: ${{ inputs.target-repository }}
         RULESETS_JSON: ${{ inputs.rulesets-json }}
       run: python3 "$GITHUB_ACTION_PATH/verify_rulesets.py"

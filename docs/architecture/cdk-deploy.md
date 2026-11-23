@@ -1,9 +1,6 @@
-# Design note: cdk-deploy
+# CDK deploy
 
-**Status**: Closed. G5 approved for cdk-deploy. findingalpha #95, evolvesprouts #2298, siutindei #950, and lx-software #684 call it. The first lx-software deploy on that commit, `45142566886`, reported no changes on all three stacks and updated no Lambda functions.
-**Zone**: red
-
-G5 approved for cdk-deploy. The action is `cdk-deploy/`. Product `deploy-backend.yml` files are not changed in that pull request. Callers pin the merge commit later.
+How `cdk-deploy` turns a parameters file and a plan into `cdk deploy` commands. The action does not assume a role, and it does not print an account id, a parameter value, or a secret.
 
 ## Goal
 
@@ -68,21 +65,3 @@ Before a retry, a stack in `UPDATE_ROLLBACK_FAILED` gets `continue-update-rollba
 | `destroy` | false | false | false | the workflow input |
 
 Stack names, the parameter-to-stack sets, and the extra `--parameters` flags stay caller inputs. The action does not hard-code a repository name.
-
-## Still outside this action
-
-- No edit to `deploy-backend.yml` in any repository until that repository pins the action.
-- No removal of `cdk bootstrap` from a deploy. C24 already kept that command in pair B.
-- No deploy run from the actions repository. Fixture jobs stub `aws` and `npx`.
-
-## Done when
-
-G5 approved for cdk-deploy, and the action follows the table above.
-
-## Rollback
-
-Delete this note. Nothing calls it.
-
-## Open questions
-
-None. The differences above are the inputs that keep today's behaviour.

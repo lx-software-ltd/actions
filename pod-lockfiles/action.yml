@@ -19,7 +19,7 @@ runs:
     - name: Install CocoaPods
       if: inputs.setup == 'true'
       shell: bash
-      run: sudo gem install cocoapods
+      run: sudo gem install cocoapods -v 1.17.0
 
     - name: Check the Pod lockfile
       shell: bash

@@ -14,7 +14,6 @@ import sys
 from typing import Any
 
 PASSING = {"success"}
-SKIPPED = {"skipped"}
 
 
 def parse_results(payload: Any) -> dict[str, str]:
@@ -33,15 +32,8 @@ def parse_results(payload: Any) -> dict[str, str]:
     return results
 
 
-def allowed_results(allow_skipped: bool) -> set[str]:
-    if allow_skipped:
-        return set(PASSING) | set(SKIPPED)
-    return set(PASSING)
-
-
-def failing_jobs(results: dict[str, str], allow_skipped: bool) -> list[str]:
-    allowed = allowed_results(allow_skipped)
-    return [f"{name}={result}" for name, result in results.items() if result not in allowed]
+def failing_jobs(results: dict[str, str]) -> list[str]:
+    return [f"{name}={result}" for name, result in results.items() if result not in PASSING]
 
 
 def summary_table(results: dict[str, str]) -> str:
@@ -63,14 +55,13 @@ def write_summary(results: dict[str, str]) -> None:
 
 def main() -> int:
     raw = os.environ.get("NEEDS_JSON", "")
-    allow_skipped = os.environ.get("ALLOW_SKIPPED", "false").strip().lower() == "true"
     try:
         results = parse_results(json.loads(raw))
     except (json.JSONDecodeError, ValueError) as exc:
         print(f"require-jobs: {exc}", file=sys.stderr)
         return 1
     write_summary(results)
-    failed = failing_jobs(results, allow_skipped)
+    failed = failing_jobs(results)
     if failed:
         print("Jobs did not all succeed: " + ", ".join(failed), file=sys.stderr)
         return 1

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Check a repository against the CI contract.
 
-``mode`` is ``warn`` or ``enforce``. Warn prints the findings and exits 0.
-Enforce exits 1 when there is a finding.
+``mode`` is ``enforce`` or ``warn``. Enforce exits 1 when there is a finding.
+Warn prints the findings and exits 0. The default is enforce.
 
 ``profile`` is ``producer`` or ``product``. The producer is this repository.
 Product repositories also need the target security jobs and ``semgrep/ci``.
@@ -18,7 +18,8 @@ from pathlib import Path
 SHA = re.compile(r"^[0-9a-f]{40}$")
 DIGEST = re.compile(r"@sha256:[0-9a-f]{64}$")
 RUNNERS = {"ubuntu-26.04", "macos-26"}
-GATED = {"lint.yml": "lint", "test.yml": "test"}
+GATED = {"lint.yml": "lint", "test.yml": "test", "security.yml": "security-summary"}
+PATH_FILTERED = {"lint.yml", "test.yml", "security.yml"}
 REQUIRE_JOBS = re.compile(
     r"uses:\s+lx-software-ltd/actions/require-jobs@[0-9a-f]{40}\b"
 )
@@ -170,6 +171,31 @@ def _pre_commit_actions_revs(text: str) -> tuple[bool, list[str]]:
     return found, revs
 
 
+def _permission_findings(rel: str, text: str) -> list[str]:
+    """Top-level permissions are contents: read. A job sets anything more."""
+    for index, line in enumerate(text.splitlines()):
+        if line.startswith(" ") or line.startswith("#") or not line.startswith("permissions:"):
+            continue
+        rest = line.split(":", 1)[1].strip()
+        if rest:
+            compact = rest.replace(" ", "").replace("{", "").replace("}", "")
+            if compact in {"contents:read", "'contents':read", '"contents":read'}:
+                return []
+            return [f"{rel}: top-level permissions must be contents: read"]
+        keys: list[str] = []
+        for follow in text.splitlines()[index + 1 :]:
+            if not follow.strip() or follow.strip().startswith("#"):
+                continue
+            if not follow.startswith(" "):
+                break
+            if follow.startswith("  ") and not follow.startswith("    "):
+                keys.append(follow.strip())
+        if keys == ["contents: read"]:
+            return []
+        return [f"{rel}: top-level permissions must be contents: read"]
+    return [f"{rel}: missing a top-level permissions block"]
+
+
 def findings(root: Path, profile: str = "product") -> list[str]:
     if profile not in {"product", "producer"}:
         return [f"workflow-conformance: unknown profile {profile}"]
@@ -181,8 +207,7 @@ def findings(root: Path, profile: str = "product") -> list[str]:
     for path in _workflows(workflow_dir):
         rel = path.relative_to(root).as_posix()
         text = path.read_text(encoding="utf-8")
-        if not any(line.startswith("permissions:") for line in text.splitlines()):
-            errors.append(f"{rel}: missing a top-level permissions block")
+        errors.extend(_permission_findings(rel, text))
         for line_number, line in enumerate(text.splitlines(), start=1):
             stripped = line.strip()
             if stripped.startswith("#"):
@@ -207,7 +232,7 @@ def findings(root: Path, profile: str = "product") -> list[str]:
         for line_number, image in _images(text):
             if not DIGEST.search(image):
                 errors.append(f"{rel}:{line_number}: image {image} is not pinned by digest")
-        if path.name in GATED and _pull_request_has_path_filter(text):
+        if path.name in PATH_FILTERED and _pull_request_has_path_filter(text):
             errors.append(f"{rel}: pull_request has a path filter")
     for filename, job in GATED.items():
         path = workflow_dir / filename
@@ -216,11 +241,8 @@ def findings(root: Path, profile: str = "product") -> list[str]:
             continue
         errors.extend(_gate_findings(f".github/workflows/{filename}", job, _jobs(path.read_text(encoding="utf-8"))))
     security = workflow_dir / "security.yml"
-    if profile == "product" and not security.is_file():
-        errors.append(".github/workflows/security.yml: missing")
     if security.is_file():
         security_jobs = _jobs(security.read_text(encoding="utf-8"))
-        errors.extend(_gate_findings(".github/workflows/security.yml", "security-summary", security_jobs))
         if profile == "product":
             for job in PRODUCT_SECURITY_JOBS:
                 if job not in security_jobs:
@@ -255,7 +277,7 @@ def findings(root: Path, profile: str = "product") -> list[str]:
 
 
 def main() -> int:
-    mode = os.environ.get("CONFORMANCE_MODE", "warn")
+    mode = os.environ.get("CONFORMANCE_MODE", "enforce")
     profile = os.environ.get("CONFORMANCE_PROFILE", "product")
     if mode not in {"warn", "enforce"}:
         print("workflow-conformance: mode must be warn or enforce", file=sys.stderr)

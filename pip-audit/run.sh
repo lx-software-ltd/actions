@@ -4,8 +4,9 @@ set -euo pipefail
 
 files="${PIP_AUDIT_FILES:?pip-audit: requirements are required}"
 ignores="${PIP_AUDIT_IGNORE:-}"
-python3 -m pip install --disable-pip-version-check pip-audit
-export PATH="$(python3 -m site --user-base)/bin:$PATH"
+python3 -m pip install --disable-pip-version-check pip-audit==2.10.1
+user_bin="$(python3 -m site --user-base)/bin"
+export PATH="${user_bin}:$PATH"
 ignore_args=""
 for vuln in $ignores; do
   ignore_args="$ignore_args --ignore-vuln $vuln"

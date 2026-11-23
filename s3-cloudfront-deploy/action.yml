@@ -16,9 +16,8 @@ inputs:
     default: ""
   profile:
     description: >-
-      public-hashed (findingalpha public site), admin-hashed (pair A
-      admin sites), public-routes (lx-software public site), or
-      next-export (pair B admin sites, a Next.js out/ sync --delete).
+      public-hashed, admin-hashed, public-routes, or next-export
+      (a Next.js out/ directory, synced with --delete).
     required: false
     default: public-hashed
   indexnow:

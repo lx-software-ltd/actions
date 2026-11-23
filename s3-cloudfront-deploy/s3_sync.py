@@ -181,7 +181,7 @@ def _prune_root(run_aws: Runner, bucket: str, desired: set[str]) -> None:
         ]
     )
     if listed.returncode != 0:
-        return
+        raise SyncError(_redact(listed.stderr or listed.stdout or "bucket listing failed"))
     keys = [key for key in listed.stdout.replace("\t", "\n").splitlines() if key and "/" not in key]
     for key in keys:
         if key in desired:

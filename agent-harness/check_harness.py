@@ -2,7 +2,6 @@
 """Run the agent harness from .github/harness.json.
 
 The config carries the lists and limits that differ between repositories.
-The messages match the scripts this action replaces.
 """
 
 from __future__ import annotations

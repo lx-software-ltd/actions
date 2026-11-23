@@ -1,7 +1,7 @@
 name: Require jobs
 description: >-
   Fail unless every job in needs succeeded, and write a result table to
-  the step summary.
+  the step summary. A skipped job is a failure.
 
 inputs:
   needs-json:
@@ -9,10 +9,6 @@ inputs:
       JSON object of job id to result, or the GitHub needs context from
       toJson(needs). Required, and must be non-empty.
     required: true
-  allow-skipped:
-    description: Count a skipped job as success. Default false.
-    required: false
-    default: "false"
 
 runs:
   using: composite
@@ -21,5 +17,4 @@ runs:
       shell: bash
       env:
         NEEDS_JSON: ${{ inputs.needs-json }}
-        ALLOW_SKIPPED: ${{ inputs.allow-skipped }}
       run: python3 "$GITHUB_ACTION_PATH/require_jobs.py"

@@ -19,7 +19,7 @@ FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "require-jobs"
 class RequireJobsTest(unittest.TestCase):
     def test_flat_success(self) -> None:
         results = require_jobs.parse_results({"lint": "success", "test": "success"})
-        self.assertEqual(require_jobs.failing_jobs(results, allow_skipped=False), [])
+        self.assertEqual(require_jobs.failing_jobs(results), [])
 
     def test_github_needs_shape(self) -> None:
         payload = {"lint": {"result": "success", "outputs": {}}}
@@ -29,18 +29,17 @@ class RequireJobsTest(unittest.TestCase):
     def test_failure_is_reported(self) -> None:
         results = require_jobs.parse_results(json.loads((FIXTURES / "fail" / "needs.json").read_text()))
         self.assertEqual(
-            require_jobs.failing_jobs(results, allow_skipped=False),
+            require_jobs.failing_jobs(results),
             ["validate-agent-harness=failure"],
         )
 
     def test_pass_fixture(self) -> None:
         results = require_jobs.parse_results(json.loads((FIXTURES / "pass" / "needs.json").read_text()))
-        self.assertEqual(require_jobs.failing_jobs(results, allow_skipped=False), [])
+        self.assertEqual(require_jobs.failing_jobs(results), [])
 
-    def test_skipped_fails_unless_allowed(self) -> None:
+    def test_skipped_fails(self) -> None:
         results = {"lint": "skipped"}
-        self.assertEqual(require_jobs.failing_jobs(results, allow_skipped=False), ["lint=skipped"])
-        self.assertEqual(require_jobs.failing_jobs(results, allow_skipped=True), [])
+        self.assertEqual(require_jobs.failing_jobs(results), ["lint=skipped"])
 
     def test_empty_object_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
@@ -57,32 +56,30 @@ class RequireJobsTest(unittest.TestCase):
 
     def test_main_success_and_summary(self) -> None:
         summary = self._summary_path()
-        code = self._run('{"lint":"success"}', "false", summary)
+        code = self._run('{"lint":"success"}', summary)
         self.assertEqual(code, 0)
         self.assertIn("| lint | success |", summary.read_text(encoding="utf-8"))
 
     def test_main_failure(self) -> None:
-        code = self._run((FIXTURES / "fail" / "needs.json").read_text(encoding="utf-8"), "false", None)
+        code = self._run((FIXTURES / "fail" / "needs.json").read_text(encoding="utf-8"), None)
         self.assertEqual(code, 1)
 
     def test_main_rejects_invalid_json(self) -> None:
-        self.assertEqual(self._run("{", "false", None), 1)
+        self.assertEqual(self._run("{", None), 1)
 
     def _summary_path(self) -> Path:
         path = Path(self.id().replace(".", "_") + "-summary.md")
         self.addCleanup(path.unlink, missing_ok=True)
         return path
 
-    def _run(self, raw: str, allow: str, summary: Path | None) -> int:
+    def _run(self, raw: str, summary: Path | None) -> int:
         import os
 
         previous = {
             "NEEDS_JSON": os.environ.get("NEEDS_JSON"),
-            "ALLOW_SKIPPED": os.environ.get("ALLOW_SKIPPED"),
             "GITHUB_STEP_SUMMARY": os.environ.get("GITHUB_STEP_SUMMARY"),
         }
         os.environ["NEEDS_JSON"] = raw
-        os.environ["ALLOW_SKIPPED"] = allow
         if summary is None:
             os.environ.pop("GITHUB_STEP_SUMMARY", None)
         else:

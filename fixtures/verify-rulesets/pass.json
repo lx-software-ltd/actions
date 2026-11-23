@@ -11,7 +11,11 @@
       {
         "type": "required_status_checks",
         "parameters": {
-          "required_status_checks": [{"context": "lint"}, {"context": "test"}]
+          "required_status_checks": [
+            {"context": "lint"},
+            {"context": "test"},
+            {"context": "security-summary"}
+          ]
         }
       }
     ]
@@ -21,6 +25,13 @@
     "target": "tag",
     "enforcement": "active",
     "conditions": {"ref_name": {"include": ["refs/tags/v*"]}},
-    "rules": [{"type": "deletion"}, {"type": "update"}, {"type": "creation"}]
+    "rules": [{"type": "deletion"}, {"type": "update"}]
+  },
+  {
+    "name": "release-tags-create",
+    "target": "tag",
+    "enforcement": "active",
+    "conditions": {"ref_name": {"include": ["refs/tags/v*"]}},
+    "rules": [{"type": "creation"}]
   }
 ]

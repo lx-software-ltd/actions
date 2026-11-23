@@ -2,7 +2,7 @@
 
 Sets up Python. When `requirements` is set, pip is cached against that file.
 
-The default `python-version` is `3.12`. A caller passes the version that repository uses today. `siutindei`'s 3.13 jobs move on their C05 pull request, not by omitting this input before that pull request.
+The default `python-version` is `3.12`. Omit the input when that is the version the job should run.
 
 ## Inputs
 

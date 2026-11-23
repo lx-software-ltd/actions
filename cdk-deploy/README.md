@@ -23,7 +23,7 @@ Deploys the stacks named in `plan`. The job needs AWS credentials already, from 
 | `no-notices` | no | `false` | Pass `--no-notices`. |
 | `pass-empty` | no | empty | Names sent when the value is empty. |
 | `escape-newlines` | no | `false` | Escape newlines in plain-json values. |
-| `rollback-match` | no | the pair B phrase | Log text that starts rollback recovery. |
+| `rollback-match` | no | `is in UPDATE_ROLLBACK_FAILED state and can not be updated` | Log text that starts rollback recovery. |
 | `skip-resource` | no | empty | Resource skipped once during rollback. |
 | `destroy` | no | `false` | Destroy the selected stacks first. |
 | `run-seed` | no | `false` | Force `RunSeedData=true` on `api-stack`. |
