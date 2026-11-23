@@ -76,3 +76,4 @@ Python payload uses the standard library and runs on Python 3.12.
 | `appstore-api-key` | Load the App Store Connect API key into the environment. | `evolvesprouts` and `siutindei`, in `deploy-ios.yml`. |
 | `android-signing` | Install the upload keystore. | `evolvesprouts` and `siutindei`, in `deploy-mobile.yml`. |
 | `play-prerequisites` | Skip the Play upload when a signing or track secret is missing. | `evolvesprouts`, in `deploy-mobile.yml`. siutindei Play stays inline. |
+| `lighthouse-ci` | Run Lighthouse against the caller's page list. The bypass header is not left in the workspace. | No caller yet. Adopt after this commit is on main. |
