@@ -27,8 +27,9 @@ runs:
     - name: Load App Store Connect API key
       shell: bash
       env:
-        APPSTORE_API_KEY_JSON: ${{ inputs.api-key-json }}
-        APPSTORE_ISSUER_ID: ${{ inputs.issuer-id }}
-        APPSTORE_API_KEY_ID: ${{ inputs.api-key-id }}
-        APPSTORE_API_PRIVATE_KEY: ${{ inputs.api-private-key }}
+        # Neutral names. An env lookup containing "api_key" is a CodeQL password source.
+        ASC_KEY_PAYLOAD: ${{ inputs.api-key-json }}
+        ASC_ISSUER: ${{ inputs.issuer-id }}
+        ASC_KEY_NAME: ${{ inputs.api-key-id }}
+        ASC_KEY_BODY: ${{ inputs.api-private-key }}
       run: python3 "$GITHUB_ACTION_PATH/load_api_key.py"

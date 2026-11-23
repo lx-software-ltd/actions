@@ -63,6 +63,23 @@ class AppStoreKeyTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             load_api_key.load("/tmp/unused", "{}", "", "", "")
 
+    def test_main_reads_neutral_names_and_publishes_the_workflow_names(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env_path = Path(tmp) / "env"
+            env = {
+                "GITHUB_ENV": str(env_path),
+                "ASC_KEY_PAYLOAD": "",
+                "ASC_ISSUER": "iss",
+                "ASC_KEY_NAME": "key",
+                "ASC_KEY_BODY": "line1\nline2",
+            }
+            with mock.patch.dict(os.environ, env, clear=False):
+                self.assertEqual(load_api_key.main(), 0)
+            text = env_path.read_text(encoding="utf-8")
+        self.assertIn("APPSTORE_ISSUER_ID=iss\n", text)
+        self.assertIn("APPSTORE_API_KEY_ID=key\n", text)
+        self.assertIn("APPSTORE_API_PRIVATE_KEY<<EOF\nline1\nline2\nEOF\n", text)
+
 
 class ShellStepTest(unittest.TestCase):
     def test_keystore_skip_and_decode(self) -> None:
