@@ -1,6 +1,6 @@
 # Shared actions plan — progress
 
-**Status**: Stage 5 is closed. C04 is merged. G3 and G4 are approved. G5 is approved for cdk-deploy. Stage 6 callers are in progress. SA-601 and SA-603 stay open.
+**Status**: Stage 5 is closed. C04 is merged. G3 and G4 are approved. G5 is approved for cdk-deploy. Stage 6 callers are in progress. The pair B admin switches are done. SA-603 stays open.
 **Zone**: yellow
 
 The plan copy is `docs/plans/shared-actions-and-ci-convergence.md`. The approved plan is in that file in full. Recorded decisions at the top of that file win where they conflict with the approved text. Decision, owner-task, row, and step numbers keep the approved meanings. This file does not renumber them. An earlier progress table called the Node and macOS choices "O6". That was wrong. O6 is `AWS_ACCOUNT_ID`. On 22 Nov 2026 the owner made it a repository secret and removed the variable.
@@ -211,6 +211,8 @@ actions #46 is `ffde04dca3c78b1ccb8739f4d3a23f728ac7a05f`. All four product repo
 | lx-software Deploy Backend | #684 | Merged. The dry run matched on `45116136708`, `45127095535`, and `45136439530`. The last log printed `Dry run matches the current deploy (2 planned CDK changes)`. The merge did not start Deploy Backend: the path filter does not include the workflow file, and `workflow_dispatch` is not available to this token. The first deploy is not checked. |
 | evolvesprouts Deploy Backend | #2298 | Switched to `cdk-deploy`. |
 | siutindei Deploy Backend | #950 | Switched to `cdk-deploy`. |
+| evolvesprouts admin | #2302 | Switched to `s3-cloudfront-deploy` profile `next-export`. Post-switch Deploy Admin Web `45149638489` succeeded. |
+| siutindei admin | #952 | Switched to `s3-cloudfront-deploy` profile `next-export`. Post-switch Deploy Admin Web `45151458927` succeeded. |
 
 ### ARNs moved to secrets
 
@@ -222,11 +224,11 @@ findingalpha #93, lx-software #679 and #682, evolvesprouts #2294, siutindei #947
 
 ### Amplify
 
-`amplify-promote.yml` has never run in evolvesprouts or siutindei. Deploy Admin Web starts an Amplify RELEASE only when `AMPLIFY_APP_ID` and `AMPLIFY_BRANCH` are set. On evolvesprouts run `45135961401` that step was skipped. Pair B admin sites deploy through S3. `amplify-release` is not a caller. The action stays in this repository. There is no dry run and no switch.
+`amplify-promote.yml` has never run in evolvesprouts or siutindei. The Amplify release step in Deploy Admin Web was skipped on the matching runs and is removed by the admin switches. Pair B admin sites deploy through S3. `amplify-release` is not a caller. The action stays in this repository.
 
 ### Pair B admin S3
 
-Both admin workflows compare `s3-cloudfront-deploy` profile `next-export` with the current script. evolvesprouts `45135961401` printed `Dry run matches the current deploy (134 planned S3 changes)`. That is one match. siutindei #948 is on `main`, and Deploy Admin Web has not run since, so that comparison has not matched. Each site is switched only after two matches, one site at a time, with the response headers checked before and after.
+Both admin workflows matched `s3-cloudfront-deploy` profile `next-export` twice. evolvesprouts printed `Dry run matches the current deploy` on `45135961401` (134 planned S3 changes) and `45142832504` (130). siutindei printed it on `45142775654` and `45142938340` (96 both times). evolvesprouts was switched first. Before and after `45149638489`, `https://admin.evolvesprouts.com/` returned HTTP 200, `content-type: text/html`, `server: AmazonS3`, and `x-amz-server-side-encryption: AES256` through CloudFront. siutindei then switched. Before and after `45151458927`, `https://admin.siutindei.com/` returned the same header set. The content lengths stayed 5186 and 11221.
 
 ### siutindei Lambda bundles
 
@@ -236,4 +238,4 @@ evolvesprouts #2299 made the same exclude. Deploy Backend `45143397092` and `451
 
 ### Still not closed
 
-SA-601 stays open until the two pair B admin S3 switches. SA-603 stays open until the first lx-software Deploy Backend on #684 reports its result. SA-702 is unchanged from the measurement above.
+The pair B admin S3 switches are done. SA-603 stays open until the first lx-software Deploy Backend on #684 reports its result. SA-702 is unchanged from the measurement above.
