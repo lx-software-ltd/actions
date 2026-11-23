@@ -3,6 +3,19 @@
 # secrets set should_upload=false and exit 0.
 set -eu
 
+# Empty means the caller does not use the switch. Any other value must be true.
+if [ -n "${PLAY_STORE_UPLOAD_ENABLED:-}" ] && [ "$PLAY_STORE_UPLOAD_ENABLED" != "true" ]; then
+  echo "Skipping Play Store upload (PLAY_STORE_UPLOAD_ENABLED is not true)"
+  echo "should_upload=false" >> "$GITHUB_OUTPUT"
+  exit 0
+fi
+
+if [ "${REQUIRE_ANDROID_PACKAGE_NAME:-}" = "true" ] && [ -z "${ANDROID_PACKAGE_NAME:-}" ]; then
+  echo "Skipping Play Store upload (missing config)"
+  echo "should_upload=false" >> "$GITHUB_OUTPUT"
+  exit 0
+fi
+
 if [ -z "${GOOGLE_PLAY_SERVICE_ACCOUNT:-}" ] || [ -z "${ANDROID_RELEASE_TRACK:-}" ]; then
   echo "Skipping Play Store upload (missing config)"
   echo "should_upload=false" >> "$GITHUB_OUTPUT"

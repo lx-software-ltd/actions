@@ -50,7 +50,7 @@ Node is major version 26. Python is 3.12. Linux jobs use `ubuntu-26.04`. macOS j
 - A Lighthouse action.
 - `cdk-bootstrap-check` on the `evolvesprouts` and `siutindei` backend deploys, and `cdk-bootstrap.yml` in `findingalpha`.
 - `cdk-diff` on pull requests in `lx-software`, `evolvesprouts`, and `siutindei`. The `siutindei` job sets `environment: production`, which blocks a pull request.
-- Callers of the four mobile actions. The actions stay. The inline steps in `deploy-ios.yml` and `deploy-mobile.yml` are the copies to replace.
+- The siutindei Play upload still checks `PLAY_STORE_UPLOAD_ENABLED` and the package name inline. `play-prerequisites` now has `upload-enabled` and `require-package-name` for that caller. It can move when the pin does. The other three mobile actions, and evolvesprouts Play, match the current pin.
 - S3 `public-routes` uploads `.js` and `.css` as `application/octet-stream`. Changing that, or renaming the profiles, needs a dry-run comparison against the live buckets.
 - One harness mode of each kind. Three file-length modes, two test-focus modes, and two rule modes still exist.
 - Templates for the workflow files that are the same across product repositories. Conformance compares a checkout to a template before any return to reusable workflows.
