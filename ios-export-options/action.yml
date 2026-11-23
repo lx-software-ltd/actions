@@ -1,0 +1,29 @@
+name: iOS export options
+description: Write ios/ExportOptions.plist for an App Store archive.
+
+inputs:
+  working-directory:
+    description: Flutter app directory, such as apps/example_app.
+    required: true
+  team-id:
+    description: Apple team id. The caller passes vars.APPLE_TEAM_ID.
+    required: true
+  bundle-id:
+    description: iOS bundle id, including any caller default.
+    required: true
+  provisioning-profile:
+    description: Profile name. Empty keeps automatic signing.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Generate ExportOptions.plist
+      shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        APPLE_TEAM_ID: ${{ inputs.team-id }}
+        IOS_BUNDLE_ID: ${{ inputs.bundle-id }}
+        IOS_PROVISIONING_PROFILE: ${{ inputs.provisioning-profile }}
+      run: python3 "$GITHUB_ACTION_PATH/write_export_options.py"
