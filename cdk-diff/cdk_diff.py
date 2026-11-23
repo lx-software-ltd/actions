@@ -195,13 +195,13 @@ def main(run_cdk: Runner | None = None) -> int:
     try:
         plan = _loaded_plan()
         extra = _plan_arguments(plan, extra)
+        if plan is None:
+            stacks = split_list(os.environ.get("STACKS", ""))
+        else:
+            stacks = resolve_selection(plan, os.environ.get("STACKS", ""))
     except DeployError as exc:
         print(f"::error::{exc}", file=sys.stderr)
         return 1
-    if plan is None:
-        stacks = split_list(os.environ.get("STACKS", ""))
-    else:
-        stacks = resolve_selection(plan, os.environ.get("STACKS", ""))
     account_id = os.environ.get("ACCOUNT_ID", "")
     write = os.environ.get("SUMMARY", "true").strip() == "true"
 

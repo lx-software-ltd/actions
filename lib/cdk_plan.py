@@ -124,13 +124,22 @@ def _alias_map(plan: dict[str, object]) -> dict[str, list[str]]:
     return aliases
 
 
+def _known_stacks(plan: dict[str, object]) -> set[str]:
+    names: set[str] = set()
+    for group in _group_list(plan):
+        names.update(str(name) for name in group.get("stacks") or [])
+    return names
+
+
 def resolve_selection(plan: dict[str, object] | None, raw: str) -> list[str]:
     """Expand aliases, then stack names.
 
     The whole string is one alias when it matches, so a label that
     contains spaces is not split first. Otherwise each comma-separated
     token is an alias or a list of stack names. Empty means every stack
-    in the plan groups. A label that is not an alias stays a stack name.
+    in the plan groups. With a plan, every resulting name must be a
+    stack in the groups. A typo such as ``all stack`` fails instead of
+    deploying nothing.
     """
     text = raw.strip()
     if not text:
@@ -154,6 +163,14 @@ def resolve_selection(plan: dict[str, object] | None, raw: str) -> list[str]:
         if name not in seen:
             seen.add(name)
             result.append(name)
+    if plan is not None and result:
+        unknown = [name for name in result if name not in _known_stacks(plan)]
+        if unknown:
+            raise DeployError(
+                "Unknown stack selection: "
+                + ", ".join(unknown)
+                + ". Use an alias or a stack name from the plan."
+            )
     return result
 
 

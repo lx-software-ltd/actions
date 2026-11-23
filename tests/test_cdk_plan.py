@@ -40,8 +40,22 @@ class AliasTest(unittest.TestCase):
             ["www", "admin"],
         )
 
-    def test_an_unknown_label_stays_a_stack_name(self) -> None:
-        self.assertEqual(cdk_plan.resolve_selection(PLAN, "custom"), ["custom"])
+    def test_a_typo_of_an_alias_fails(self) -> None:
+        with self.assertRaises(cdk_plan.DeployError) as caught:
+            cdk_plan.resolve_selection(PLAN, "all stack")
+        self.assertIn("all", str(caught.exception))
+        self.assertIn("stack", str(caught.exception))
+
+    def test_a_spaced_label_without_an_alias_fails(self) -> None:
+        plain = {"groups": [{"stacks": ["api"]}]}
+        with self.assertRaises(cdk_plan.DeployError) as caught:
+            cdk_plan.resolve_selection(plain, "admin web")
+        self.assertIn("admin", str(caught.exception))
+        self.assertIn("web", str(caught.exception))
+
+    def test_one_unknown_name_fails_the_whole_selection(self) -> None:
+        with self.assertRaises(cdk_plan.DeployError):
+            cdk_plan.resolve_selection(PLAN, "api, custom")
 
     def test_stack_names_still_split_on_whitespace(self) -> None:
         self.assertEqual(
@@ -67,8 +81,8 @@ class AliasTest(unittest.TestCase):
         with self.assertRaises(cdk_plan.DeployError):
             cdk_plan.resolve_selection(broken, "a, b")
 
-    def test_a_missing_alias_map_keeps_the_old_split(self) -> None:
-        plain = {"groups": [{"stacks": ["api"]}]}
+    def test_a_missing_alias_map_still_accepts_known_names(self) -> None:
+        plain = {"groups": [{"stacks": ["api"]}, {"stacks": ["web"]}]}
         self.assertEqual(cdk_plan.resolve_selection(plain, "api, web"), ["api", "web"])
 
 
