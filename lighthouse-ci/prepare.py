@@ -24,7 +24,7 @@ def targets(raw: str, defaults: str) -> list[str]:
     return found
 
 
-def urls(pages: list[str], port: str, root_alias: str) -> list[str]:
+def urls(pages: list[str], port: str) -> list[str]:
     if not port.isdigit():
         raise PrepareError(f"port must be a number. Got: {port}")
     collected: list[str] = []
@@ -33,21 +33,11 @@ def urls(pages: list[str], port: str, root_alias: str) -> list[str]:
             collected.append(target)
             continue
         path = target if target.startswith("/") else f"/{target}"
-        if path == "/" and root_alias.strip():
-            path = root_alias if root_alias.startswith("/") else f"/{root_alias}"
         collected.append(f"http://localhost:{port}{path}")
     return collected
 
 
-def write_config(
-    directory: Path,
-    config_name: str,
-    pages: list[str],
-    port: str,
-    root_alias: str = "",
-    staging_origin: str = "",
-    bypass_secret: str = "",
-) -> Path:
+def write_config(directory: Path, config_name: str, pages: list[str], port: str) -> Path:
     source = directory / config_name
     if not source.is_file():
         raise PrepareError(f"Missing {config_name}")
@@ -65,30 +55,14 @@ def write_config(
     if not isinstance(collect, dict):
         collect = {}
         ci["collect"] = collect
-    chosen = urls(pages, port, root_alias)
+    chosen = urls(pages, port)
     collect["url"] = chosen
-    origin = staging_origin.strip()
-    if origin and any(_same_origin(url, origin) for url in chosen):
-        secret = bypass_secret.strip()
-        if not secret:
-            raise PrepareError("bypass-secret is required to audit the staging origin.")
-        settings = collect.get("settings")
-        if not isinstance(settings, dict):
-            settings = {}
-            collect["settings"] = settings
-        settings["extraHeaders"] = json.dumps({"x-staging-bypass": secret})
     destination = directory / ".lighthouserc.runtime.json"
     destination.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     print("Lighthouse targets:")
     for url in chosen:
         print(f"- {url}")
     return destination
-
-
-def _same_origin(url: str, origin: str) -> bool:
-    from urllib.parse import urlparse
-
-    return urlparse(url).scheme == urlparse(origin).scheme and urlparse(url).netloc == urlparse(origin).netloc
 
 
 def main() -> int:
@@ -103,9 +77,6 @@ def main() -> int:
             os.environ.get("CONFIG", "") or ".lighthouserc.json",
             pages,
             os.environ.get("PORT", "") or "9000",
-            os.environ.get("ROOT_ALIAS", ""),
-            os.environ.get("STAGING_ORIGIN", ""),
-            os.environ.get("BYPASS_SECRET", ""),
         )
     except PrepareError as exc:
         print(f"::error::{exc}", file=sys.stderr)

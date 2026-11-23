@@ -25,23 +25,6 @@ inputs:
     description: Local port for a path that is not already a URL.
     required: false
     default: "9000"
-  root-alias:
-    description: >-
-      Path used when a requested path is exactly /. Empty keeps /.
-    required: false
-    default: ""
-  staging-origin:
-    description: >-
-      When a collect URL has this origin, the action sends
-      x-staging-bypass. Empty skips the header.
-    required: false
-    default: ""
-  bypass-secret:
-    description: >-
-      Value of x-staging-bypass. Required when a collect URL matches
-      staging-origin. The caller passes the secret.
-    required: false
-    default: ""
   lhci-version:
     description: npm version of @lhci/cli.
     required: false
@@ -68,9 +51,6 @@ runs:
         LIGHTHOUSE_PAGE_PATHS: ${{ inputs.page-paths }}
         DEFAULT_PATHS: ${{ inputs.default-paths }}
         PORT: ${{ inputs.port }}
-        ROOT_ALIAS: ${{ inputs.root-alias }}
-        STAGING_ORIGIN: ${{ inputs.staging-origin }}
-        BYPASS_SECRET: ${{ inputs.bypass-secret }}
         DRY_RUN: ${{ inputs.dry-run }}
       run: python3 "$GITHUB_ACTION_PATH/prepare.py"
 

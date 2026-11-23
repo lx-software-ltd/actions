@@ -28,23 +28,6 @@ class LighthousePrepareTest(unittest.TestCase):
             ["http://localhost:9000/", "https://example.com/about"],
         )
 
-    def test_root_alias_and_staging_header(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / ".lighthouserc.json").write_text("{}\n", encoding="utf-8")
-            destination = prepare.write_config(
-                root,
-                ".lighthouserc.json",
-                ["/", "https://staging.example/en/"],
-                "9000",
-                root_alias="/en/",
-                staging_origin="https://staging.example",
-                bypass_secret="secret",
-            )
-            config = json.loads(destination.read_text(encoding="utf-8"))
-        self.assertEqual(config["ci"]["collect"]["url"][0], "http://localhost:9000/en/")
-        self.assertIn("x-staging-bypass", config["ci"]["collect"]["settings"]["extraHeaders"])
-
     def test_a_missing_config_is_an_error(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaises(prepare.PrepareError):
