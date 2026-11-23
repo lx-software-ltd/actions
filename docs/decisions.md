@@ -46,6 +46,12 @@ The workflow step that refuses `GitHubActionsRole` is not a security boundary. A
 
 `cdk-deploy` takes a plan JSON and a parameters file. The file is either prefixed JSON or plain JSON. `plan-file` is that same JSON on disk. `{NAME}` in `extra-args` expands from the caller environment. An empty value stays in the argument. A name that is not set fails the deploy. `cdk-diff` reads the same plan through `lib/cdk_plan.py` and does not import `cdk-deploy`. The design is `docs/architecture/cdk-deploy.md`.
 
+`s3-cloudfront-deploy` reads the bucket and distribution from stack outputs when `stack` and `region` are set. The reader is `lib/stack_outputs.py`. A missing distribution output warns and skips invalidation. A missing bucket output fails.
+
+`lighthouse-ci` writes its runtime config under `RUNNER_TEMP` and deletes it after the run. When `bypass-secret` is set, `ci.upload.target` is `filesystem`, so autorun does not upload the report to temporary-public-storage. The action also removes `x-staging-bypass` from `.lighthouseci`, because a Lighthouse result can copy request headers into the report that a public artifact uploads.
+
+`setup-flutter` installs Flutter 3.50.1 through the pinned `subosito/flutter-action`. An empty version fails before that action runs.
+
 ## Denylist
 
 `scripts/pii-denylist.sha256` holds the 31 organisation digests approved on 20 Nov 2026. No plaintext. `lx-software` holds 30 of them. That omission was deliberate: the copy decision does not add the missing digest there. Holding the organisation list only in this repository would apply that digest to `lx-software`, so the five copies stay until a new approval.
@@ -53,11 +59,11 @@ The workflow step that refuses `GitHubActionsRole` is not a security boundary. A
 ## Not finished
 
 - A Dependabot path that bumps this pin, and a measured cooldown exclusion.
-- A Lighthouse action.
+- The public-site release action. The design is written. The scripts stay until a dry-run matches them.
 - The read-only diff role named by `AWS_DIFF_ROLE_NAME`. The workflows do not create it.
 - The siutindei Play upload still checks `PLAY_STORE_UPLOAD_ENABLED` and the package name inline. `play-prerequisites` now has `upload-enabled` and `require-package-name` for that caller. It moves with the pin bump. The other three mobile actions, and evolvesprouts Play, match the current pin. Those signing workflows run on a release, so they have not run yet.
 - S3 `public-routes` uploads `.js` and `.css` as `application/octet-stream`. Changing that, or renaming the profiles, needs a dry-run comparison against the live buckets.
-- One harness mode of each kind. Three file-length modes, two test-focus modes, and two rule modes still exist.
+- Product harness configs still name the old modes. The pull request that pins this checker changes `harness.json` in the same commit and omits the TypeScript prefix keys. The checker accepts `typed`, `test-names`, and `full` only.
 - Templates for the workflow files that are the same across product repositories. Conformance compares a checkout to a template before any return to reusable workflows.
 - Lockfile and Semgrep jobs folded under the required gates.
 - The same 31 digests held once, which waits on the denylist decision above.

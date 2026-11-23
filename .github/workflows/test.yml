@@ -1329,6 +1329,102 @@ jobs:
           OUTCOME: ${{ steps.deploy.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  setup-flutter-pass:
+    name: Flutter setup pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Flutter
+        uses: ./setup-flutter
+        with:
+          flutter-version: "3.50.1"
+          cache: "true"
+
+      - name: Expect Flutter
+        run: flutter --version
+
+  setup-flutter-fail:
+    name: Flutter setup fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Flutter
+        id: flutter
+        continue-on-error: true
+        uses: ./setup-flutter
+        with:
+          flutter-version: ""
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.flutter.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  lighthouse-pass:
+    name: Lighthouse pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Write a config
+        run: |
+          mkdir -p "$RUNNER_TEMP/site"
+          printf '%s\n' '{"ci":{"collect":{}}}' > "$RUNNER_TEMP/site/.lighthouserc.json"
+
+      - name: Prepare Lighthouse
+        id: prepare
+        uses: ./lighthouse-ci
+        with:
+          working-directory: ${{ runner.temp }}/site
+          page-paths: /,/privacy
+          dry-run: "true"
+
+      - name: Expect the runtime config outside the site
+        env:
+          CONFIG_PATH: ${{ steps.prepare.outputs.config-path }}
+        run: |
+          python3 - << 'PY'
+          import json
+          import os
+          from pathlib import Path
+          path = Path(os.environ["CONFIG_PATH"])
+          site = Path(os.environ["RUNNER_TEMP"]) / "site"
+          if not path.is_file():
+              raise SystemExit("runtime config was not written")
+          if site in path.parents:
+              raise SystemExit("runtime config is inside the workspace")
+          if (site / ".lighthouserc.runtime.json").exists():
+              raise SystemExit("runtime config was written beside the site")
+          urls = json.loads(path.read_text(encoding="utf-8"))["ci"]["collect"]["url"]
+          if urls != ["http://localhost:9000/", "http://localhost:9000/privacy"]:
+              raise SystemExit(urls)
+          PY
+
+  lighthouse-fail:
+    name: Lighthouse fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Prepare Lighthouse
+        id: lighthouse
+        continue-on-error: true
+        uses: ./lighthouse-ci
+        with:
+          working-directory: ${{ runner.temp }}
+          dry-run: "true"
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.lighthouse.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   test:
     name: test
     runs-on: ubuntu-26.04
@@ -1391,6 +1487,10 @@ jobs:
       - play-prerequisites-skip
       - cdk-deploy-pass
       - cdk-deploy-fail
+      - setup-flutter-pass
+      - setup-flutter-fail
+      - lighthouse-pass
+      - lighthouse-fail
     if: always()
     steps:
       # Pinned to the merge on main. See the matching comment in lint.yml.

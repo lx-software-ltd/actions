@@ -64,6 +64,7 @@ Python payload uses the standard library and runs on Python 3.12.
 | `node-lockfiles` | Fail when `package-lock.json` is out of date. | All four. |
 | `python-requirements-pins` | Fail when a requirements file is unpinned. | All four. |
 | `flutter-lockfiles` | Fail when `pubspec.lock` is out of date. | `evolvesprouts`, `siutindei`. |
+| `setup-flutter` | Install Flutter 3.50.1. | No caller yet. Adopt after this commit is on main. |
 | `pod-lockfiles` | Fail when `Podfile.lock` changes after `pod install`. | `evolvesprouts`, `siutindei`. |
 | `playwright-install` | Install Playwright browsers. | The repositories that run browser tests. |
 | `aws-oidc` | Check the account id and region the caller passed, and mask the account id. | All four. |
@@ -76,3 +77,4 @@ Python payload uses the standard library and runs on Python 3.12.
 | `appstore-api-key` | Load the App Store Connect API key into the environment. | `evolvesprouts` and `siutindei`, in `deploy-ios.yml`. |
 | `android-signing` | Install the upload keystore. | `evolvesprouts` and `siutindei`, in `deploy-mobile.yml`. |
 | `play-prerequisites` | Skip the Play upload when a signing or track secret is missing. | `evolvesprouts`, in `deploy-mobile.yml`. siutindei Play stays inline. |
+| `lighthouse-ci` | Run Lighthouse against the caller's page list. The bypass header is not left in the workspace. | No caller yet. Adopt after this commit is on main. |
