@@ -54,6 +54,18 @@ class BumpPinsTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 bump_pins.bump(root, "abc", "2026-11-23")
 
+    def test_rejects_a_sha_that_is_not_on_main(self) -> None:
+        sha = "c" * 40
+        with self.assertRaises(ValueError):
+            bump_pins.require_sha_on_main(sha, lambda _sha: "behind")
+        with self.assertRaises(ValueError):
+            bump_pins.require_sha_on_main(sha, lambda _sha: "diverged")
+
+    def test_accepts_a_sha_that_main_contains(self) -> None:
+        sha = "d" * 40
+        bump_pins.require_sha_on_main(sha, lambda _sha: "ahead")
+        bump_pins.require_sha_on_main(sha, lambda _sha: "identical")
+
 
 if __name__ == "__main__":
     unittest.main()

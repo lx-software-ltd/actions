@@ -6,7 +6,7 @@ What still binds. The route that got here is in git history.
 
 Callers pin one full commit SHA of this repository. A product repository uses one SHA. The pre-commit `rev` for this repository equals that SHA. The same workflow line carries `# main YYYY-MM-DD`, and that commit is on `main`.
 
-`scripts/bump_pins.py` rewrites the workflow pins, that date comment, and the pre-commit `rev` in a product checkout. Conformance fails when they differ, so a bump is one command and one pull request per product repository.
+`scripts/bump_pins.py` rewrites the workflow pins, that date comment, and the pre-commit `rev` in a product checkout. It refuses a SHA that is not contained in `main`. Conformance fails when the pins differ, so a bump is one command and one pull request per product repository.
 
 The `lint`, `test`, and `security-summary` gates in this repository pin `lx-software-ltd/actions/require-jobs` at `1a3cca7c38163f8164c262323601c34a4df5b7a4` (`# main 2026-11-20`). They must not use `uses: ./require-jobs`. A local action is loaded from the pull request. Fixture jobs may use `uses: ./require-jobs`.
 
@@ -36,7 +36,9 @@ Node is major version 26. Python is 3.12. Linux jobs use `ubuntu-26.04`. macOS j
 
 ## Deploy
 
-`evolvesprouts` and `siutindei` must stop running `cdk bootstrap` on every backend deploy. Bootstrap rewrites the CDK output, including zip timestamps, before the asset hash, so the next deploy updates every Lambda. Bootstrap stays in the manual `cdk-bootstrap.yml`. A deploy uses `cdk-bootstrap-check`, which reads the SSM version and does not bootstrap.
+`evolvesprouts` and `siutindei` must not run `cdk bootstrap` on every backend deploy. Bootstrap rewrites the CDK output, including zip timestamps, before the asset hash, so the next deploy updates every Lambda. Bootstrap stays in the manual `cdk-bootstrap.yml`. A deploy uses `cdk-bootstrap-check`, which reads the SSM version and does not bootstrap. A CDK upgrade that needs a newer bootstrap stack fails the deploy until someone runs that manual workflow. That failure is the intended trade-off.
+
+A pull request diff does not assume `GitHubActionsRole`. It assumes the role named by the repository variable `AWS_DIFF_ROLE_NAME`, and only when that variable is set. The role trusts `pull_request` and is read-only. Until the variable is set, the pull request warns and does not call AWS. A manual run still assumes `GitHubActionsRole`. `siutindei` manual diffs use the `production` environment, because that environment holds the parameter-file variable and the branch policy allows `main` only. A `siutindei` pull request does not diff.
 
 `cdk-deploy` takes a plan JSON and a parameters file. The file is either prefixed JSON or plain JSON. The design is `docs/architecture/cdk-deploy.md`.
 
@@ -48,9 +50,8 @@ Node is major version 26. Python is 3.12. Linux jobs use `ubuntu-26.04`. macOS j
 
 - A Dependabot path that bumps this pin, and a measured cooldown exclusion.
 - A Lighthouse action.
-- `cdk-bootstrap-check` on the `evolvesprouts` and `siutindei` backend deploys, and `cdk-bootstrap.yml` in `findingalpha`.
-- `cdk-diff` on pull requests in `lx-software`, `evolvesprouts`, and `siutindei`. The `siutindei` job sets `environment: production`, which blocks a pull request.
-- The siutindei Play upload still checks `PLAY_STORE_UPLOAD_ENABLED` and the package name inline. `play-prerequisites` now has `upload-enabled` and `require-package-name` for that caller. It can move when the pin does. The other three mobile actions, and evolvesprouts Play, match the current pin.
+- The read-only diff role named by `AWS_DIFF_ROLE_NAME`. The workflows do not create it.
+- The siutindei Play upload still checks `PLAY_STORE_UPLOAD_ENABLED` and the package name inline. `play-prerequisites` now has `upload-enabled` and `require-package-name` for that caller. It moves with the pin bump. The other three mobile actions, and evolvesprouts Play, match the current pin. Those signing workflows run on a release, so they have not run yet.
 - S3 `public-routes` uploads `.js` and `.css` as `application/octet-stream`. Changing that, or renaming the profiles, needs a dry-run comparison against the live buckets.
 - One harness mode of each kind. Three file-length modes, two test-focus modes, and two rule modes still exist.
 - Templates for the workflow files that are the same across product repositories. Conformance compares a checkout to a template before any return to reusable workflows.

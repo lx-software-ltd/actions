@@ -8,8 +8,11 @@ the pre-commit ``rev`` move together. Conformance fails when they differ.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -74,6 +77,36 @@ def rewrite_pre_commit(text: str, sha: str) -> tuple[str, int]:
     return "\n".join(lines) + ending, count
 
 
+def _read_compare(sha: str) -> str:
+    """Return the compare status of this SHA against actions main."""
+    url = f"https://api.github.com/repos/lx-software-ltd/actions/compare/{sha}...main"
+    request = urllib.request.Request(
+        url,
+        headers={"Accept": "application/vnd.github+json", "User-Agent": "bump-pins"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            raise ValueError(f"{sha} is not a commit on main") from None
+        raise ValueError(f"could not check {sha} against main ({error.code})") from None
+    return str(payload.get("status", ""))
+
+
+def require_sha_on_main(sha: str, read=None) -> None:
+    """Reject a SHA that is not contained in actions main.
+
+    ``ahead`` and ``identical`` mean main contains the SHA. ``behind`` is a
+    commit that main does not contain yet. A missing commit is a 404.
+    """
+    if not SHA.fullmatch(sha):
+        raise ValueError(f"sha must be 40 hex characters, got {sha!r}")
+    status = (_read_compare if read is None else read)(sha)
+    if status not in {"ahead", "identical"}:
+        raise ValueError(f"{sha} is not on main")
+
+
 def bump(root: Path, sha: str, day: str) -> int:
     if not SHA.fullmatch(sha):
         raise ValueError(f"sha must be 40 hex characters, got {sha!r}")
@@ -109,6 +142,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         day = _date(args.date)
+        require_sha_on_main(args.sha)
         count = bump(args.checkout, args.sha, day)
     except (ValueError, OSError) as exc:
         print(f"bump_pins: {exc}", file=sys.stderr)
