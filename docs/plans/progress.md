@@ -230,7 +230,9 @@ Both admin workflows compare `s3-cloudfront-deploy` profile `next-export` with t
 
 ### siutindei Lambda bundles
 
-The deploys at 15:51 and 16:12 HKT updated all 42 functions after workflow or secret changes. `PythonLambda` hashes `backend/` with `AssetHashType.SOURCE`, and `backend/.lambda-build` is rebuilt before synth. siutindei #951 excludes that directory. The merge started Deploy Backend `45140953724`. That deploy still updates the functions once, because the hash changes. A later deploy with the same source should leave the function code unchanged. Its result is not recorded here yet.
+The deploys at 15:51 and 16:12 HKT updated all 42 functions after workflow or secret changes. `PythonLambda` hashes `backend/` with `AssetHashType.SOURCE`. siutindei #951 excludes `.lambda-build/**`. Deploy Backend `45140953724` succeeded. A later deploy with the same source has not run.
+
+evolvesprouts #2299 made the same exclude. Deploy Backend `45143397092` and `45143458088` each updated the same 27 functions. The hash root is `backend/`, and `cdk.out/**` does not match `infrastructure/cdk.out`. Bootstrap rewrites that directory, including zip timestamps, before the deploy hash. evolvesprouts #2300 excludes `**/cdk.out/**`, `**/node_modules/**`, `**/dist/**`, and `**/build/**`. Deploy Backend `45145939814` updated the 27 functions once. Deploy Backend `45145962265` updated no functions. The stack change on that run was `RunMigrations`. siutindei does not have the nested excludes yet.
 
 ### Still not closed
 
