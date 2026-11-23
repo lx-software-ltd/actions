@@ -50,7 +50,7 @@ class AgentHarnessTest(unittest.TestCase):
                 ["backend/lambda/app.py is 501 lines (limit 500); split it or, if it already exists, allowlist 501"],
             )
 
-    def test_python_counted_skips_alembic_versions(self) -> None:
+    def test_typed_skips_alembic_and_does_not_need_a_typescript_prefix(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             versions = root / "backend" / "src" / "alembic" / "versions"
@@ -58,54 +58,53 @@ class AgentHarnessTest(unittest.TestCase):
             (versions / "rev.py").write_text("\n".join(["x"] * 600) + "\n", encoding="utf-8")
             app = root / "backend" / "src" / "app.py"
             app.write_text("\n".join(["x"] * 501) + "\n", encoding="utf-8")
+            page = root / "apps" / "web" / "src" / "page.tsx"
+            page.parent.mkdir(parents=True)
+            page.write_text("\n".join(["x"] * 900) + "\n", encoding="utf-8")
             errors = harness.check_file_length(
                 root,
-                {"mode": "python-counted", "limit": 500, "allowlist": "missing.txt", "scan-roots": ["backend/src"]},
+                {
+                    "mode": "typed",
+                    "python-limit": 500,
+                    "python-prefix": "backend/",
+                    "allowlist": "missing.txt",
+                    "scan-roots": ["backend/src", "apps"],
+                },
             )
             self.assertEqual(
                 errors,
                 ["backend/src/app.py is 501 lines (limit 500); split it or, if it already exists, allowlist 501"],
             )
 
-    def test_python_names_requires_an_over_limit_entry(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            target = root / "backend" / "src"
-            target.mkdir(parents=True)
-            (target / "app.py").write_text("ok\n", encoding="utf-8")
-            allow = root / "scripts"
-            allow.mkdir()
-            (allow / "python-file-length-allowlist.txt").write_text("backend/src/app.py\n", encoding="utf-8")
-            errors = harness.check_file_length(
-                root,
-                {
-                    "mode": "python-names",
-                    "limit": 500,
-                    "allowlist": "scripts/python-file-length-allowlist.txt",
-                    "scan-roots": ["backend/src"],
-                },
-            )
-            self.assertEqual(errors, ["allowlist entry is now within 500 lines; remove backend/src/app.py"])
+    def test_other_file_length_modes_are_rejected(self) -> None:
+        errors = harness.check_file_length(Path("."), {"mode": "python-counted"})
+        self.assertEqual(errors, ["file-length mode must be typed, got python-counted"])
 
-    def test_pair_b_skip_message(self) -> None:
+    def test_python_fit_and_a_conditional_skip_are_not_focused_tests(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
+            source = root / "apps"
+            source.mkdir()
+            (source / "image.py").write_text("ImageOps.fit(image, (1, 1))\n", encoding="utf-8")
             tests = root / "tests"
             tests.mkdir()
-            (tests / "test_app.py").write_text("@pytest.mark.skip\ndef test_x():\n    pass\n", encoding="utf-8")
+            (tests / "test_app.py").write_text(
+                "ImageOps.fit(image, (1, 1))\n"
+                "def test_one():\n"
+                "    test.skip(missing, 'reason')\n"
+                "    test.skip('reason')\n",
+                encoding="utf-8",
+            )
             errors = harness.check_test_focus(
                 root,
                 {
-                    "mode": "all-sources",
-                    "roots": ["tests"],
+                    "mode": "test-names",
+                    "roots": ["apps", "tests"],
                     "suffixes": [".py"],
                     "skip-parts": ["node_modules"],
                 },
             )
-            self.assertEqual(
-                errors,
-                ["tests/test_app.py:1: unconditional pytest skip: @pytest.mark.skip"],
-            )
+        self.assertEqual(errors, ["tests/test_app.py:4: test.skip('reason')"])
 
 
 if __name__ == "__main__":

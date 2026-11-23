@@ -57,7 +57,7 @@ The workflow step that refuses `GitHubActionsRole` is not a security boundary. A
 - The read-only diff role named by `AWS_DIFF_ROLE_NAME`. The workflows do not create it.
 - The siutindei Play upload still checks `PLAY_STORE_UPLOAD_ENABLED` and the package name inline. `play-prerequisites` now has `upload-enabled` and `require-package-name` for that caller. It moves with the pin bump. The other three mobile actions, and evolvesprouts Play, match the current pin. Those signing workflows run on a release, so they have not run yet.
 - S3 `public-routes` uploads `.js` and `.css` as `application/octet-stream`. Changing that, or renaming the profiles, needs a dry-run comparison against the live buckets.
-- One harness mode of each kind. Three file-length modes, two test-focus modes, and two rule modes still exist.
+- Product harness configs still name the old modes. They change when this checker's commit is on `main`. The checker itself accepts `typed`, `test-names`, and `full` only.
 - Templates for the workflow files that are the same across product repositories. Conformance compares a checkout to a template before any return to reusable workflows.
 - Lockfile and Semgrep jobs folded under the required gates.
 - The same 31 digests held once, which waits on the denylist decision above.
