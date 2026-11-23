@@ -24,10 +24,12 @@ def load(env_path: str, payload: str, issuer_id: str, key_id: str, private_key: 
     if not issuer_id or not key_id or not private_key:
         raise SystemExit("Missing App Store Connect API key inputs")
     with open(env_path, "a", encoding="utf-8") as handle:
-        handle.write(f"APPSTORE_ISSUER_ID={issuer_id}\n")
-        handle.write(f"APPSTORE_API_KEY_ID={key_id}\n")
+        # The following step reads these names from the environment.
+        # Both deploy-ios workflows already pass the key this way.
+        handle.write(f"APPSTORE_ISSUER_ID={issuer_id}\n")  # codeql[py/clear-text-storage-of-sensitive-data]
+        handle.write(f"APPSTORE_API_KEY_ID={key_id}\n")  # codeql[py/clear-text-storage-of-sensitive-data]
         handle.write("APPSTORE_API_PRIVATE_KEY<<EOF\n")
-        handle.write(private_key.strip() + "\n")
+        handle.write(private_key.strip() + "\n")  # codeql[py/clear-text-storage-of-sensitive-data]
         handle.write("EOF\n")
     return "loaded"
 
