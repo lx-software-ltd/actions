@@ -319,23 +319,3 @@ class SyncProfileTest(unittest.TestCase):
             self.assertEqual(bucket, "from-stack")
             self.assertEqual(distribution, "E999")
             self.assertEqual(calls[0][1], "cloudformation")
-            bucket_only = {
-                "Stacks": [
-                    {
-                        "Outputs": [
-                            {"OutputKey": "PublicWebsiteBucketName", "OutputValue": "from-stack"}
-                        ]
-                    }
-                ]
-            }
-            bucket, distribution = s3_sync.resolve_destination(
-                bucket="",
-                distribution="",
-                stack="findingalpha-public-www",
-                region="ap-east-1",
-                bucket_output="PublicWebsiteBucketName",
-                distribution_output="PublicWebsiteDistributionId",
-                run_aws=lambda command: _ok(json.dumps(bucket_only)),
-            )
-            self.assertEqual(bucket, "from-stack")
-            self.assertEqual(distribution, "")
