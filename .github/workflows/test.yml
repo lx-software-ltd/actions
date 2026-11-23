@@ -1158,6 +1158,163 @@ jobs:
           OUTCOME: ${{ steps.settings.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  ios-export-pass:
+    name: iOS export options pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Write the plist
+        uses: ./ios-export-options
+        with:
+          working-directory: ${{ runner.temp }}/app
+          team-id: TEAM
+          bundle-id: com.example
+
+      - name: The plist selects automatic signing
+        env:
+          PLIST: ${{ runner.temp }}/app/ios/ExportOptions.plist
+        run: python3 -c 'import os, plistlib; data = plistlib.loads(open(os.environ["PLIST"], "rb").read()); assert data["signingStyle"] == "automatic"'
+
+  ios-export-fail:
+    name: iOS export options fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reject a missing team
+        id: plist
+        continue-on-error: true
+        uses: ./ios-export-options
+        with:
+          working-directory: ${{ runner.temp }}/app
+          team-id: ""
+          bundle-id: com.example
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.plist.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  appstore-key-pass:
+    name: App Store key pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Load a JSON key
+        uses: ./appstore-api-key
+        with:
+          api-key-json: '{"issuer_id":"iss","key_id":"key","private_key":"secret"}'
+
+      - name: The issuer was exported
+        run: test "$APPSTORE_ISSUER_ID" = "iss"
+
+  appstore-key-fail:
+    name: App Store key fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reject incomplete JSON
+        id: key
+        continue-on-error: true
+        uses: ./appstore-api-key
+        with:
+          api-key-json: "{}"
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.key.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  android-signing-pass:
+    name: Android signing pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Decode the fixture keystore
+        uses: ./android-signing
+        with:
+          working-directory: ${{ runner.temp }}/app
+          keystore-base64: aGVsbG8=
+          keystore-password: pw
+          key-password: key
+          key-alias: alias
+
+      - name: The keystore file is the decoded bytes
+        env:
+          FILE: ${{ runner.temp }}/app/android/app/keystore.p12
+        run: test "$(cat "$FILE")" = "hello"
+
+  android-signing-fail:
+    name: Android signing fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reject a keystore that is not base64
+        id: signing
+        continue-on-error: true
+        uses: ./android-signing
+        with:
+          working-directory: ${{ runner.temp }}/app
+          keystore-base64: "!!!"
+          keystore-password: pw
+          key-password: key
+          key-alias: alias
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.signing.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  play-prerequisites-pass:
+    name: Play prerequisites pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Accept a complete Play configuration
+        id: play
+        uses: ./play-prerequisites
+        with:
+          service-account: "{}"
+          track: internal
+          keystore-base64: aGVsbG8=
+          keystore-password: pw
+          key-password: key
+          key-alias: alias
+
+      - name: The upload is allowed
+        env:
+          UPLOAD: ${{ steps.play.outputs.should_upload }}
+        run: test "$UPLOAD" = "true"
+
+  play-prerequisites-skip:
+    name: Play prerequisites skip fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Skip when the service account is missing
+        id: play
+        uses: ./play-prerequisites
+
+      - name: The upload is not allowed
+        env:
+          UPLOAD: ${{ steps.play.outputs.should_upload }}
+        run: test "$UPLOAD" = "false"
+
   s3-cloudfront-pass:
     name: S3 CloudFront deploy pass fixture
     runs-on: ubuntu-26.04
@@ -1315,6 +1472,14 @@ jobs:
       - s3-cloudfront-fail
       - amplify-release-pass
       - amplify-release-fail
+      - ios-export-pass
+      - ios-export-fail
+      - appstore-key-pass
+      - appstore-key-fail
+      - android-signing-pass
+      - android-signing-fail
+      - play-prerequisites-pass
+      - play-prerequisites-skip
     if: always()
     steps:
       # Pinned to the merge on main. See the matching comment in lint.yml.

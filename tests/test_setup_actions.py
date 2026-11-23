@@ -158,10 +158,18 @@ class FixtureWorkflowTest(unittest.TestCase):
             "s3-cloudfront-fail:",
             "amplify-release-pass:",
             "amplify-release-fail:",
+            "ios-export-pass:",
+            "ios-export-fail:",
+            "appstore-key-pass:",
+            "appstore-key-fail:",
+            "android-signing-pass:",
+            "android-signing-fail:",
+            "play-prerequisites-pass:",
+            "play-prerequisites-skip:",
         ):
             self.assertIn(job, text)
-        self.assertEqual(text.count("continue-on-error: true"), 28)
-        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 27)
+        self.assertEqual(text.count("continue-on-error: true"), 31)
+        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 30)
 
 
 if __name__ == "__main__":
