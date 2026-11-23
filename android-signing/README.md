@@ -1,6 +1,6 @@
 # Android signing
 
-Decodes `keystore.p12` into `<working-directory>/android/app`. Any missing signing secret skips the step and exits 0.
+Decodes `keystore.p12` into `<working-directory>/android/app`. Any missing signing secret prints a `::warning::` and exits 0.
 
 ## Inputs
 

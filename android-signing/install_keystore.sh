@@ -4,7 +4,7 @@
 set -eu
 
 if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ] || [ -z "${ANDROID_KEYSTORE_PASSWORD:-}" ] || [ -z "${ANDROID_KEY_PASSWORD:-}" ] || [ -z "${ANDROID_KEY_ALIAS:-}" ]; then
-  echo "Skipping Android signing (missing secrets)"
+  echo "::warning::Skipping Android signing (missing secrets)"
   exit 0
 fi
 

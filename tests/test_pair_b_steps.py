@@ -95,7 +95,7 @@ class ShellStepTest(unittest.TestCase):
             }
             skipped = subprocess.run(["sh", str(script)], check=False, env=env, capture_output=True, text=True)
             self.assertEqual(skipped.returncode, 0)
-            self.assertIn("Skipping Android signing", skipped.stdout)
+            self.assertIn("::warning::Skipping Android signing (missing secrets)", skipped.stdout)
             env.update(
                 {
                     "ANDROID_KEYSTORE_BASE64": "aGVsbG8=",
