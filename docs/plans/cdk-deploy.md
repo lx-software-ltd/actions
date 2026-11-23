@@ -15,14 +15,14 @@ The action does not assume a role. The caller has already run `aws-oidc`. It doe
 
 Two file shapes exist. The action accepts both. `format` selects the shape. The default is `prefixed-json`, which is what `findingalpha` and `lx-software` use.
 
-`prefixed-json` is a JSON object. Each key is `stack:ParameterName`. `scripts/deploy/cdk-params.sh` rejects a key with any other prefix, or with no prefix. Values are strings or numbers. Null and empty strings are omitted. Newlines in a value become the two characters `\n`. The caller passes `CDK_PARAM_FILE`. A set variable that does not point at a file fails the deploy. An empty variable skips the file, which is what both pair A workflows do today.
+`prefixed-json` is a JSON object. Each key is `stack:ParameterName`, or a key with no colon when the plan sets `unprefixed-prefix`. lx-software sets `unprefixed-prefix` to `lxsoftware-public-www:`, which is what `scripts/deploy/cdk-params.sh` does with `PublicWebsiteDomainName` and `PublicWebsiteCertificateArn`. Any other prefix is rejected. A `<FROM_GITHUB_SECRET: NAME>` or `<FROM_GITHUB_VAR: NAME>` value reads that environment variable. Values are strings or numbers. Null and empty strings are omitted. Newlines in a value become the two characters `\n`. The caller passes `CDK_PARAM_FILE`. A set variable that does not point at a file fails the deploy. An empty variable skips the file, which is what both pair A workflows do today.
 
 `plain-json` is the pair B file (`vars.CDK_PARAM_FILE`, usually `backend/infrastructure/params/production.json`). Keys are parameter names with no stack prefix. A value may be a plain string or a placeholder:
 
 - `<FROM_GITHUB_SECRET: ENV_NAME>` reads that environment variable.
 - `<FROM_GITHUB_VAR: ENV_NAME>` reads that environment variable.
 
-The workflow still maps the GitHub secret or variable into the environment. The file names the variable. It does not contain the secret. An unknown placeholder is passed through unchanged, which is what the current Python does.
+The workflow still maps the GitHub secret or variable into the environment. The file names the variable. It does not contain the secret. An unknown placeholder is passed through unchanged. `escape-newlines: false` leaves a resolved value unchanged, including its newlines. That is the evolvesprouts script. `siutindei` passes true, and newlines become the two characters `\n`.
 
 ## Routing a parameter to a stack
 

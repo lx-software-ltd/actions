@@ -69,6 +69,21 @@ class PlanTest(unittest.TestCase):
         self.assertIn("example:Domain=app.example", argv)
         self.assertEqual(argv[-2:], ["example", "example-admin"])
         self.assertEqual(len(commands), 1)
+        plan["unprefixed-prefix"] = "example-www:"
+        parameters["Domain"] = "<FROM_GITHUB_SECRET: WWW_CERT>"
+        with mock.patch.dict(os.environ, {"WWW_CERT": "cert-value", "WWW_DOMAIN": "www.example"}, clear=False):
+            prefixed = cdk_deploy.build_commands(
+                plan=plan,
+                parameters={"Domain": "<FROM_GITHUB_SECRET: WWW_CERT>"},
+                fmt="prefixed-json",
+                selected_stacks=["example-www"],
+                pass_empty=set(),
+                escape_newlines=False,
+                no_notices=False,
+                destroy=False,
+                run_seed=False,
+            )
+        self.assertIn("example-www:Domain=cert-value", prefixed[0][0])
         parameters["other:Name"] = "no"
         with self.assertRaises(cdk_deploy.DeployError):
             cdk_deploy.build_commands(
@@ -102,7 +117,11 @@ class PlanTest(unittest.TestCase):
             "Other": "<NOT_A_PLACEHOLDER>",
             "Missing": "<FROM_GITHUB_SECRET: GONE>",
         }
-        env = {"ADMIN_SECRET": "secret-value", "WWW_VAR": "www.example", "GONE": ""}
+        env = {
+            "ADMIN_SECRET": "secret-value",
+            "WWW_VAR": "line1\r\nline2\n",
+            "GONE": "",
+        }
         with mock.patch.dict(os.environ, env, clear=False):
             commands = cdk_deploy.build_commands(
                 plan=plan,
@@ -118,8 +137,8 @@ class PlanTest(unittest.TestCase):
         argv = commands[0][0]
         self.assertIn("--no-notices", argv)
         self.assertIn("admin:AdminName=secret-value", argv)
-        self.assertIn("www:WwwName=www.example", argv)
-        self.assertIn("api:WwwName=www.example", argv)
+        self.assertIn("www:WwwName=line1\r\nline2\n", argv)
+        self.assertIn("api:WwwName=line1\r\nline2\n", argv)
         self.assertIn("www:Waf=", argv)
         self.assertNotIn("admin:Waf=", argv)
         self.assertIn("www:OriginSecret=keep", argv)

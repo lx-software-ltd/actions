@@ -7,7 +7,7 @@ G4 is approved. This pull request adds the actions. It does not change a product
 
 ## Goal
 
-`s3-cloudfront-deploy` syncs a build and invalidates CloudFront. `profile` keeps the current upload rules: `public-hashed` for the findingalpha public site, `admin-hashed` for the pair A admin sites, and `public-routes` for the lx-software public site. `amplify-release` starts a RELEASE job. `mode: promote` still requires a green source job and, by default, only staging to main.
+`s3-cloudfront-deploy` syncs a build and invalidates CloudFront. `profile` keeps the current upload rules: `public-hashed` for the findingalpha public site, `admin-hashed` for the pair A admin sites, `public-routes` for the lx-software public site, and `next-export` for a pair B Next.js `out/` directory (`aws s3 sync --delete`). `admin-hashed` skips root dotfiles, matching the shell glob. `amplify-release` starts a RELEASE job. `mode: promote` still requires a green source job and, by default, only staging to main.
 
 ## Non-goals
 

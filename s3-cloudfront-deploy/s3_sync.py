@@ -246,7 +246,7 @@ def _deploy_admin_hashed(
         )
     print("Uploading other root build artifacts (except index.html)…")
     for path in sorted(item for item in source.iterdir() if item.is_file()):
-        if path.name in {"assets", "index.html"}:
+        if path.name in {"assets", "index.html"} or path.name.startswith("."):
             continue
         _cp(run_aws, path, bucket, path.name, IMMUTABLE, None)
     print("Uploading index.html last with no-cache…")
@@ -258,6 +258,14 @@ def _deploy_admin_hashed(
         ROOT_CACHE,
         "text/html; charset=utf-8",
     )
+    _invalidate(run_aws, distribution, dry_run)
+
+
+def _deploy_next_export(
+    run_aws: Runner, source: Path, bucket: str, distribution: str, dry_run: bool
+) -> None:
+    print(f"Syncing the Next.js export to s3://{bucket}")
+    _sync(run_aws, source, f"s3://{bucket}", ["--delete"])
     _invalidate(run_aws, distribution, dry_run)
 
 
@@ -411,6 +419,11 @@ def deploy(
         return
     if profile == "public-routes":
         _deploy_public_routes(run_aws, source, bucket, distribution, indexnow, dry_run)
+        return
+    if profile == "next-export":
+        if not source.is_dir():
+            raise SyncError(f"Build output not found at {source}")
+        _deploy_next_export(run_aws, source, bucket, distribution, dry_run)
         return
     raise SyncError(f"Unsupported profile: {profile}")
 
