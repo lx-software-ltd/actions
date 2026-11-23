@@ -239,3 +239,13 @@ evolvesprouts is fixed. #2299 excluded `.lambda-build/**`, and Deploy Backend `4
 ### Still not closed
 
 SA-601 is closed. The `s3-cloudfront-deploy` callers are switched, including both pair B admin sites, and `amplify-release` is intentionally unused. SA-603 is closed. The first lx-software Deploy Backend on #684 reported no changes and updated no Lambda functions. SA-702 is unchanged from the measurement above.
+
+## 23 Nov 2026, SA-702 gates
+
+The measured mypy and OpenAPI errors are fixed in the product repositories. The lint jobs fail when the checks fail. Pair A still has no coverage floor, because none was measured. Pair B mypy stays on pre-commit.
+
+findingalpha #97 runs `mypy==1.8.0` inside the existing Python lint job, one process per top-level directory. One process on `backend/lambda` stops at the duplicate module named `handler`. That command reported 122 errors on `75df15d` and on current `main` (engine 114, public API authorizer 5, pre-token generation 0, scripts 3, hooks 0). The earlier note of 119 is not what this command prints. Those 122 errors are fixed. mypy exits 0 on the Ruff paths.
+
+lx-software #686 uses the same mypy command. It reported 1269 errors on `9707ab0` and on current `main` (admin lambda 1228, public API authorizer 2, pre-token generation 0, siutindei schema 0, scripts 39, hooks 0). The earlier note of 1254 is not what this command prints. Those 1269 errors are fixed. mypy exits 0 on the Ruff paths.
+
+siutindei #954 lints `docs/api/admin.yaml`, `docs/api/partner.yaml`, and `docs/api/search.yaml` with `@redocly/cli@1.34.11` and adds that job to the `lint` gate. The 176 errors were 151 admin operations with no `security`, 22 `nullable` fields with no `type`, and no `servers` entry. Security now matches the authorizer on each route. Nullable fields have types, including `EnrichmentRun`. The specs name `https://api.siutindei.com`. Redocly exits 0. It still prints 299 warnings: `operationId`, missing `4xx` responses, license, two ambiguous paths, and an unused component. Those warnings do not fail the command.
