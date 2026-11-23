@@ -4,7 +4,7 @@ Deploys the stacks named in `plan`. The job needs AWS credentials already, from 
 
 `format` is `prefixed-json` or `plain-json`. An empty `param-file` skips the file. A set path that is not a file fails. `prefixed-json` rejects a key whose prefix is not declared on a group. Empty values are omitted unless the name is in `pass-empty`.
 
-`plan` and `plan-file` are the same JSON. Set one. `{NAME}` in `extra-args` is replaced from the environment. An empty value stays in the argument, including `Name=`, so CloudFormation clears the previous parameter. The argument is not dropped.
+`plan` and `plan-file` are the same JSON. Set one. `{NAME}` in `extra-args` is replaced from the environment. An empty value stays in the argument, including `Name=`, so CloudFormation clears the previous parameter. A name that is not in the environment fails the deploy. The argument is not dropped.
 
 `plan.groups` is the deploy order. Each group is one `cdk deploy`. `prefixes` choose prefixed keys. `routes` and `api-stack` choose plain-json stacks, and a name in `also-api` is also sent to `api-stack`. `extra-args` are the caller's extra `--parameters` flags. `when-all-env` skips the group unless every named variable is set. `allowlist-env` checks a comma-separated email list and reports the entry position, not the address. `append-if-set` adds one parameter only when that variable is non-empty.
 

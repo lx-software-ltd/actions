@@ -436,3 +436,23 @@ class PlanTest(unittest.TestCase):
             )
         extra = plan["groups"][0]["extra-args"]
         self.assertEqual(extra, ["--qualifier", "", "--parameters", "api:Name="])
+
+    def test_an_unset_token_fails_the_plan(self) -> None:
+        env = os.environ.copy()
+        env.pop("P_MISSING_PLAN_TOKEN", None)
+        with mock.patch.dict(os.environ, env, clear=True):
+            with self.assertRaises(cdk_deploy.DeployError) as raised:
+                cdk_deploy.load_plan_text(
+                    json.dumps(
+                        {
+                            "groups": [
+                                {
+                                    "stacks": ["api"],
+                                    "extra-args": ["--parameters", "api:Name={P_MISSING_PLAN_TOKEN}"],
+                                }
+                            ]
+                        }
+                    ),
+                    "",
+                )
+        self.assertIn("P_MISSING_PLAN_TOKEN is unset", str(raised.exception))

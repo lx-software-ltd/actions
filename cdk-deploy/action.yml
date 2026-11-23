@@ -16,7 +16,8 @@ inputs:
       names. extra-args, when-all-env, allowlist-env, and append-if-set
       stay on the group. {NAME} in extra-args is replaced from the
       environment. An empty value stays, so CloudFormation clears the
-      previous parameter. Set plan or plan-file.
+      previous parameter. A missing variable fails the deploy.
+      Set plan or plan-file.
     required: false
     default: ""
   plan-file:

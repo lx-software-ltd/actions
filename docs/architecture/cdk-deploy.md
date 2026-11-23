@@ -23,7 +23,7 @@ The workflow still maps the GitHub secret or variable into the environment. The 
 
 ## Routing a parameter to a stack
 
-`{NAME}` in `extra-args` is replaced from the environment. An empty replacement stays, so `Name={VAR}` becomes `Name=` and CloudFormation clears the parameter. Dropping the argument would keep the previously deployed value. That is the behaviour the findingalpha builder had when it always passed `Name=`.
+`{NAME}` in `extra-args` is replaced from the environment. An empty value stays, so `Name={VAR}` becomes `Name=` and CloudFormation clears the parameter. A variable that is not set fails the deploy, so a typo or a missing `env` line does not clear the parameter. Dropping the argument would keep the previously deployed value. An explicit empty value is what the findingalpha builder did when it always passed `Name=`.
 
 `findingalpha` splits the prefixed file into three argv lists by key prefix: `findingalpha:`, `findingalpha-admin-web:`, and `findingalpha-public-www:`. It then deploys `findingalpha` and `findingalpha-admin-web` together, and deploys `findingalpha-public-www` only when both the domain and the certificate variable are set. Extra `--parameters` flags in the workflow override or add the domain, Google, mail, API, Cognito, and WAF values. Those flags stay caller inputs (`extra-args`), because they are not in the file.
 

@@ -2,7 +2,7 @@
 
 cdk-deploy and cdk-diff both import this module. Neither action imports
 the other. An empty ``{NAME}`` stays in the argument so CloudFormation
-clears the previous value.
+clears the previous value. A name that is not set fails the deploy.
 """
 
 from __future__ import annotations
@@ -335,8 +335,15 @@ def build_commands(
 
 
 def _expand_token(text: str) -> str:
-    """Replace ``{NAME}`` from the environment. An unset name is empty."""
-    return ENV_TOKEN.sub(lambda match: os.environ.get(match.group(1), ""), text)
+    """Replace ``{NAME}``. An empty value stays. A missing variable fails."""
+
+    def replace(match: re.Match[str]) -> str:
+        name = match.group(1)
+        if name not in os.environ:
+            raise DeployError(f"{name} is unset. Set it to empty to clear the parameter.")
+        return os.environ[name]
+
+    return ENV_TOKEN.sub(replace, text)
 
 
 def _expand_extra(extra: list[object]) -> list[object]:
