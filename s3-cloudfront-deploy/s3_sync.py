@@ -1,8 +1,8 @@
 """Sync a built site to S3 and invalidate CloudFront.
 
 Profiles keep the upload rules of the repository that already deploys
-that way. The caller passes the bucket and distribution. This does not
-read a stack and does not print an account id.
+that way. The caller passes the bucket, or a stack whose outputs name
+the bucket and the distribution. This does not print an account id.
 """
 
 from __future__ import annotations
@@ -14,6 +14,12 @@ import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
+
+_LIB = Path(__file__).resolve().parents[1] / "lib"
+if str(_LIB) not in sys.path:
+    sys.path.insert(0, str(_LIB))
+
+from stack_outputs import ReadError, command as stack_command, decide, redact, select  # noqa: E402
 
 IMMUTABLE = "public,max-age=31536000,immutable"
 ROOT_CACHE = "no-cache,must-revalidate"
@@ -428,10 +434,65 @@ def deploy(
     raise SyncError(f"Unsupported profile: {profile}")
 
 
+def resolve_destination(
+    *,
+    bucket: str,
+    distribution: str,
+    stack: str,
+    region: str,
+    bucket_output: str,
+    distribution_output: str,
+    run_aws: Runner,
+) -> tuple[str, str]:
+    """Return the bucket and distribution. A stack replaces both."""
+    if not stack.strip():
+        return bucket, distribution
+    keys = bucket_output.strip()
+    if distribution_output.strip():
+        keys = f"{keys},{distribution_output.strip()}"
+    try:
+        chosen_stack, chosen_region, names = decide(stack, region, keys)
+    except ReadError as exc:
+        raise SyncError(str(exc)) from exc
+    completed = run_aws(stack_command(chosen_stack, chosen_region))
+    if completed.returncode != 0:
+        detail = redact((completed.stderr or "") + (completed.stdout or "")).strip()
+        message = f"Could not read stack {chosen_stack} in {chosen_region}."
+        if detail:
+            message = f"{message} {detail}"
+        raise SyncError(message)
+    try:
+        found = select(completed.stdout or "", [names[0]])
+    except ReadError as exc:
+        raise SyncError(str(exc)) from exc
+    resolved_bucket = found[names[0]]
+    resolved_distribution = distribution
+    if len(names) > 1:
+        try:
+            resolved_distribution = select(completed.stdout or "", [names[1]])[names[1]]
+        except ReadError as exc:
+            print(f"::warning::{exc} CloudFront invalidation will be skipped.")
+            resolved_distribution = ""
+    return resolved_bucket, resolved_distribution
+
+
 def main(run_aws: Runner = _run_aws) -> int:
     source = Path(os.environ.get("SOURCE", ""))
     bucket = os.environ.get("BUCKET", "")
     distribution = os.environ.get("DISTRIBUTION_ID", "")
+    try:
+        bucket, distribution = resolve_destination(
+            bucket=bucket,
+            distribution=distribution,
+            stack=os.environ.get("STACK", ""),
+            region=os.environ.get("AWS_REGION", ""),
+            bucket_output=os.environ.get("BUCKET_OUTPUT", "") or "PublicWebsiteBucketName",
+            distribution_output=os.environ.get("DISTRIBUTION_OUTPUT", ""),
+            run_aws=run_aws,
+        )
+    except SyncError as error:
+        print(str(error), file=sys.stderr)
+        return 1
     profile = os.environ.get("PROFILE", "public-hashed") or "public-hashed"
     indexnow = os.environ.get("INDEXNOW", "false").lower() == "true"
     dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"
