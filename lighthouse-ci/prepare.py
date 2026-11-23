@@ -78,6 +78,12 @@ def write_config(
             settings = {}
             collect["settings"] = settings
         settings["extraHeaders"] = json.dumps({"x-staging-bypass": secret})
+    if bypass_secret.strip():
+        upload = ci.get("upload")
+        if not isinstance(upload, dict):
+            upload = {}
+            ci["upload"] = upload
+        upload["target"] = "filesystem"
     if destination is None:
         destination = directory / ".lighthouserc.runtime.json"
     destination.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")

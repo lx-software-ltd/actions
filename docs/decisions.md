@@ -48,7 +48,7 @@ The workflow step that refuses `GitHubActionsRole` is not a security boundary. A
 
 `s3-cloudfront-deploy` reads the bucket and distribution from stack outputs when `stack` and `region` are set. The reader is `lib/stack_outputs.py`. A missing distribution output warns and skips invalidation. A missing bucket output fails.
 
-`lighthouse-ci` writes its runtime config under `RUNNER_TEMP` and deletes it after the run. It also removes `x-staging-bypass` from `.lighthouseci`, because a Lighthouse result can copy request headers into the report that a public artifact uploads.
+`lighthouse-ci` writes its runtime config under `RUNNER_TEMP` and deletes it after the run. When `bypass-secret` is set, `ci.upload.target` is `filesystem`, so autorun does not upload the report to temporary-public-storage. The action also removes `x-staging-bypass` from `.lighthouseci`, because a Lighthouse result can copy request headers into the report that a public artifact uploads.
 
 ## Denylist
 
