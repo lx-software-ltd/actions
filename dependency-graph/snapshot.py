@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Build a dependency snapshot and, when asked, submit it.
 
-Reads pinned Python requirements, npm lockfiles, and pinned GitHub
-Actions uses. An unpinned requirement or action fails the run before
-any submit. Submit posts one snapshot for this correlator.
+Reads pinned Python requirements and npm lockfiles. A workflow or
+action.yml use must name a 40-character commit. Workflow uses are
+checked and left out of the snapshot, because GitHub already records
+them. Uses from action.yml are submitted. An unpinned requirement or
+a use that is not a commit fails the run before any submit.
 """
 
 from __future__ import annotations
@@ -23,8 +25,10 @@ CORRELATOR = "lx-dependency-graph"
 DETECTOR = "lx-software-dependency-graph"
 SKIP_DIRS = {"fixtures", "node_modules", ".git", ".venv", "venv", "Pods"}
 PIN = re.compile(r"^([A-Za-z0-9_.-]+)(?:\[[^\]]+\])?\s*==\s*([^;\s]+)")
-USES = re.compile(
-    r"^([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)(?:/([A-Za-z0-9_.-]+))?@([^\s#]+)$"
+SHA_REF = re.compile(r"^[0-9a-f]{40}$")
+ACTION = re.compile(
+    r"^(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)"
+    r"(?:/(?P<subpath>[A-Za-z0-9_.@/-]+))?$"
 )
 
 
@@ -164,25 +168,52 @@ def parse_package_lock(path: Path) -> tuple[dict[str, dict[str, Any]], list[str]
     return resolved, []
 
 
+def _uses_value(stripped: str) -> str | None:
+    found = re.search(r"(?:^|\s)uses:\s*(.+)$", stripped)
+    if not stripped or stripped.startswith("#") or found is None:
+        return None
+    value = found.group(1).split("#", 1)[0].strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        value = value[1:-1].strip()
+    return value
+
+
 def parse_actions(path: Path) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    """Return action.yml uses. A workflow file is checked and not returned.
+
+    A tag or branch ref is an error. A quoted use and a reusable
+    workflow path are accepted when the ref is a commit. Local and
+    docker uses are skipped. Reusable workflows are not packages.
+    """
     if not path.is_file():
         return {}, [f"missing workflow: {path}"]
+    submit = path.name in {"action.yml", "action.yaml"}
     resolved: dict[str, dict[str, Any]] = {}
     errors: list[str] = []
     for raw in path.read_text(encoding="utf-8").splitlines():
-        stripped = raw.strip()
-        found = re.search(r"(?:^|\s)uses:\s*(.+)$", stripped)
-        if not stripped or stripped.startswith("#") or found is None:
+        value = _uses_value(raw.strip())
+        if value is None or value.startswith("./") or value.startswith("docker://"):
             continue
-        value = found.group(1).split("#", 1)[0].strip()
-        if value.startswith("./") or value.startswith("docker://"):
+        if "@" not in value:
+            errors.append(f"{path}: unpinned action {value}")
             continue
-        match = USES.match(value)
+        target, ref = value.rsplit("@", 1)
+        if SHA_REF.fullmatch(ref) is None:
+            errors.append(f"{path}: action ref is not a commit {value}")
+            continue
+        if target.endswith((".yml", ".yaml")):
+            continue
+        match = ACTION.fullmatch(target)
         if match is None:
             errors.append(f"{path}: unpinned action {value}")
             continue
+        if not submit:
+            continue
         purl = actions_purl(
-            match.group(1), match.group(2), match.group(3), match.group(4)
+            match.group("owner"),
+            match.group("repo"),
+            match.group("subpath"),
+            ref,
         )
         resolved[purl] = {
             "package_url": purl,
@@ -291,14 +322,40 @@ def _lines(raw: str) -> list[str]:
     return [line.strip() for line in raw.splitlines() if line.strip()]
 
 
-def _ignored(path: Path, root: Path, ignored: set[str]) -> bool:
-    if not ignored:
-        return False
+def _normalize_relative(value: str) -> str:
+    text = value.strip().replace("\\", "/")
+    while text.startswith("./"):
+        text = text[2:]
+    return text.strip("/")
+
+
+def _relative(path: Path, root: Path) -> str:
     try:
-        relative = path.resolve().relative_to(root.resolve()).as_posix()
+        return path.resolve().relative_to(root.resolve()).as_posix()
     except ValueError:
-        relative = path.as_posix()
-    return relative in ignored
+        return _normalize_relative(path.as_posix())
+
+
+def select_files(
+    root: Path, listed: list[str], ignored: list[str]
+) -> tuple[list[Path], list[str]]:
+    """Drop ignored manifests. An ignore path that matches nothing is an error."""
+    files = [(root / line) for line in listed] if listed else discover(root)
+    wanted = {_normalize_relative(entry) for entry in ignored}
+    matched: set[str] = set()
+    kept: list[Path] = []
+    for path in files:
+        relative = _relative(path, root)
+        if relative in wanted:
+            matched.add(relative)
+            continue
+        kept.append(path)
+    errors = [
+        f"ignore path matches nothing: {entry}"
+        for entry in ignored
+        if _normalize_relative(entry) not in matched
+    ]
+    return kept, errors
 
 
 def main() -> int:
@@ -308,9 +365,8 @@ def main() -> int:
         or "."
     )
     listed = _lines(os.environ.get("DEPENDENCY_GRAPH_MANIFESTS", ""))
-    ignored = set(_lines(os.environ.get("DEPENDENCY_GRAPH_IGNORE", "")))
-    files = [root / line for line in listed] if listed else discover(root)
-    files = [path for path in files if not _ignored(path, root, ignored)]
+    ignored = _lines(os.environ.get("DEPENDENCY_GRAPH_IGNORE", ""))
+    files, ignore_errors = select_files(root, listed, ignored)
     sha = os.environ.get("GITHUB_SHA", "")
     ref = os.environ.get("GITHUB_REF", "")
     if not sha or not ref:
@@ -320,6 +376,7 @@ def main() -> int:
         return 1
     job_id = os.environ.get("GITHUB_RUN_ID", "local")
     snapshot, errors = build_snapshot(files, sha, ref, job_id)
+    errors = ignore_errors + errors
     if errors:
         print("dependency graph: manifest errors:", file=sys.stderr)
         for error in errors:

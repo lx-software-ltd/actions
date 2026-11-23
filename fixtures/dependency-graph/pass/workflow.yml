@@ -7,3 +7,6 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: "actions/setup-python@a26af69be951a213d495a4c5e4e4022e16d87065"
+      - uses: lx-software-ltd/example/.github/workflows/called.yml@0123456789abcdef0123456789abcdef01234567
+      - uses: ./.github/workflows/local.yml

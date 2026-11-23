@@ -28,6 +28,7 @@ class DependencyGraphTest(unittest.TestCase):
             base / "requirements.txt",
             base / "package-lock.json",
             base / "workflow.yml",
+            base / "action.yml",
         ]
         built, errors = snapshot.build_snapshot(files, SHA, REF, "1")
         self.assertEqual(errors, [])
@@ -42,6 +43,13 @@ class DependencyGraphTest(unittest.TestCase):
         self.assertIn(
             "pkg:githubactions/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
             purls,
+        )
+        self.assertNotIn(
+            "pkg:githubactions/actions/setup-python@a26af69be951a213d495a4c5e4e4022e16d87065",
+            purls,
+        )
+        self.assertNotIn(
+            "workflow.yml", {Path(name).name for name in built["manifests"]}
         )
         left = next(item for item in purls if item.endswith("left@1.0.0"))
         right = next(
@@ -66,6 +74,18 @@ class DependencyGraphTest(unittest.TestCase):
             self.assertEqual(errors, [])
             self.assertIn("pkg:pypi/extra@2", resolved)
 
+    def test_ignore_drops_an_unpinned_requirements_file(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            start = root / "requirements.txt"
+            start.write_text("demo==1\n", encoding="utf-8")
+            kept, errors = snapshot.select_files(root, [], ["./requirements.txt"])
+            self.assertEqual(errors, [])
+            self.assertEqual(kept, [])
+            kept, errors = snapshot.select_files(root, [], ["missing.txt"])
+            self.assertEqual(kept, [start])
+            self.assertEqual(errors, ["ignore path matches nothing: missing.txt"])
+
     def test_unpinned_requirement_is_an_error(self) -> None:
         path = ROOT / "fixtures" / "dependency-graph" / "fail" / "requirements.txt"
         _resolved, errors = snapshot.parse_requirements(path)
@@ -80,6 +100,25 @@ class DependencyGraphTest(unittest.TestCase):
             )
             _resolved, errors = snapshot.parse_actions(path)
             self.assertTrue(any("unpinned" in error for error in errors))
+
+    def test_tag_ref_is_not_a_commit_pin(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "workflow.yml"
+            path.write_text(
+                "jobs:\n  a:\n    steps:\n      - uses: actions/checkout@v4\n",
+                encoding="utf-8",
+            )
+            _resolved, errors = snapshot.parse_actions(path)
+            self.assertTrue(any("not a commit" in error for error in errors))
+
+    def test_quoted_sha_and_reusable_workflow_are_accepted(self) -> None:
+        path = ROOT / "fixtures" / "dependency-graph" / "pass" / "workflow.yml"
+        resolved, errors = snapshot.parse_actions(path)
+        self.assertEqual(errors, [])
+        self.assertEqual(resolved, {})
+        built, build_errors = snapshot.build_snapshot([path], SHA, REF, "1")
+        self.assertEqual(build_errors, [])
+        self.assertEqual(built["manifests"], {})
 
     def test_discover_skips_fixtures(self) -> None:
         found = snapshot.discover(ROOT)

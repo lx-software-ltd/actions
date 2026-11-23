@@ -11,8 +11,22 @@ permissions:
   contents: read
 
 jobs:
+  check:
+    name: Check dependency graph
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main'
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check pinned manifests
+        uses: ./dependency-graph
+        with:
+          submit: "false"
+
   submit:
     name: Submit dependency graph
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-26.04
     permissions:
       contents: write
@@ -23,5 +37,5 @@ jobs:
       - name: Submit pinned manifests
         uses: ./dependency-graph
         with:
-          submit: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          submit: "true"
           token: ${{ github.token }}

@@ -1,7 +1,7 @@
 name: Dependency graph
 description: >-
-  Submit pinned Python requirements, npm lockfiles, and pinned GitHub
-  Actions uses to the repository dependency graph.
+  Submit pinned Python requirements and npm lockfiles. Check workflow
+  uses without submitting them.
 
 inputs:
   root:
@@ -13,7 +13,9 @@ inputs:
     required: false
     default: ""
   ignore:
-    description: Newline-separated paths, relative to root, left out of the snapshot.
+    description: >-
+      Newline-separated paths, relative to root, left out of the snapshot.
+      A path that matches nothing fails the run.
     required: false
     default: ""
   submit:
