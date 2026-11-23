@@ -16,8 +16,10 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -184,7 +186,7 @@ def _members(params: dict[str, object]) -> dict[str, object]:
     return {key: value for key, value in params.items() if str(key).startswith("Parameters.member")}
 
 
-def _diff(port: int, app: str, extra: list[str]) -> subprocess.CompletedProcess[str]:
+def _diff(port: int, app: str, extra: list[str], output: str) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env.update(
         {
@@ -199,7 +201,17 @@ def _diff(port: int, app: str, extra: list[str]) -> subprocess.CompletedProcess[
     )
     cdk = ROOT / "node_modules" / ".bin" / "cdk"
     return subprocess.run(
-        [str(cdk), "diff", "--no-color", "--app", f"node {app}", *extra, "ParamStack"],
+        [
+            str(cdk),
+            "diff",
+            "--no-color",
+            "--output",
+            output,
+            "--app",
+            f"node {app}",
+            *extra,
+            "ParamStack",
+        ],
         cwd=ROOT,
         env=env,
         capture_output=True,
@@ -221,9 +233,10 @@ def main() -> int:
         subprocess.run(["npm", "ci"], cwd=ROOT, check=True)
     log_path = ROOT / "changesets.jsonl"
     server, port = _serve(log_path)
+    output = tempfile.mkdtemp(prefix="cdk-omit-")
     try:
         log_path.write_text("", encoding="utf-8")
-        omitted = _diff(port, "app/app.js", [])
+        omitted = _diff(port, "app/app.js", [], output)
         omitted_sets = _changesets(log_path)
         if omitted.returncode != 0 or len(omitted_sets) != 1 or _members(omitted_sets[0]):
             _show("omitted", omitted)
@@ -234,7 +247,9 @@ def main() -> int:
             return 1
 
         log_path.write_text("", encoding="utf-8")
-        passed = _diff(port, "app/app.js", ["--parameters", "ParamStack:Name=passed-value"])
+        passed = _diff(
+            port, "app/app.js", ["--parameters", "ParamStack:Name=passed-value"], output
+        )
         passed_sets = _changesets(log_path)
         members = _members(passed_sets[0]) if passed_sets else {}
         if (
@@ -253,6 +268,7 @@ def main() -> int:
             port,
             "app/required.js",
             ["--method=change-set", "--parameters", "ParamStack:Name=only-name"],
+            output,
         )
         if required.returncode == 0 or "missing a value" not in (required.stdout + required.stderr):
             _show("required", required)
@@ -267,6 +283,7 @@ def main() -> int:
             port,
             "app/app.js",
             ["--method=template", "--parameters", "ParamStack:Name=passed-value"],
+            output,
         )
         combined = template.stdout + template.stderr
         if template.returncode == 0 or "cannot be used" not in combined or _changesets(log_path):
@@ -276,6 +293,7 @@ def main() -> int:
     finally:
         server.shutdown()
         log_path.unlink(missing_ok=True)
+        shutil.rmtree(output, ignore_errors=True)
     print("cdk diff omits a parameter instead of sending UsePreviousValue")
     return 0
 
