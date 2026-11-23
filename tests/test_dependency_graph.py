@@ -111,6 +111,22 @@ class DependencyGraphTest(unittest.TestCase):
             _resolved, errors = snapshot.parse_actions(path)
             self.assertTrue(any("not a commit" in error for error in errors))
 
+    def test_manifest_paths_are_relative_to_the_repository_root(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            requirements = root / "backend" / "requirements.txt"
+            requirements.parent.mkdir()
+            requirements.write_text("demo==1\n", encoding="utf-8")
+            built, errors = snapshot.build_snapshot(
+                [requirements.resolve()], SHA, REF, "1", root
+            )
+            self.assertEqual(errors, [])
+            location = "backend/requirements.txt"
+            self.assertEqual(list(built["manifests"]), [location])
+            self.assertEqual(
+                built["manifests"][location]["file"]["source_location"], location
+            )
+
     def test_quoted_sha_and_reusable_workflow_are_accepted(self) -> None:
         path = ROOT / "fixtures" / "dependency-graph" / "pass" / "workflow.yml"
         resolved, errors = snapshot.parse_actions(path)

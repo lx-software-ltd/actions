@@ -690,8 +690,13 @@ jobs:
           ]
           missing = [item for item in needed if item not in purls]
           workflow_only = "pkg:githubactions/actions/setup-python@a26af69be951a213d495a4c5e4e4022e16d87065"
-          if missing or workflow_only in purls or any(name.endswith("workflow.yml") for name in payload["manifests"]):
-              raise SystemExit(missing or workflow_only)
+          absolute = [
+              name
+              for name, manifest in payload["manifests"].items()
+              if name.startswith("/") or manifest["file"]["source_location"] != name
+          ]
+          if missing or workflow_only in purls or absolute or any(name.endswith("workflow.yml") for name in payload["manifests"]):
+              raise SystemExit(missing or absolute or workflow_only)
           PY
 
   dependency-graph-fail:

@@ -252,7 +252,11 @@ def discover(root: Path) -> list[Path]:
 
 
 def build_snapshot(
-    files: list[Path], sha: str, ref: str, job_id: str
+    files: list[Path],
+    sha: str,
+    ref: str,
+    job_id: str,
+    root: Path | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     manifests: dict[str, Any] = {}
     errors: list[str] = []
@@ -270,7 +274,7 @@ def build_snapshot(
         errors.extend(found)
         if not resolved:
             continue
-        location = path.as_posix()
+        location = _relative(path, root) if root is not None else path.as_posix()
         manifests[location] = {
             "name": path.name,
             "file": {"source_location": location},
@@ -375,7 +379,7 @@ def main() -> int:
         )
         return 1
     job_id = os.environ.get("GITHUB_RUN_ID", "local")
-    snapshot, errors = build_snapshot(files, sha, ref, job_id)
+    snapshot, errors = build_snapshot(files, sha, ref, job_id, root)
     errors = ignore_errors + errors
     if errors:
         print("dependency graph: manifest errors:", file=sys.stderr)
