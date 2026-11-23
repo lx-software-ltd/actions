@@ -1,9 +1,9 @@
 # Design note: cdk-deploy
 
-**Status**: Waiting for a second G5 approval
+**Status**: G5 approved for cdk-deploy
 **Zone**: red
 
-G5 approved this note only. Do not add `cdk-deploy/` or change a deploy workflow until the owner approves this note again by name.
+G5 approved for cdk-deploy. The action is `cdk-deploy/`. Product `deploy-backend.yml` files are not changed in that pull request. Callers pin the merge commit later.
 
 ## Goal
 
@@ -69,16 +69,15 @@ Before a retry, a stack in `UPDATE_ROLLBACK_FAILED` gets `continue-update-rollba
 
 Stack names, the parameter-to-stack sets, and the extra `--parameters` flags stay caller inputs. The action does not hard-code a repository name.
 
-## Non-goals until the second approval
+## Still outside this action
 
-- No `cdk-deploy` action, test, or fixture.
-- No edit to `deploy-backend.yml` in any repository.
+- No edit to `deploy-backend.yml` in any repository until that repository pins the action.
 - No removal of `cdk bootstrap` from a deploy. C24 already kept that command in pair B.
-- No deploy run.
+- No deploy run from the actions repository. Fixture jobs stub `aws` and `npx`.
 
 ## Done when
 
-The owner approves this note at G5 again. The implementation pull request can then follow this table.
+G5 approved for cdk-deploy, and the action follows the table above.
 
 ## Rollback
 

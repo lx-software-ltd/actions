@@ -1315,6 +1315,75 @@ jobs:
           UPLOAD: ${{ steps.play.outputs.should_upload }}
         run: test "$UPLOAD" = "false"
 
+  cdk-deploy-pass:
+    name: CDK deploy pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Stubs. The job does not call AWS or CDK.
+      - name: Install stub aws and npx
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin" "$RUNNER_TEMP/app"
+          printf '%s\n' '{"api:Name":"one"}' > "$RUNNER_TEMP/params.json"
+          cat > "$RUNNER_TEMP/bin/npx" << EOF
+          #!/bin/sh
+          printf '%s\n' "\$@" > "$RUNNER_TEMP/npx-args"
+          echo "created in 123456789012"
+          exit 0
+          EOF
+          cat > "$RUNNER_TEMP/bin/aws" << 'EOF'
+          #!/bin/sh
+          echo "aws should not run" >&2
+          exit 1
+          EOF
+          chmod +x "$RUNNER_TEMP/bin/npx" "$RUNNER_TEMP/bin/aws"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Deploy one stack
+        uses: ./cdk-deploy
+        with:
+          working-directory: ${{ runner.temp }}/app
+          plan: '{"groups":[{"stacks":["api"],"prefixes":["api:"]}]}'
+          param-file: ${{ runner.temp }}/params.json
+          format: prefixed-json
+
+      - name: The stub saw one deploy and no account id
+        env:
+          ARGS: ${{ runner.temp }}/npx-args
+        run: |
+          python3 -c '
+          import os, pathlib, sys
+          lines = pathlib.Path(os.environ["ARGS"]).read_text().splitlines()
+          expected = ["cdk", "deploy", "--require-approval", "never", "--parameters", "api:Name=one", "api"]
+          if lines != expected:
+              sys.exit("unexpected argv: " + repr(lines))
+          if "123456789012" in "\n".join(lines):
+              sys.exit("account id leaked into the command")
+          '
+
+  cdk-deploy-fail:
+    name: CDK deploy fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reject a missing parameters file
+        id: deploy
+        continue-on-error: true
+        uses: ./cdk-deploy
+        with:
+          working-directory: ${{ runner.temp }}/app
+          plan: '{"groups":[{"stacks":["api"],"prefixes":["api:"]}]}'
+          param-file: ${{ runner.temp }}/missing.json
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.deploy.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   test:
     name: test
     runs-on: ubuntu-26.04
@@ -1376,6 +1445,8 @@ jobs:
       - android-signing-fail
       - play-prerequisites-pass
       - play-prerequisites-skip
+      - cdk-deploy-pass
+      - cdk-deploy-fail
     if: always()
     steps:
       # Pinned to the merge on main. See the matching comment in lint.yml.
