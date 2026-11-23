@@ -1,6 +1,6 @@
 # Shared actions plan — progress
 
-**Status**: Stage 5 is closed. C04 is merged. G3 and G4 are approved. G5 is approved for cdk-deploy. Stage 6 callers are in progress. The pair B admin switches are done. SA-603 stays open.
+**Status**: Stage 5 is closed. C04 is merged. G3 and G4 are approved. G5 is approved for cdk-deploy. Stage 6 callers are in progress. SA-601 and SA-603 are closed.
 **Zone**: yellow
 
 The plan copy is `docs/plans/shared-actions-and-ci-convergence.md`. The approved plan is in that file in full. Recorded decisions at the top of that file win where they conflict with the approved text. Decision, owner-task, row, and step numbers keep the approved meanings. This file does not renumber them. An earlier progress table called the Node and macOS choices "O6". That was wrong. O6 is `AWS_ACCOUNT_ID`. On 22 Nov 2026 the owner made it a repository secret and removed the variable.
@@ -208,7 +208,7 @@ actions #46 is `ffde04dca3c78b1ccb8739f4d3a23f728ac7a05f`. All four product repo
 | findingalpha Deploy Backend | #95 | Switched to `cdk-deploy`. |
 | lx-software public site | #680 | Switched to `s3-cloudfront-deploy`. |
 | lx-software admin | #683 | Switched to `s3-cloudfront-deploy`. |
-| lx-software Deploy Backend | #684 | Merged. The dry run matched on `45116136708`, `45127095535`, and `45136439530`. The last log printed `Dry run matches the current deploy (2 planned CDK changes)`. The merge did not start Deploy Backend: the path filter does not include the workflow file, and `workflow_dispatch` is not available to this token. The first deploy is not checked. |
+| lx-software Deploy Backend | #684 | Switched to `cdk-deploy`. The dry run matched on `45116136708`, `45127095535`, and `45136439530`. The first deploy on that commit is `45142566886`. It printed `lxsoftware-public-www (no changes)`, `lxsoftware (no changes)`, and `lxsoftware-admin-web (no changes)`, and updated no Lambda functions. |
 | evolvesprouts Deploy Backend | #2298 | Switched to `cdk-deploy`. |
 | siutindei Deploy Backend | #950 | Switched to `cdk-deploy`. |
 | evolvesprouts admin | #2302 | Switched to `s3-cloudfront-deploy` profile `next-export`. Post-switch Deploy Admin Web `45149638489` succeeded. |
@@ -224,7 +224,7 @@ findingalpha #93, lx-software #679 and #682, evolvesprouts #2294, siutindei #947
 
 ### Amplify
 
-`amplify-promote.yml` has never run in evolvesprouts or siutindei. The Amplify release step in Deploy Admin Web was skipped on the matching runs and is removed by the admin switches. Pair B admin sites deploy through S3. `amplify-release` is not a caller. The action stays in this repository.
+`amplify-release` is intentionally unused. The action stays in this repository. `amplify-promote.yml` has never run in evolvesprouts or siutindei. Pair B admin sites deploy through S3, and the admin switches removed the skipped Amplify release step.
 
 ### Pair B admin S3
 
@@ -232,10 +232,10 @@ Both admin workflows matched `s3-cloudfront-deploy` profile `next-export` twice.
 
 ### siutindei Lambda bundles
 
-The deploys at 15:51 and 16:12 HKT updated all 42 functions after workflow or secret changes. `PythonLambda` hashes `backend/` with `AssetHashType.SOURCE`. siutindei #951 excludes `.lambda-build/**`. Deploy Backend `45140953724` succeeded. A later deploy with the same source has not run.
+The deploys at 15:51 and 16:12 HKT updated 21 functions after workflow or secret changes. The earlier count of 42 was those functions recorded twice, once as `UPDATE_IN_PROGRESS` and once as `UPDATE_COMPLETE`. `PythonLambda` hashes `backend/` with `AssetHashType.SOURCE`. siutindei #951 excludes `.lambda-build/**`. Deploy Backend `45140953724` succeeded. A later deploy with the same source has not run. siutindei does not yet exclude the nested build directories, so that remains a follow-up.
 
-evolvesprouts #2299 made the same exclude. Deploy Backend `45143397092` and `45143458088` each updated the same 27 functions. The hash root is `backend/`, and `cdk.out/**` does not match `infrastructure/cdk.out`. Bootstrap rewrites that directory, including zip timestamps, before the deploy hash. evolvesprouts #2300 excludes `**/cdk.out/**`, `**/node_modules/**`, `**/dist/**`, and `**/build/**`. Deploy Backend `45145939814` updated the 27 functions once. Deploy Backend `45145962265` updated no functions. The stack change on that run was `RunMigrations`. siutindei does not have the nested excludes yet.
+evolvesprouts is fixed. #2299 excluded `.lambda-build/**`, and Deploy Backend `45143397092` and `45143458088` each still updated the same 27 functions. The hash root is `backend/`, and `cdk.out/**` does not match `infrastructure/cdk.out`. Bootstrap rewrites that directory, including zip timestamps, before the deploy hash. #2300 excludes `**/cdk.out/**`, `**/node_modules/**`, `**/dist/**`, and `**/build/**`. Deploy Backend `45145939814` updated the 27 functions once. Deploy Backend `45145962265` updated no functions. The stack change on that run was `RunMigrations`.
 
 ### Still not closed
 
-The pair B admin S3 switches are done. SA-603 stays open until the first lx-software Deploy Backend on #684 reports its result. SA-702 is unchanged from the measurement above.
+SA-601 is closed. The `s3-cloudfront-deploy` callers are switched, including both pair B admin sites, and `amplify-release` is intentionally unused. SA-603 is closed. The first lx-software Deploy Backend on #684 reported no changes and updated no Lambda functions. SA-702 is unchanged from the measurement above.
