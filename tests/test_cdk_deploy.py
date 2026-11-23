@@ -363,6 +363,56 @@ class PlanTest(unittest.TestCase):
         self.assertNotIn("123456789012", printed)
         self.assertIn("************", printed)
 
+    def test_an_alias_deploys_that_subset(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            params = Path(tmp) / "params.json"
+            params.write_text(
+                json.dumps({"api:Name": "one", "web:Name": "two"}),
+                encoding="utf-8",
+            )
+            app = Path(tmp) / "app"
+            app.mkdir()
+            seen: list[list[str]] = []
+
+            def run(command: list[str]) -> subprocess.CompletedProcess[str]:
+                seen.append(command)
+                return _ok("ok")
+
+            plan = {
+                "aliases": {"all stacks": ["api"]},
+                "groups": [
+                    {"stacks": ["api"], "prefixes": ["api:"]},
+                    {"stacks": ["web"], "prefixes": ["web:"]},
+                ],
+            }
+            env = {
+                "WORKING_DIRECTORY": str(app),
+                "PLAN": json.dumps(plan),
+                "PARAM_FILE": str(params),
+                "FORMAT": "prefixed-json",
+                "ATTEMPTS": "1",
+                "NO_NOTICES": "false",
+                "PASS_EMPTY": "",
+                "DESTROY": "false",
+                "RUN_SEED": "false",
+                "STACKS": "all stacks",
+                "ESCAPE_NEWLINES": "false",
+                "SKIP_RESOURCE": "",
+                "REGION": "",
+            }
+            previous = Path.cwd()
+            try:
+                with mock.patch.dict(os.environ, env, clear=False):
+                    code = cdk_deploy.main(run, lambda seconds: None)
+            finally:
+                os.chdir(previous)
+        self.assertEqual(code, 0)
+        self.assertEqual(len(seen), 1)
+        self.assertIn("api:Name=one", seen[0])
+        self.assertNotIn("web:Name=two", seen[0])
+        self.assertEqual(seen[0][-1], "api")
+        self.assertNotIn("all", seen[0])
+
     def test_plan_file_expands_an_environment_token(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             app = Path(tmp) / "app"

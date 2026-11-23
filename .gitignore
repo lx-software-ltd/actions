@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
+node_modules/
 /checkov-results.sarif
 /checkov-results.filtered.sarif
 /semgrep-results.sarif

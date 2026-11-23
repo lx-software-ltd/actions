@@ -1,0 +1,35 @@
+name: CDK bootstrap
+description: >-
+  Bootstrap the CDK toolkit stack in the caller's account and region.
+  The caller has already assumed a role and set up Node.js.
+
+inputs:
+  working-directory:
+    description: Directory that contains the CDK app package.json.
+    required: true
+  account-id:
+    description: >-
+      Account id from secrets.AWS_ACCOUNT_ID. Checked and masked. It
+      is not printed.
+    required: true
+  region:
+    description: AWS region. The caller passes vars.AWS_REGION.
+    required: true
+  qualifier:
+    description: >-
+      Bootstrap qualifier. Empty omits --qualifier, so CDK uses
+      hnb659fds. The caller passes vars.CDK_BOOTSTRAP_QUALIFIER.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Bootstrap CDK
+      shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        ACCOUNT_ID: ${{ inputs.account-id }}
+        AWS_REGION: ${{ inputs.region }}
+        QUALIFIER: ${{ inputs.qualifier }}
+      run: python3 "$GITHUB_ACTION_PATH/bootstrap.py"

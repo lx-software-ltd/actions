@@ -1,0 +1,55 @@
+{
+  "/ParamStack": [
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "<anonymous> (/agent/repos/actions/fixtures/cdk-omitted-parameter/app/required.js:4:15)",
+        "...node internals..."
+      ]
+    },
+    {
+      "type": "aws:cdk:templateFile",
+      "data": "ParamStack.template.json"
+    }
+  ],
+  "/ParamStack/Name": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "Name"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "<anonymous> (/agent/repos/actions/fixtures/cdk-omitted-parameter/app/required.js:8:1)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ParamStack/Required": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "Required"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "<anonymous> (/agent/repos/actions/fixtures/cdk-omitted-parameter/app/required.js:12:1)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/ParamStack/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in aws-cdk-lib...",
+        "<anonymous> (/agent/repos/actions/fixtures/cdk-omitted-parameter/app/required.js:13:5)",
+        "...node internals..."
+      ]
+    }
+  ]
+}

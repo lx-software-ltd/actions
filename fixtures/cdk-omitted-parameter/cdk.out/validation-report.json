@@ -1,0 +1,49 @@
+{
+  "version": "55.0.0",
+  "title": "Validation Report",
+  "pluginReports": [
+    {
+      "pluginName": "CloudFormation Validate",
+      "pluginVersion": "1.17.1",
+      "conclusion": "success",
+      "violations": [
+        {
+          "ruleName": "W2001",
+          "description": "Parameters/Name: Parameter 'Name' is not referenced anywhere in the template",
+          "severity": "warning",
+          "ruleMetadata": {
+            "category": "Best Practice"
+          },
+          "violatingConstructs": [
+            {
+              "constructPath": "ParamStack",
+              "constructFqn": "aws-cdk-lib.Stack",
+              "libraryVersion": "2.278.0",
+              "stackTraces": [
+                "<anonymous> (/agent/repos/actions/fixtures/cdk-omitted-parameter/app/required.js:4:15)\n...node internals..."
+              ]
+            }
+          ]
+        },
+        {
+          "ruleName": "W2001",
+          "description": "Parameters/Required: Parameter 'Required' is not referenced anywhere in the template",
+          "severity": "warning",
+          "ruleMetadata": {
+            "category": "Best Practice"
+          },
+          "violatingConstructs": [
+            {
+              "constructPath": "ParamStack",
+              "constructFqn": "aws-cdk-lib.Stack",
+              "libraryVersion": "2.278.0",
+              "stackTraces": [
+                "<anonymous> (/agent/repos/actions/fixtures/cdk-omitted-parameter/app/required.js:4:15)\n...node internals..."
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -205,6 +205,52 @@ class CdkDiffTest(unittest.TestCase):
         self.assertIn("--parameters", seen[0])
         self.assertIn("api:Name=one", seen[0])
 
+    def test_an_alias_expands_for_parameters_and_the_command(self) -> None:
+        seen: list[list[str]] = []
+
+        def run_cdk(command: list[str], directory: str) -> tuple[int, str]:
+            seen.append(command)
+            return 0, "ok\n"
+
+        plan = {
+            "aliases": {"all stacks": ["api"]},
+            "groups": [
+                {"stacks": ["api"], "prefixes": ["api:"]},
+                {"stacks": ["web"], "prefixes": ["web:"]},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "package.json").write_text("{}\n", encoding="utf-8")
+            params = root / "params.json"
+            params.write_text(
+                json.dumps({"api:Name": "one", "web:Name": "two"}),
+                encoding="utf-8",
+            )
+            env = {
+                "WORKING_DIRECTORY": directory,
+                "STACKS": "all stacks",
+                "ARGS": "",
+                "ARGS_FILE": "",
+                "PLAN": json.dumps(plan),
+                "PLAN_FILE": "",
+                "PARAM_FILE": str(params),
+                "FORMAT": "prefixed-json",
+                "PASS_EMPTY": "",
+                "ESCAPE_NEWLINES": "false",
+                "INCLUDE_EXTRAS": "false",
+                "ACCOUNT_ID": "",
+                "SUMMARY": "false",
+            }
+            with mock.patch.dict("os.environ", env, clear=False):
+                code = cdk_diff.main(run_cdk)
+        self.assertEqual(code, 0)
+        self.assertIn("api:Name=one", seen[0])
+        self.assertNotIn("web:Name=two", seen[0])
+        self.assertEqual(seen[0][-1], "api")
+        self.assertNotIn("all", seen[0])
+        self.assertNotIn("stacks", seen[0])
+
     def test_lines_are_masked_as_they_arrive(self) -> None:
         written: list[str] = []
         stream = cdk_diff.LineStream("000000000000", written.append)

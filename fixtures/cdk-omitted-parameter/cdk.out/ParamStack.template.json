@@ -1,0 +1,22 @@
+{
+ "Parameters": {
+  "Name": {
+   "Type": "String",
+   "Default": "from-default"
+  },
+  "Required": {
+   "Type": "String"
+  }
+ },
+ "Resources": {
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/zPSMzK30DNQTCwv1k1OydbNyUzSqw4uSUzO1nFOywtILErMTS1JLarVyctPSdXLKtYvMzLSMzLWM1HMKs7M1C0qzSvJzE3VC4LQAPHJvAVOAAAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "ParamStack/CDKMetadata/Default"
+   }
+  }
+ }
+}

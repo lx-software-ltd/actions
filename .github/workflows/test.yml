@@ -854,6 +854,82 @@ jobs:
           OUTCOME: ${{ steps.bootstrap.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  cdk-bootstrap-action-pass:
+    name: CDK bootstrap pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Stubs. The job does not install packages or call AWS.
+      - name: Install stub npm and npx
+        run: |
+          mkdir -p "$RUNNER_TEMP/app" "$RUNNER_TEMP/bin"
+          printf '%s\n' '{"name":"bootstrap-fixture","private":true}' > "$RUNNER_TEMP/app/package.json"
+          cat > "$RUNNER_TEMP/bin/npm" << 'EOF'
+          #!/bin/sh
+          printf '%s\n' "$*" >> "$RUNNER_TEMP/argv"
+          exit 0
+          EOF
+          cat > "$RUNNER_TEMP/bin/npx" << 'EOF'
+          #!/bin/sh
+          printf '%s\n' "$*" >> "$RUNNER_TEMP/argv"
+          exit 0
+          EOF
+          chmod +x "$RUNNER_TEMP/bin/npm" "$RUNNER_TEMP/bin/npx"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Bootstrap CDK
+        uses: ./cdk-bootstrap
+        with:
+          working-directory: ${{ runner.temp }}/app
+          account-id: "123456789012"
+          region: ap-southeast-1
+          qualifier: hnb659fds
+
+      - name: The stub saw one bootstrap
+        env:
+          ARGS: ${{ runner.temp }}/argv
+        run: |
+          python3 -c '
+          import os, pathlib, sys
+          lines = pathlib.Path(os.environ["ARGS"]).read_text().splitlines()
+          expected = [
+              "ci",
+              "run build --if-present",
+              "cdk bootstrap --qualifier hnb659fds aws://123456789012/ap-southeast-1",
+          ]
+          if lines != expected:
+              sys.exit("unexpected argv")
+          '
+
+  cdk-bootstrap-action-fail:
+    name: CDK bootstrap fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Prepare an app directory
+        run: |
+          mkdir -p "$RUNNER_TEMP/app"
+          printf '%s\n' '{"name":"bootstrap-fixture","private":true}' > "$RUNNER_TEMP/app/package.json"
+
+      # An empty region fails before npm is invoked.
+      - name: Reject a missing region
+        id: bootstrap
+        continue-on-error: true
+        uses: ./cdk-bootstrap
+        with:
+          working-directory: ${{ runner.temp }}/app
+          account-id: "123456789012"
+          region: ""
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.bootstrap.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   cdk-diff-pass:
     name: CDK diff pass fixture
     runs-on: ubuntu-26.04
@@ -945,6 +1021,23 @@ jobs:
         env:
           OUTCOME: ${{ steps.diff.outcome }}
         run: test "$OUTCOME" = "failure"
+
+  cdk-omitted-parameter:
+    name: CDK omitted parameter fixture
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: ./setup-node
+        with:
+          cache: npm
+          working-directory: fixtures/cdk-omitted-parameter
+
+      - name: Record how cdk diff sends an omitted parameter
+        run: python3 fixtures/cdk-omitted-parameter/probe.py
 
   aws-oidc-skip:
     name: AWS OIDC skip fixture
@@ -1054,6 +1147,41 @@ jobs:
         env:
           OUTCOME: ${{ steps.settings.outcome }}
         run: test "$OUTCOME" = "failure"
+
+  cfn-stack-outputs-missing:
+    name: CloudFormation missing stack fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # A stub. The job does not call AWS.
+      - name: Install a stub aws
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          cat > "$RUNNER_TEMP/bin/aws" << 'EOF'
+          #!/bin/sh
+          echo "Stack with id findingalpha does not exist" >&2
+          exit 254
+          EOF
+          chmod +x "$RUNNER_TEMP/bin/aws"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Read a stack that does not exist
+        id: settings
+        uses: ./cfn-stack-outputs
+        with:
+          stack: findingalpha
+          allow-missing: "true"
+          region: ap-southeast-1
+
+      - name: The stack is absent
+        env:
+          PRESENT: ${{ steps.settings.outputs.present }}
+          JSON: ${{ steps.settings.outputs.json }}
+        run: |
+          test "$PRESENT" = "false"
+          test "$JSON" = "{}"
 
   ios-export-pass:
     name: iOS export options pass fixture
@@ -1471,10 +1599,14 @@ jobs:
       - aws-oidc-fail
       - cdk-bootstrap-pass
       - cdk-bootstrap-fail
+      - cdk-bootstrap-action-pass
+      - cdk-bootstrap-action-fail
       - cdk-diff-pass
       - cdk-diff-fail
+      - cdk-omitted-parameter
       - cfn-stack-outputs-pass
       - cfn-stack-outputs-fail
+      - cfn-stack-outputs-missing
       - s3-cloudfront-pass
       - s3-cloudfront-fail
       - ios-export-pass

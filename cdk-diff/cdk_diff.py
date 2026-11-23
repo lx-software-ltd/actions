@@ -19,7 +19,14 @@ _LIB = Path(__file__).resolve().parents[1] / "lib"
 if str(_LIB) not in sys.path:
     sys.path.insert(0, str(_LIB))
 
-from cdk_plan import DeployError, _load_object, _resolve_file, load_plan_text, parameter_arguments  # noqa: E402
+from cdk_plan import (  # noqa: E402
+    DeployError,
+    _load_object,
+    _resolve_file,
+    load_plan_text,
+    parameter_arguments,
+    resolve_selection,
+)
 
 Runner = Callable[[list[str], str], tuple[int, str]]
 
@@ -140,27 +147,30 @@ def _run_cdk(command_args: list[str], directory: str, account_id: str) -> tuple[
     return code, raw
 
 
-def _plan_arguments(extra: list[str]) -> list[str]:
-    """Parameter arguments from the same plan the deploy uses."""
+def _loaded_plan() -> dict[str, object] | None:
+    """The plan, or None when the caller did not set one."""
     plan_text = os.environ.get("PLAN", "")
     plan_file = os.environ.get("PLAN_FILE", "").strip()
     if not plan_text.strip() and not plan_file:
+        return None
+    return load_plan_text(plan_text, plan_file)
+
+
+def _plan_arguments(plan: dict[str, object] | None, extra: list[str]) -> list[str]:
+    """Parameter arguments from the same plan the deploy uses."""
+    if plan is None:
         return extra
-    try:
-        plan = load_plan_text(plan_text, plan_file)
-        path = _resolve_file(os.environ.get("PARAM_FILE", ""))
-        parameters = _load_object(path) if path else None
-        arguments = parameter_arguments(
-            plan=plan,
-            parameters=parameters,
-            fmt=os.environ.get("FORMAT", "prefixed-json") or "prefixed-json",
-            selected_stacks=split_list(os.environ.get("STACKS", "")),
-            pass_empty={part for part in os.environ.get("PASS_EMPTY", "").split(",") if part},
-            escape_newlines=os.environ.get("ESCAPE_NEWLINES", "false").lower() == "true",
-            include_extras=os.environ.get("INCLUDE_EXTRAS", "false").lower() == "true",
-        )
-    except DeployError as exc:
-        raise SystemExit(str(exc)) from exc
+    path = _resolve_file(os.environ.get("PARAM_FILE", ""))
+    parameters = _load_object(path) if path else None
+    arguments = parameter_arguments(
+        plan=plan,
+        parameters=parameters,
+        fmt=os.environ.get("FORMAT", "prefixed-json") or "prefixed-json",
+        selected_stacks=resolve_selection(plan, os.environ.get("STACKS", "")),
+        pass_empty={part for part in os.environ.get("PASS_EMPTY", "").split(",") if part},
+        escape_newlines=os.environ.get("ESCAPE_NEWLINES", "false").lower() == "true",
+        include_extras=os.environ.get("INCLUDE_EXTRAS", "false").lower() == "true",
+    )
     return [*arguments, *extra]
 
 
@@ -183,11 +193,15 @@ def main(run_cdk: Runner | None = None) -> int:
     else:
         extra = split_list(os.environ.get("ARGS", ""))
     try:
-        extra = _plan_arguments(extra)
-    except SystemExit as exc:
+        plan = _loaded_plan()
+        extra = _plan_arguments(plan, extra)
+    except DeployError as exc:
         print(f"::error::{exc}", file=sys.stderr)
         return 1
-    stacks = split_list(os.environ.get("STACKS", ""))
+    if plan is None:
+        stacks = split_list(os.environ.get("STACKS", ""))
+    else:
+        stacks = resolve_selection(plan, os.environ.get("STACKS", ""))
     account_id = os.environ.get("ACCOUNT_ID", "")
     write = os.environ.get("SUMMARY", "true").strip() == "true"
 

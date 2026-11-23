@@ -147,10 +147,14 @@ class FixtureWorkflowTest(unittest.TestCase):
             "aws-oidc-fail:",
             "cdk-bootstrap-pass:",
             "cdk-bootstrap-fail:",
+            "cdk-bootstrap-action-pass:",
+            "cdk-bootstrap-action-fail:",
             "cdk-diff-pass:",
             "cdk-diff-fail:",
+            "cdk-omitted-parameter:",
             "cfn-stack-outputs-pass:",
             "cfn-stack-outputs-fail:",
+            "cfn-stack-outputs-missing:",
             "s3-cloudfront-pass:",
             "s3-cloudfront-fail:",
             "ios-export-pass:",
@@ -169,8 +173,8 @@ class FixtureWorkflowTest(unittest.TestCase):
             "lighthouse-fail:",
         ):
             self.assertIn(job, text)
-        self.assertEqual(text.count("continue-on-error: true"), 31)
-        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 30)
+        self.assertEqual(text.count("continue-on-error: true"), 32)
+        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 31)
 
 
 if __name__ == "__main__":
