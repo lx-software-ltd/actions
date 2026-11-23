@@ -10,8 +10,8 @@ The catalogue is `labels.json` in this action. It is the GitHub defaults plus `d
 
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
-| `token` | no | empty | Token that can write issues on each target. `github.token` writes the calling repository. Ignored when `live-json` is set. |
-| `mode` | no | `check` | `check` fails on drift and does not write. `apply` writes. |
+| `token` | no | `github.token` | Token that can write issues on each target. The default writes the calling repository. Pass another token for any other repository. Ignored when `live-json` is set. |
+| `mode` | no | `check` | `check` fails on drift and does not write. `apply` writes every change it can, then exits 1 if a call failed and lists the changes that were written. |
 | `repositories` | no | the calling repository | Space-separated `owner/repo`, or `siblings`. |
 | `labels-json` | no | the bundled catalogue | Catalogue array for a fixture. |
 | `live-json` | no | empty | Current labels for a fixture. `check` only. The action does not call GitHub. |
@@ -25,7 +25,6 @@ The calling job needs `contents: read`. `apply` also needs `issues: write` on ea
 ```yaml
       - uses: lx-software-ltd/actions/sync-labels@<40-hex> # main <yyyy-mm-dd>
         with:
-          token: ${{ github.token }}
           mode: apply
 ```
 

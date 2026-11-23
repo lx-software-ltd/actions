@@ -15,7 +15,9 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Leave a running apply to finish. The writes are idempotent, and the
+  # next run applies whatever is still missing.
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -34,6 +36,5 @@ jobs:
       - name: Apply the shared catalogue
         uses: ./sync-labels
         with:
-          token: ${{ github.token }}
           mode: apply
           repositories: ${{ github.repository }}

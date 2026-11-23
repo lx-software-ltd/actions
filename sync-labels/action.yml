@@ -7,10 +7,11 @@ inputs:
   token:
     description: >-
       Token that can write issues on each repository in repositories.
-      Pass github.token for the calling repository. Ignored when
+      Defaults to github.token, which writes the calling repository.
+      Pass another token to write other repositories. Ignored when
       live-json is set.
     required: false
-    default: ""
+    default: ${{ github.token }}
   mode:
     description: check fails on drift. apply writes. Default check.
     required: false

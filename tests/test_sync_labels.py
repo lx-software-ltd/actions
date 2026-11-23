@@ -162,6 +162,7 @@ class SyncLabelsTest(unittest.TestCase):
             sync_labels._run_gh = original
         self.assertEqual(code, 0, stderr)
         self.assertIn("applied 1 change", stdout)
+        self.assertIn("applied create lx-software-ltd/actions bug", stdout)
         self.assertEqual(calls[0][0][:2], ["api", "--paginate"])
         method_args, payload = calls[1]
         self.assertEqual(method_args[:3], ["api", "--method", "POST"])
@@ -191,3 +192,37 @@ class SyncLabelsTest(unittest.TestCase):
         finally:
             sync_labels._run_gh = original
         self.assertIn("repos/lx-software-ltd/actions/labels/Good%20first%20issue", calls[0])
+
+    def test_apply_continues_after_a_repository_fails(self) -> None:
+        def fake_run(
+            args: list[str], payload: dict[str, str] | None = None
+        ) -> subprocess.CompletedProcess[str]:
+            del payload
+            target = args[-1]
+            if "findingalpha" in target:
+                return subprocess.CompletedProcess(args, 1, stdout="", stderr="HTTP 403")
+            if "--paginate" in args:
+                return subprocess.CompletedProcess(args, 0, stdout="[]", stderr="")
+            if "evolvesprouts" in target:
+                return subprocess.CompletedProcess(args, 1, stdout="", stderr="HTTP 403")
+            return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+        original = sync_labels._run_gh
+        sync_labels._run_gh = fake_run
+        try:
+            os.environ["SYNC_LABELS_MODE"] = "apply"
+            os.environ["SYNC_LABELS_REPOSITORIES"] = (
+                "lx-software-ltd/findingalpha "
+                "lx-software-ltd/evolvesprouts "
+                "lx-software-ltd/actions"
+            )
+            os.environ["SYNC_LABELS_JSON"] = json.dumps([_bug()])
+            code, stdout, stderr = self._run()
+        finally:
+            sync_labels._run_gh = original
+        self.assertEqual(code, 1)
+        self.assertIn("applied create lx-software-ltd/actions bug", stdout)
+        self.assertNotIn("applied create lx-software-ltd/evolvesprouts", stdout)
+        self.assertIn("applied 1 of 2 change(s)", stderr)
+        self.assertIn("could not list labels on lx-software-ltd/findingalpha", stderr)
+        self.assertIn("repos/lx-software-ltd/evolvesprouts/labels failed", stderr)

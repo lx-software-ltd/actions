@@ -224,29 +224,12 @@ def _run_gh(args: list[str], payload: dict[str, Any] | None = None) -> subproces
         raise RuntimeError("gh is not on PATH") from exc
 
 
-def _parse_json_stream(text: str) -> Any:
+def _parse_json(text: str) -> Any:
+    """Parse one JSON value. ``gh api --paginate`` already merges label pages."""
     raw = text.strip()
     if not raw:
         return []
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        decoder = json.JSONDecoder()
-        items: list[Any] = []
-        index = 0
-        length = len(raw)
-        while index < length:
-            while index < length and raw[index].isspace():
-                index += 1
-            if index >= length:
-                break
-            value, end = decoder.raw_decode(raw, index)
-            if isinstance(value, list):
-                items.extend(value)
-            else:
-                items.append(value)
-            index = end
-        return items
+    return json.loads(raw)
 
 
 def fetch_labels(repo: str) -> list[Label]:
@@ -254,7 +237,7 @@ def fetch_labels(repo: str) -> list[Label]:
     if result.returncode != 0:
         detail = (result.stderr or result.stdout).strip()
         raise RuntimeError(f"could not list labels on {repo}: {detail}")
-    data = _parse_json_stream(result.stdout)
+    data = _parse_json(result.stdout)
     if isinstance(data, dict):
         message = data.get("message", data)
         raise RuntimeError(f"could not list labels on {repo}: {message}")
@@ -287,6 +270,47 @@ def apply_change(change: Change) -> None:
         raise RuntimeError(f"gh api {method} {path} failed: {detail}")
 
 
+def load_live(
+    repos: list[str], wanted: list[Label], live_text: str
+) -> tuple[list[Change], list[str]]:
+    """Return the planned changes and any per-repository read errors.
+
+    A failed read does not drop the repositories that follow it.
+    """
+    if live_text:
+        live_by_repo = parse_live_document(live_text, repos)
+        changes = [
+            change
+            for repo in repos
+            for change in diff_labels(repo, wanted, live_by_repo[repo])
+        ]
+        return changes, []
+    changes: list[Change] = []
+    errors: list[str] = []
+    for repo in repos:
+        try:
+            live = fetch_labels(repo)
+        except (RuntimeError, json.JSONDecodeError) as exc:
+            errors.append(str(exc))
+            continue
+        changes.extend(diff_labels(repo, wanted, live))
+    return changes, errors
+
+
+def apply_changes(changes: list[Change]) -> tuple[list[Change], list[str]]:
+    """Write every change. A failed call does not stop the later ones."""
+    applied: list[Change] = []
+    errors: list[str] = []
+    for change in changes:
+        try:
+            apply_change(change)
+        except RuntimeError as exc:
+            errors.append(str(exc))
+        else:
+            applied.append(change)
+    return applied, errors
+
+
 def main() -> int:
     try:
         mode = parse_mode(os.environ.get("SYNC_LABELS_MODE", ""))
@@ -303,33 +327,35 @@ def main() -> int:
         print("sync-labels: live JSON is only for check.", file=sys.stderr)
         return 1
     try:
-        if live_text:
-            live_by_repo = parse_live_document(live_text, repos)
-        else:
-            live_by_repo = {repo: fetch_labels(repo) for repo in repos}
-        changes = [
-            change
-            for repo in repos
-            for change in diff_labels(repo, wanted, live_by_repo[repo])
-        ]
-    except (ValueError, RuntimeError, json.JSONDecodeError) as exc:
+        changes, errors = load_live(repos, wanted, live_text)
+    except (ValueError, json.JSONDecodeError) as exc:
         print(f"sync-labels: {exc}", file=sys.stderr)
         return 1
     for change in changes:
         print(format_change(change))
-    if not changes:
+    if not changes and not errors:
         print("sync-labels: no changes")
         return 0
     if mode == "check":
+        for error in errors:
+            print(f"sync-labels: {error}", file=sys.stderr)
+        if errors:
+            return 1
         print(f"sync-labels: {len(changes)} change(s). check does not write.", file=sys.stderr)
         return 1
-    try:
-        for change in changes:
-            apply_change(change)
-    except RuntimeError as exc:
-        print(f"sync-labels: {exc}", file=sys.stderr)
+    applied, write_errors = apply_changes(changes)
+    errors.extend(write_errors)
+    for change in applied:
+        print(f"applied {format_change(change)}")
+    if errors:
+        print(
+            f"sync-labels: applied {len(applied)} of {len(changes)} change(s).",
+            file=sys.stderr,
+        )
+        for error in errors:
+            print(f"sync-labels: {error}", file=sys.stderr)
         return 1
-    print(f"sync-labels: applied {len(changes)} change(s)")
+    print(f"sync-labels: applied {len(applied)} change(s).")
     return 0
 
 

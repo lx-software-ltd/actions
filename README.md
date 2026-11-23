@@ -62,7 +62,7 @@ Python payload uses the standard library and runs on Python 3.12.
 | `require-jobs` | Fail unless every job in `needs` succeeded. | All four product repositories, and the gates in this repository. |
 | `workflow-conformance` | Check workflows against `docs/ci-contract.md`. | All four, and `lint.yml` here. |
 | `verify-rulesets` | Fail unless `main-protection` requires the three gates and zero reviews, and the tag rulesets block `v*`. | All four, weekly. |
-| `sync-labels` | Create and update the shared issue labels, including `mobile`. Other labels stay. | This repository. The four product repositories use the same action. |
+| `sync-labels` | Create and update the shared issue labels, including `mobile`. Other labels stay. | This repository. |
 | `agent-harness` | Check agent rules, file length, and test focus from `.github/harness.json`. | All four. |
 | `pii-denylist` | Fail when tracked source matches a SHA-256 denylist. The match text is not printed. | All four, and `security.yml` here. |
 | `gitleaks` | Secret scan with the gitleaks CLI. | All four, and `security.yml` here. |
