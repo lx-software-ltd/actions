@@ -6,6 +6,8 @@ The job needs AWS credentials already, from `aws-oidc`. This action does not req
 
 An empty value is treated as missing. Checks that belong to one caller, such as requiring `https://`, stay in that caller.
 
+Read `json` in a later step of the same job. Do not pass it to a job output. GitHub drops a job output that contains a secret, and the next job receives an empty value. The account id is a repository secret. A stack output such as an ARN contains that account id, so the whole job output is dropped. A step output used in the same job is not dropped.
+
 ## Inputs
 
 | Input | Required | Meaning |
