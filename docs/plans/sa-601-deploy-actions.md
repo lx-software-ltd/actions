@@ -1,9 +1,9 @@
 # Plan: SA-601 deploy actions
 
-**Status**: In progress. Pair A callers are switched. Pair B admin sites still compare an S3 dry run. `amplify-release` is not a caller.
+**Status**: Closed. Pair A and pair B callers of `s3-cloudfront-deploy` are switched. `amplify-release` is intentionally unused. The action stays in this repository.
 **Zone**: yellow
 
-23 Nov 2026: `amplify-promote.yml` has never run in evolvesprouts or siutindei, and Deploy Admin Web skips the Amplify RELEASE unless both Amplify variables are set. Pair B admin sites deploy through S3, so there is no Amplify dry run and no Amplify switch. The action stays in this repository.
+23 Nov 2026: `amplify-release` is intentionally unused. `amplify-promote.yml` has never run in evolvesprouts or siutindei. Pair B admin sites deploy through S3. evolvesprouts #2302 and siutindei #952 switched those deploys to `s3-cloudfront-deploy` and removed the skipped Amplify step. The action stays in this repository.
 
 G4 is approved. This pull request adds the actions. It does not change a product workflow, and no workflow here requests `id-token: write` or calls AWS. Product callers pin the merge commit. They pass `wait: false` on Amplify so a release still returns after `start-job`.
 
