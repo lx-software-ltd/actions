@@ -1,0 +1,34 @@
+name: App Store Connect API key
+description: >-
+  Write the App Store Connect API key to GITHUB_ENV, or skip when no
+  key is configured.
+
+inputs:
+  api-key-json:
+    description: JSON with issuer_id, key_id, and private_key. Wins over the separate inputs.
+    required: false
+    default: ""
+  issuer-id:
+    description: Issuer id used when api-key-json is empty.
+    required: false
+    default: ""
+  api-key-id:
+    description: Key id used when api-key-json is empty.
+    required: false
+    default: ""
+  api-private-key:
+    description: Private key used when api-key-json is empty.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Load App Store Connect API key
+      shell: bash
+      env:
+        APPSTORE_API_KEY_JSON: ${{ inputs.api-key-json }}
+        APPSTORE_ISSUER_ID: ${{ inputs.issuer-id }}
+        APPSTORE_API_KEY_ID: ${{ inputs.api-key-id }}
+        APPSTORE_API_PRIVATE_KEY: ${{ inputs.api-private-key }}
+      run: python3 "$GITHUB_ACTION_PATH/load_api_key.py"
