@@ -1,0 +1,99 @@
+name: CDK deploy
+description: >-
+  Deploy the caller's stacks from a parameters file. Retries and
+  rollback recovery follow the inputs. The caller has already assumed
+  a role.
+
+inputs:
+  working-directory:
+    description: Directory that contains the CDK app.
+    required: true
+  plan:
+    description: >-
+      JSON object. groups lists each cdk deploy in order. prefixes
+      select prefixed-json keys. routes and api-stack route plain-json
+      names. extra-args, when-all-env, allowlist-env, and append-if-set
+      stay on the group.
+    required: true
+  param-file:
+    description: >-
+      CDK_PARAM_FILE. Empty skips the file. A path that does not exist
+      fails the deploy.
+    required: false
+    default: ""
+  format:
+    description: prefixed-json or plain-json.
+    required: false
+    default: prefixed-json
+  stacks:
+    description: >-
+      Space or comma separated subset. Empty deploys every stack named
+      in the plan.
+    required: false
+    default: ""
+  attempts:
+    description: Deploy attempts for each group. Pair A uses 1. Pair B uses 3.
+    required: false
+    default: "1"
+  no-notices:
+    description: Pass --no-notices. Pair B uses true.
+    required: false
+    default: "false"
+  pass-empty:
+    description: Comma-separated parameter names that are sent even when empty.
+    required: false
+    default: ""
+  escape-newlines:
+    description: >-
+      For plain-json, turn newlines into the two characters \n.
+      prefixed-json always does this.
+    required: false
+    default: "false"
+  rollback-match:
+    description: >-
+      Text in a failed attempt log that triggers continue-update-rollback.
+      The default is the pair B phrase. siutindei passes UPDATE_ROLLBACK_FAILED.
+    required: false
+    default: is in UPDATE_ROLLBACK_FAILED state and can not be updated
+  skip-resource:
+    description: >-
+      Logical resource to skip once during continue-update-rollback.
+      Empty logs a failed rollback and retries the deploy. A name makes
+      a failed rollback fail the job.
+    required: false
+    default: ""
+  destroy:
+    description: Run cdk destroy --force on the selected stacks before deploy.
+    required: false
+    default: "false"
+  run-seed:
+    description: >-
+      Replace RunSeedData=true on api-stack when that stack is selected.
+    required: false
+    default: "false"
+  region:
+    description: AWS region for rollback calls. Empty uses the process environment.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Deploy CDK stacks
+      shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        PLAN: ${{ inputs.plan }}
+        PARAM_FILE: ${{ inputs.param-file }}
+        FORMAT: ${{ inputs.format }}
+        STACKS: ${{ inputs.stacks }}
+        ATTEMPTS: ${{ inputs.attempts }}
+        NO_NOTICES: ${{ inputs.no-notices }}
+        PASS_EMPTY: ${{ inputs.pass-empty }}
+        ESCAPE_NEWLINES: ${{ inputs.escape-newlines }}
+        ROLLBACK_MATCH: ${{ inputs.rollback-match }}
+        SKIP_RESOURCE: ${{ inputs.skip-resource }}
+        DESTROY: ${{ inputs.destroy }}
+        RUN_SEED: ${{ inputs.run-seed }}
+        REGION: ${{ inputs.region }}
+      run: python3 "$GITHUB_ACTION_PATH/cdk_deploy.py"
