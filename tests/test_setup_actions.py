@@ -126,6 +126,8 @@ class FixtureWorkflowTest(unittest.TestCase):
             "setup-node-unknown-cache:",
             "setup-python-fixture:",
             "setup-python-fail:",
+            "sync-labels-pass:",
+            "sync-labels-fail:",
             "pii-denylist-pass:",
             "pii-denylist-fail:",
             "gitleaks-pass:",
@@ -175,8 +177,8 @@ class FixtureWorkflowTest(unittest.TestCase):
             "dependency-graph-fail:",
         ):
             self.assertIn(job, text)
-        self.assertEqual(text.count("continue-on-error: true"), 32)
-        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 31)
+        self.assertEqual(text.count("continue-on-error: true"), 33)
+        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 32)
 
 
 if __name__ == "__main__":
