@@ -1,6 +1,6 @@
 # Shared actions plan — progress
 
-**Status**: Stage 5 is closed. C04 is merged. G3 and G4 are approved. G5 is approved for cdk-deploy.
+**Status**: Stage 5 is closed. C04 is merged. G3 and G4 are approved. G5 is approved for cdk-deploy. Stage 6 callers are in progress. SA-601 and SA-603 stay open.
 **Zone**: yellow
 
 The plan copy is `docs/plans/shared-actions-and-ci-convergence.md`. The approved plan is in that file in full. Recorded decisions at the top of that file win where they conflict with the approved text. Decision, owner-task, row, and step numbers keep the approved meanings. This file does not renumber them. An earlier progress table called the Node and macOS choices "O6". That was wrong. O6 is `AWS_ACCOUNT_ID`. On 22 Nov 2026 the owner made it a repository secret and removed the variable.
@@ -194,3 +194,44 @@ findingalpha `cdk-diff.yml` calls `aws-oidc`, `cdk-bootstrap-check`, and `cdk-di
 - SA-701. Compared on `main` after replacing the project name and the Flutter pin. `deploy-ios.yml` shares the signing setup (32 lines), the export-options script (39), and the TestFlight key plus upload (50). `siutindei` inserts an Amplify config step before the IPA build, so that build stays in the caller. `deploy-mobile.yml` shares the keystore step (23), the Play prerequisite check, and the Play upload. The package name differs. `promote-public-www.yml` shares the mode input and the account check. `smoke-public-www-staging.yml` shares checkout and Node setup, which are already single `uses:` lines and are not wrapped. actions #41 extracts `ios-export-options`, `appstore-api-key`, `android-signing`, and `play-prerequisites`. Callers pin that merge commit. The TestFlight and Play uploads stay in the caller.
 - SA-702. Type-check is already on the `lint` gate in all four. Pair B runs mypy from pre-commit on the lint job. Coverage floors are already `--cov-fail-under=70` in evolvesprouts and `--cov-fail-under=35` in siutindei. evolvesprouts lints OpenAPI with `@redocly/cli@1.34.11`. findingalpha `75df15d` and lx-software `9707ab0` have no OpenAPI file. siutindei `e2a10b0` fails that same Redocly pin with 176 errors and 299 warnings, so the lint was not added and no ignore file was written. mypy `--ignore-missing-imports` on the ruff paths: findingalpha 119 errors (engine 112, public API authorizer 4, scripts 3) and lx-software 1254 errors (admin lambda 1213, public API authorizer 2, scripts and hooks 39). Those gates were not added.
 - The pin bump to `9235676` is the same four pull requests. They also drop the quotes around `statuses` in `lx-software` and `siutindei`.
+
+## 23 Nov 2026, after actions #46
+
+actions #46 is `ffde04dca3c78b1ccb8739f4d3a23f728ac7a05f`. `lx-software`, `evolvesprouts`, and `siutindei` pin it. findingalpha was still on `e6be2629d7206b0d5c079662f364772bc816acc1`. findingalpha #96 moves that repository to `ffde04d`.
+
+### Site and backend switches
+
+| Caller | Pull request | State |
+| --- | --- | --- |
+| findingalpha public site | #90 | Switched to `s3-cloudfront-deploy`. |
+| findingalpha admin | #94 | Switched to `s3-cloudfront-deploy`. |
+| findingalpha Deploy Backend | #95 | Switched to `cdk-deploy`. |
+| lx-software public site | #680 | Switched to `s3-cloudfront-deploy`. |
+| lx-software admin | #683 | Switched to `s3-cloudfront-deploy`. |
+| lx-software Deploy Backend | #684 | Open. The dry run matched on `45116136708`, `45127095535`, and `45136439530`. The last log printed `Dry run matches the current deploy (2 planned CDK changes)`. |
+| evolvesprouts Deploy Backend | #2298 | Switched to `cdk-deploy`. |
+| siutindei Deploy Backend | #950 | Switched to `cdk-deploy`. |
+
+### ARNs moved to secrets
+
+findingalpha #93, lx-software #679 and #682, evolvesprouts #2294, siutindei #947. siutindei #949 reads `WafWebAclArn` from `CDK_PARAM_WAF_WEB_ACL_ARN`.
+
+### siutindei Deploy Backend, 23 Nov 2026
+
+#947 merged while `CDK_PARAM_COGNITO_CUSTOM_DOMAIN_CERTIFICATE_ARN` was unset. `pass-empty` still sends `CognitoCustomDomainCertificateArn`. Cognito rejected the empty value with `InvalidRequest` and the stack rolled back. A later Deploy Backend succeeded. `WafWebAclArn` is also sent when its secret is empty.
+
+### Amplify
+
+`amplify-promote.yml` has never run in evolvesprouts or siutindei. Deploy Admin Web starts an Amplify RELEASE only when `AMPLIFY_APP_ID` and `AMPLIFY_BRANCH` are set. On evolvesprouts run `45135961401` that step was skipped. Pair B admin sites deploy through S3. `amplify-release` is not a caller. The action stays in this repository. There is no dry run and no switch.
+
+### Pair B admin S3
+
+Both admin workflows compare `s3-cloudfront-deploy` profile `next-export` with the current script. evolvesprouts `45135961401` printed `Dry run matches the current deploy (134 planned S3 changes)`. That is one match. siutindei #948 is on `main`, and Deploy Admin Web has not run since, so that comparison has not matched. Each site is switched only after two matches, one site at a time, with the response headers checked before and after.
+
+### siutindei Lambda bundles
+
+The deploys at 15:51 and 16:12 HKT updated all 42 functions after workflow or secret changes. `PythonLambda` hashes `backend/` with `AssetHashType.SOURCE`, and `backend/.lambda-build` is rebuilt before synth. siutindei #951 excludes that directory. The next deploy still updates the functions once, because the hash changes. A later deploy with the same source should leave the function code unchanged.
+
+### Still not closed
+
+SA-601 stays open until the two pair B admin S3 switches. SA-603 stays open until lx-software #684 is on `main` and the first Deploy Backend is checked. SA-702 is unchanged from the measurement above.
