@@ -6,6 +6,7 @@ import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 _PATH = ROOT / "agent-harness" / "check_harness.py"
@@ -79,6 +80,25 @@ class AgentHarnessTest(unittest.TestCase):
     def test_other_file_length_modes_are_rejected(self) -> None:
         errors = harness.check_file_length(Path("."), {"mode": "python-counted"})
         self.assertEqual(errors, ["file-length mode must be typed, got python-counted"])
+
+    def test_a_placeholder_prefix_is_rejected(self) -> None:
+        errors = harness.check_file_length(
+            Path("."),
+            {"mode": "typed", "typescript-app-prefix": "apps/__not_scanned__/", "allowlist": "missing.txt"},
+        )
+        self.assertEqual(errors, ["file-length typescript-app-prefix is a placeholder. Omit the key."])
+
+    def test_help_exits_without_scanning(self) -> None:
+        with mock.patch("sys.stdout"):
+            with self.assertRaises(SystemExit) as raised:
+                harness.main(["--help"])
+        self.assertEqual(raised.exception.code, 0)
+
+    def test_an_unknown_argument_is_an_error(self) -> None:
+        with mock.patch("sys.stderr"):
+            with self.assertRaises(SystemExit) as raised:
+                harness.main(["--not-a-flag"])
+        self.assertEqual(raised.exception.code, 2)
 
     def test_python_fit_and_a_conditional_skip_are_not_focused_tests(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
