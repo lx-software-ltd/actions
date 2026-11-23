@@ -1,6 +1,6 @@
 # Design note: cdk-deploy
 
-**Status**: G5 approved for cdk-deploy. findingalpha #95, evolvesprouts #2298, and siutindei #950 call it. lx-software #684 is the remaining caller.
+**Status**: G5 approved for cdk-deploy. findingalpha #95, evolvesprouts #2298, siutindei #950, and lx-software #684 call it. The first lx-software deploy on that commit has not run.
 **Zone**: red
 
 G5 approved for cdk-deploy. The action is `cdk-deploy/`. Product `deploy-backend.yml` files are not changed in that pull request. Callers pin the merge commit later.

@@ -197,7 +197,7 @@ findingalpha `cdk-diff.yml` calls `aws-oidc`, `cdk-bootstrap-check`, and `cdk-di
 
 ## 23 Nov 2026, after actions #46
 
-actions #46 is `ffde04dca3c78b1ccb8739f4d3a23f728ac7a05f`. `lx-software`, `evolvesprouts`, and `siutindei` pin it. findingalpha was still on `e6be2629d7206b0d5c079662f364772bc816acc1`. findingalpha #96 moves that repository to `ffde04d`.
+actions #46 is `ffde04dca3c78b1ccb8739f4d3a23f728ac7a05f`. `lx-software`, `evolvesprouts`, and `siutindei` pin it. findingalpha was still on `e6be2629d7206b0d5c079662f364772bc816acc1`. findingalpha #96 is merged and pins `ffde04d`. That merge started Deploy Backend (`45140358437`), Deploy Admin Web (`45140358685`), and Deploy Public Website (`45140358537`).
 
 ### Site and backend switches
 
@@ -208,7 +208,7 @@ actions #46 is `ffde04dca3c78b1ccb8739f4d3a23f728ac7a05f`. `lx-software`, `evolv
 | findingalpha Deploy Backend | #95 | Switched to `cdk-deploy`. |
 | lx-software public site | #680 | Switched to `s3-cloudfront-deploy`. |
 | lx-software admin | #683 | Switched to `s3-cloudfront-deploy`. |
-| lx-software Deploy Backend | #684 | Open. The dry run matched on `45116136708`, `45127095535`, and `45136439530`. The last log printed `Dry run matches the current deploy (2 planned CDK changes)`. |
+| lx-software Deploy Backend | #684 | Merged. The dry run matched on `45116136708`, `45127095535`, and `45136439530`. The last log printed `Dry run matches the current deploy (2 planned CDK changes)`. The merge did not start Deploy Backend: the path filter does not include the workflow file, and `workflow_dispatch` is not available to this token. The first deploy is not checked. |
 | evolvesprouts Deploy Backend | #2298 | Switched to `cdk-deploy`. |
 | siutindei Deploy Backend | #950 | Switched to `cdk-deploy`. |
 
@@ -234,4 +234,4 @@ The deploys at 15:51 and 16:12 HKT updated all 42 functions after workflow or se
 
 ### Still not closed
 
-SA-601 stays open until the two pair B admin S3 switches. SA-603 stays open until lx-software #684 is on `main` and the first Deploy Backend is checked. SA-702 is unchanged from the measurement above.
+SA-601 stays open until the two pair B admin S3 switches. SA-603 stays open until the first lx-software Deploy Backend on #684 reports its result. SA-702 is unchanged from the measurement above.
