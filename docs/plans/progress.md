@@ -197,7 +197,7 @@ findingalpha `cdk-diff.yml` calls `aws-oidc`, `cdk-bootstrap-check`, and `cdk-di
 
 ## 23 Nov 2026, after actions #46
 
-actions #46 is `ffde04dca3c78b1ccb8739f4d3a23f728ac7a05f`. `lx-software`, `evolvesprouts`, and `siutindei` pin it. findingalpha was still on `e6be2629d7206b0d5c079662f364772bc816acc1`. findingalpha #96 is merged and pins `ffde04d`. That merge started Deploy Backend (`45140358437`), Deploy Admin Web (`45140358685`), and Deploy Public Website (`45140358537`).
+actions #46 is `ffde04dca3c78b1ccb8739f4d3a23f728ac7a05f`. All four product repositories pin it. findingalpha #96 moved that repository off `e6be2629d7206b0d5c079662f364772bc816acc1`. The merge started three deploys, and all three succeeded: Deploy Backend `45140358437`, Deploy Admin Web `45140358685`, and Deploy Public Website `45140358537`. Deploy Backend printed `findingalpha (no changes)`, `findingalpha-admin-web (no changes)`, and `findingalpha-public-www (no changes)`.
 
 ### Site and backend switches
 
@@ -230,7 +230,7 @@ Both admin workflows compare `s3-cloudfront-deploy` profile `next-export` with t
 
 ### siutindei Lambda bundles
 
-The deploys at 15:51 and 16:12 HKT updated all 42 functions after workflow or secret changes. `PythonLambda` hashes `backend/` with `AssetHashType.SOURCE`, and `backend/.lambda-build` is rebuilt before synth. siutindei #951 excludes that directory. The next deploy still updates the functions once, because the hash changes. A later deploy with the same source should leave the function code unchanged.
+The deploys at 15:51 and 16:12 HKT updated all 42 functions after workflow or secret changes. `PythonLambda` hashes `backend/` with `AssetHashType.SOURCE`, and `backend/.lambda-build` is rebuilt before synth. siutindei #951 excludes that directory. The merge started Deploy Backend `45140953724`. That deploy still updates the functions once, because the hash changes. A later deploy with the same source should leave the function code unchanged. Its result is not recorded here yet.
 
 ### Still not closed
 
