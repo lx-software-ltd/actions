@@ -1,0 +1,34 @@
+# S3 CloudFront deploy
+
+Syncs a built site to a bucket and invalidates CloudFront. The job needs AWS credentials already, from `aws-oidc`. This action does not request a token and does not read a stack.
+
+`profile` keeps the upload rules that site already uses:
+
+| Profile | Used by | Rules |
+| --- | --- | --- |
+| `public-hashed` | findingalpha public site | Hashed `assets/` with `--delete`, root files with a content type, `index.html` last and `no-cache`, then delete retired root keys. |
+| `admin-hashed` | findingalpha and lx-software admin sites | Hashed `assets/` with `--delete`. Other root files are immutable and have no content type. `index.html` is last and `no-cache`. Root keys are not pruned. |
+| `public-routes` | lx-software public site | Assets, size-only `media/`, extensionless HTML routes, unhashed directories, then a second assets sync with `--delete`. `indexnow: true` pings IndexNow and does not fail the deploy. |
+
+An empty `distribution-id` skips the invalidation, which is what a missing distribution output does today.
+
+## Inputs
+
+| Input | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `source` | yes | | Build directory. |
+| `bucket` | yes | | Destination bucket. |
+| `distribution-id` | no | empty | CloudFront distribution. Empty skips invalidation. |
+| `profile` | no | `public-hashed` | Upload rules. |
+| `indexnow` | no | `false` | Ping IndexNow after `public-routes`. |
+
+## Example
+
+```yaml
+- uses: lx-software-ltd/actions/s3-cloudfront-deploy@<sha> # main <yyyy-mm-dd>
+  with:
+    source: apps/public_www/dist
+    bucket: ${{ steps.outputs.outputs.bucket }}
+    distribution-id: ${{ steps.outputs.outputs.distribution }}
+    profile: public-hashed
+```

@@ -1,0 +1,41 @@
+name: S3 CloudFront deploy
+description: >-
+  Sync a built site to S3 and invalidate CloudFront. The profile keeps
+  the cache and content-type rules of that site.
+
+inputs:
+  source:
+    description: Build directory to upload.
+    required: true
+  bucket:
+    description: Destination bucket. The caller resolves it.
+    required: true
+  distribution-id:
+    description: CloudFront distribution. Empty skips the invalidation.
+    required: false
+    default: ""
+  profile:
+    description: >-
+      public-hashed (findingalpha public site), admin-hashed (pair A
+      admin sites), or public-routes (lx-software public site).
+    required: false
+    default: public-hashed
+  indexnow:
+    description: >-
+      Ping IndexNow after public-routes. false keeps the other profiles
+      from pinging. INDEXNOW_DISABLED=1 still skips the ping.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Sync the build and invalidate CloudFront
+      shell: bash
+      env:
+        SOURCE: ${{ inputs.source }}
+        BUCKET: ${{ inputs.bucket }}
+        DISTRIBUTION_ID: ${{ inputs.distribution-id }}
+        PROFILE: ${{ inputs.profile }}
+        INDEXNOW: ${{ inputs.indexnow }}
+      run: python3 "$GITHUB_ACTION_PATH/s3_sync.py"

@@ -154,10 +154,14 @@ class FixtureWorkflowTest(unittest.TestCase):
             "cdk-diff-fail:",
             "cfn-stack-outputs-pass:",
             "cfn-stack-outputs-fail:",
+            "s3-cloudfront-pass:",
+            "s3-cloudfront-fail:",
+            "amplify-release-pass:",
+            "amplify-release-fail:",
         ):
             self.assertIn(job, text)
-        self.assertEqual(text.count("continue-on-error: true"), 26)
-        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 25)
+        self.assertEqual(text.count("continue-on-error: true"), 28)
+        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 27)
 
 
 if __name__ == "__main__":

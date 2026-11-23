@@ -1158,6 +1158,106 @@ jobs:
           OUTCOME: ${{ steps.settings.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  s3-cloudfront-pass:
+    name: S3 CloudFront deploy pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install a stub aws
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin" "$RUNNER_TEMP/site/assets"
+          printf 'js' > "$RUNNER_TEMP/site/assets/app.js"
+          printf '<html>' > "$RUNNER_TEMP/site/index.html"
+          cat > "$RUNNER_TEMP/bin/aws" << 'EOF'
+          #!/bin/sh
+          exit 0
+          EOF
+          chmod +x "$RUNNER_TEMP/bin/aws"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Sync the fixture site
+        uses: ./s3-cloudfront-deploy
+        with:
+          source: ${{ runner.temp }}/site
+          bucket: fixture-bucket
+          distribution-id: E123
+          profile: public-hashed
+
+  s3-cloudfront-fail:
+    name: S3 CloudFront deploy fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reject a missing build
+        id: sync
+        continue-on-error: true
+        uses: ./s3-cloudfront-deploy
+        with:
+          source: ${{ runner.temp }}/missing-site
+          bucket: fixture-bucket
+          profile: public-hashed
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.sync.outcome }}
+        run: test "$OUTCOME" = "failure"
+
+  amplify-release-pass:
+    name: Amplify release pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install a stub aws
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          cat > "$RUNNER_TEMP/bin/aws" << 'EOF'
+          #!/bin/sh
+          case "$*" in
+            *start-job*) printf '%s\n' '{"jobSummary":{"jobId":"1","status":"PENDING"}}' ;;
+            *get-job*) printf '%s\n' '{"job":{"summary":{"status":"SUCCEED"}}}' ;;
+            *) printf '%s\n' '{}' ;;
+          esac
+          exit 0
+          EOF
+          chmod +x "$RUNNER_TEMP/bin/aws"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Start a release and wait
+        uses: ./amplify-release
+        with:
+          app-id: d123
+          branch: main
+          mode: release
+          wait: "true"
+
+  amplify-release-fail:
+    name: Amplify release fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reject a missing app id
+        id: release
+        continue-on-error: true
+        uses: ./amplify-release
+        with:
+          app-id: ""
+          branch: main
+          mode: release
+          wait: "false"
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.release.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   test:
     name: test
     runs-on: ubuntu-26.04
@@ -1211,6 +1311,10 @@ jobs:
       - cdk-diff-fail
       - cfn-stack-outputs-pass
       - cfn-stack-outputs-fail
+      - s3-cloudfront-pass
+      - s3-cloudfront-fail
+      - amplify-release-pass
+      - amplify-release-fail
     if: always()
     steps:
       # Pinned to the merge on main. See the matching comment in lint.yml.

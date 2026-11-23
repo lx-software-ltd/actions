@@ -1,0 +1,180 @@
+"""S3 sync profiles keep the current upload rules and hide account ids."""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "s3-cloudfront-deploy"))
+
+import s3_sync  # noqa: E402
+
+
+def _ok(stdout: str = "") -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess(args=["aws"], returncode=0, stdout=stdout, stderr="")
+
+
+class SyncProfileTest(unittest.TestCase):
+    def _tree(self, root: Path) -> None:
+        (root / "assets").mkdir()
+        (root / "assets" / "app.js").write_text("js", encoding="utf-8")
+        (root / "index.html").write_text("<html>", encoding="utf-8")
+        (root / "favicon.ico").write_text("ico", encoding="utf-8")
+
+    def test_public_hashed_uploads_index_last_and_prunes(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            if command[1:3] == ["s3api", "list-objects-v2"]:
+                return _ok("index.html\tfavicon.ico\told.txt\n")
+            return _ok()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            self._tree(source)
+            s3_sync.deploy(
+                source=source,
+                bucket="site-bucket",
+                distribution="E123",
+                profile="public-hashed",
+                indexnow=False,
+                run_aws=run_aws,
+            )
+        kinds = [(call[1], call[2]) for call in calls]
+        self.assertEqual(kinds[0], ("s3", "sync"))
+        self.assertIn("--delete", calls[0])
+        self.assertIn("public,max-age=31536000,immutable", calls[0])
+        copied = [call for call in calls if call[1:3] == ["s3", "cp"]]
+        self.assertEqual(copied[-1][4], "s3://site-bucket/index.html")
+        self.assertIn("--content-type", copied[-1])
+        self.assertIn("text/html; charset=utf-8", copied[-1])
+        self.assertIn(["aws", "s3", "rm", "s3://site-bucket/old.txt"], calls)
+        self.assertEqual(calls[-1][1:3], ["cloudfront", "create-invalidation"])
+        self.assertIn("E123", calls[-1])
+
+    def test_admin_hashed_skips_content_type_on_other_files_and_does_not_prune(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            return _ok()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            self._tree(source)
+            s3_sync.deploy(
+                source=source,
+                bucket="admin-bucket",
+                distribution="",
+                profile="admin-hashed",
+                indexnow=False,
+                run_aws=run_aws,
+            )
+        self.assertFalse(any(call[1] == "s3api" for call in calls))
+        self.assertFalse(any(call[1:3] == ["cloudfront", "create-invalidation"] for call in calls))
+        favicon = next(call for call in calls if call[4].endswith("/favicon.ico"))
+        self.assertNotIn("--content-type", favicon)
+        self.assertIn("public,max-age=31536000,immutable", favicon)
+        index = next(call for call in calls if call[4].endswith("/index.html"))
+        self.assertIn("no-cache,must-revalidate", index)
+
+    def test_public_routes_writes_extensionless_keys_and_media(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            return _ok()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            self._tree(source)
+            (source / "about.html").write_text("about", encoding="utf-8")
+            (source / "media").mkdir()
+            (source / "media" / "clip.mp4").write_text("m", encoding="utf-8")
+            (source / "images").mkdir()
+            (source / "images" / "logo.png").write_text("p", encoding="utf-8")
+            s3_sync.deploy(
+                source=source,
+                bucket="site-bucket",
+                distribution="None",
+                profile="public-routes",
+                indexnow=False,
+                run_aws=run_aws,
+            )
+        dests = [call[4] for call in calls if call[1:3] == ["s3", "cp"]]
+        self.assertIn("s3://site-bucket/about", dests)
+        self.assertIn("s3://site-bucket/images/logo.png", dests)
+        media = next(call for call in calls if call[3].endswith("/media"))
+        self.assertIn("--size-only", media)
+        self.assertIn("--delete", media)
+        asset_syncs = [call for call in calls if call[3].endswith("/assets")]
+        self.assertEqual(len(asset_syncs), 2)
+        self.assertNotIn("--delete", asset_syncs[0])
+        self.assertIn("--delete", asset_syncs[1])
+        self.assertFalse(any(call[1] == "cloudfront" for call in calls))
+
+    def test_a_missing_build_does_not_call_aws(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            return _ok()
+
+        with self.assertRaises(s3_sync.SyncError):
+            s3_sync.deploy(
+                source=Path("/tmp/does-not-exist-s3-sync"),
+                bucket="site-bucket",
+                distribution="E123",
+                profile="public-hashed",
+                indexnow=False,
+                run_aws=run_aws,
+            )
+        self.assertEqual(calls, [])
+
+    def test_aws_errors_hide_an_account_id(self) -> None:
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=254,
+                stdout="",
+                stderr="account 123456789012 denied",
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            self._tree(source)
+            env = {
+                "SOURCE": str(source),
+                "BUCKET": "site-bucket",
+                "DISTRIBUTION_ID": "E123",
+                "PROFILE": "public-hashed",
+                "INDEXNOW": "false",
+            }
+            with mock.patch.dict("os.environ", env, clear=False):
+                with mock.patch("sys.stderr") as stderr:
+                    code = s3_sync.main(run_aws)
+        self.assertEqual(code, 1)
+        text = "".join(call.args[0] for call in stderr.write.call_args_list)
+        self.assertNotIn("123456789012", text)
+        self.assertIn("************", text)
+
+    def test_main_reads_the_profile_from_the_environment(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            self._tree(source)
+            env = {
+                "SOURCE": str(source),
+                "BUCKET": "",
+                "DISTRIBUTION_ID": "",
+                "PROFILE": "admin-hashed",
+                "INDEXNOW": "false",
+            }
+            with mock.patch.dict("os.environ", env, clear=False):
+                code = s3_sync.main(lambda command: _ok())
+        self.assertEqual(code, 1)

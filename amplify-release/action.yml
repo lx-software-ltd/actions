@@ -1,0 +1,56 @@
+name: Amplify release
+description: >-
+  Start an Amplify RELEASE job and, when wait is true, poll until it
+  finishes. Promote checks that the source job succeeded and, by
+  default, only allows staging to main.
+
+inputs:
+  app-id:
+    description: Amplify app id. The caller passes vars.AMPLIFY_APP_ID.
+    required: true
+  branch:
+    description: Branch that receives the RELEASE job.
+    required: true
+  mode:
+    description: release starts the job. promote requires a green source job first.
+    required: false
+    default: release
+  source-branch:
+    description: Branch whose latest job must be SUCCEED when mode is promote.
+    required: false
+    default: ""
+  wait:
+    description: >-
+      true polls until the job succeeds or fails. false returns after
+      start-job, which is what the current workflows do.
+    required: false
+    default: "true"
+  allowed-source:
+    description: >-
+      Promote source must match. Empty skips the name check. Default
+      staging.
+    required: false
+    default: staging
+  allowed-target:
+    description: >-
+      Promote target must match. Empty skips the name check. Default
+      main.
+    required: false
+    default: main
+
+runs:
+  using: composite
+  steps:
+    - name: Start the Amplify release
+      shell: bash
+      env:
+        APP_ID: ${{ inputs.app-id }}
+        BRANCH: ${{ inputs.branch }}
+        MODE: ${{ inputs.mode }}
+        SOURCE_BRANCH: ${{ inputs.source-branch }}
+        WAIT: ${{ inputs.wait }}
+        ALLOWED_SOURCE: ${{ inputs.allowed-source }}
+        ALLOWED_TARGET: ${{ inputs.allowed-target }}
+        MAX_POLLS: "60"
+        POLL_INTERVAL: "10"
+      run: python3 "$GITHUB_ACTION_PATH/amplify_release.py"
