@@ -10,6 +10,8 @@ Checks agent rules, file length, and test focus. `.github/harness.json` holds th
 
 `test-focus.mode` is `test-names`. It scans test files only. Python does not treat `fit(` as a focused test. `test.skip(condition, "reason")` is allowed. `test.skip("reason")` is not.
 
+`evolvesprouts` and `siutindei` still use `always-only`, `python-counted` or `python-names`, and `all-sources`. The pull request that pins this checker must change `harness.json` in the same commit: `extra-rules` `full`, `file-length.mode` `typed` with `python-prefix` and `python-limit`, and `test-focus.mode` `test-names`. Omit the TypeScript prefix keys.
+
 ## Inputs
 
 | Input | Required | Default | Meaning |
