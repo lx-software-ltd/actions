@@ -64,6 +64,7 @@ Python payload uses the standard library and runs on Python 3.12.
 | `node-lockfiles` | Fail when `package-lock.json` is out of date. | All four. |
 | `python-requirements-pins` | Fail when a requirements file is unpinned. | All four. |
 | `flutter-lockfiles` | Fail when `pubspec.lock` is out of date. | `evolvesprouts`, `siutindei`. |
+| `setup-flutter` | Install Flutter 3.50.1. | No caller yet. Adopt after this commit is on main. |
 | `pod-lockfiles` | Fail when `Podfile.lock` changes after `pod install`. | `evolvesprouts`, `siutindei`. |
 | `playwright-install` | Install Playwright browsers. | The repositories that run browser tests. |
 | `aws-oidc` | Check the account id and region the caller passed, and mask the account id. | All four. |

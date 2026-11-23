@@ -1,0 +1,36 @@
+name: Set up Flutter
+description: >-
+  Install one Flutter version. Product repositories that build the
+  mobile app use this instead of calling flutter-action themselves.
+
+inputs:
+  flutter-version:
+    description: Flutter version.
+    required: false
+    default: "3.50.1"
+  channel:
+    description: Flutter channel.
+    required: false
+    default: stable
+  cache:
+    description: Cache the Flutter SDK.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Reject an empty Flutter version
+      if: inputs.flutter-version == ''
+      shell: bash
+      run: |
+        echo "setup-flutter: set flutter-version" >&2
+        exit 1
+
+    - name: Set up Flutter
+      if: inputs.flutter-version != ''
+      uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+      with:
+        flutter-version: ${{ inputs.flutter-version }}
+        channel: ${{ inputs.channel }}
+        cache: ${{ inputs.cache == 'true' }}

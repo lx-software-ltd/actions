@@ -46,6 +46,8 @@ The workflow step that refuses `GitHubActionsRole` is not a security boundary. A
 
 `cdk-deploy` takes a plan JSON and a parameters file. The file is either prefixed JSON or plain JSON. The design is `docs/architecture/cdk-deploy.md`.
 
+`setup-flutter` installs Flutter 3.50.1 through the pinned `subosito/flutter-action`. An empty version fails before that action runs.
+
 ## Denylist
 
 `scripts/pii-denylist.sha256` holds the 31 organisation digests approved on 20 Nov 2026. No plaintext. `lx-software` holds 30 of them. That omission was deliberate: the copy decision does not add the missing digest there. Holding the organisation list only in this repository would apply that digest to `lx-software`, so the five copies stay until a new approval.
