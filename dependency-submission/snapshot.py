@@ -316,7 +316,9 @@ def post_snapshot(snapshot: dict[str, Any], repository: str, token: str) -> int:
             status = response.status
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:500]
-        print(f"dependency graph submit failed: {exc.code} {detail}", file=sys.stderr)
+        print(
+            f"dependency submission failed: {exc.code} {detail}", file=sys.stderr
+        )
         return 1
     print(f"submitted dependency snapshot ({status})")
     return 0 if status in {200, 201} else 1
@@ -364,29 +366,29 @@ def select_files(
 
 def main() -> int:
     root = Path(
-        os.environ.get("DEPENDENCY_GRAPH_ROOT")
+        os.environ.get("DEPENDENCY_SUBMISSION_ROOT")
         or os.environ.get("GITHUB_WORKSPACE")
         or "."
     )
-    listed = _lines(os.environ.get("DEPENDENCY_GRAPH_MANIFESTS", ""))
-    ignored = _lines(os.environ.get("DEPENDENCY_GRAPH_IGNORE", ""))
+    listed = _lines(os.environ.get("DEPENDENCY_SUBMISSION_MANIFESTS", ""))
+    ignored = _lines(os.environ.get("DEPENDENCY_SUBMISSION_IGNORE", ""))
     files, ignore_errors = select_files(root, listed, ignored)
     sha = os.environ.get("GITHUB_SHA", "")
     ref = os.environ.get("GITHUB_REF", "")
     if not sha or not ref:
         print(
-            "dependency graph: GITHUB_SHA and GITHUB_REF are required", file=sys.stderr
+            "dependency submission: GITHUB_SHA and GITHUB_REF are required", file=sys.stderr
         )
         return 1
     job_id = os.environ.get("GITHUB_RUN_ID", "local")
     snapshot, errors = build_snapshot(files, sha, ref, job_id, root)
     errors = ignore_errors + errors
     if errors:
-        print("dependency graph: manifest errors:", file=sys.stderr)
+        print("dependency submission: manifest errors:", file=sys.stderr)
         for error in errors:
             print(f"- {error}", file=sys.stderr)
         return 1
-    destination = os.environ.get("DEPENDENCY_GRAPH_SNAPSHOT", "")
+    destination = os.environ.get("DEPENDENCY_SUBMISSION_SNAPSHOT", "")
     if destination:
         Path(destination).write_text(
             json.dumps(snapshot, indent=2) + "\n", encoding="utf-8"
@@ -395,14 +397,14 @@ def main() -> int:
     print(
         f"dependency snapshot: {count} package(s) in {len(snapshot['manifests'])} manifest(s)"
     )
-    submit = os.environ.get("DEPENDENCY_GRAPH_SUBMIT", "false").lower() == "true"
+    submit = os.environ.get("DEPENDENCY_SUBMISSION_SUBMIT", "false").lower() == "true"
     if not submit:
         return 0
-    token = os.environ.get("DEPENDENCY_GRAPH_TOKEN", "")
+    token = os.environ.get("DEPENDENCY_SUBMISSION_TOKEN", "")
     repository = os.environ.get("GITHUB_REPOSITORY", "")
     if not token or not repository:
         print(
-            "dependency graph: token and GITHUB_REPOSITORY are required to submit",
+            "dependency submission: token and GITHUB_REPOSITORY are required to submit",
             file=sys.stderr,
         )
         return 1

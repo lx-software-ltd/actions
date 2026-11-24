@@ -11,7 +11,7 @@ from contextlib import redirect_stderr
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-_PATH = ROOT / "dependency-graph" / "snapshot.py"
+_PATH = ROOT / "dependency-submission" / "snapshot.py"
 _SPEC = importlib.util.spec_from_file_location("dependency_snapshot", _PATH)
 assert _SPEC is not None and _SPEC.loader is not None
 snapshot = importlib.util.module_from_spec(_SPEC)
@@ -21,9 +21,9 @@ SHA = "a" * 40
 REF = "refs/heads/main"
 
 
-class DependencyGraphTest(unittest.TestCase):
+class DependencySubmissionTest(unittest.TestCase):
     def test_pass_fixture_lists_each_ecosystem(self) -> None:
-        base = ROOT / "fixtures" / "dependency-graph" / "pass"
+        base = ROOT / "fixtures" / "dependency-submission" / "pass"
         files = [
             base / "requirements.txt",
             base / "package-lock.json",
@@ -87,7 +87,7 @@ class DependencyGraphTest(unittest.TestCase):
             self.assertEqual(errors, ["ignore path matches nothing: missing.txt"])
 
     def test_unpinned_requirement_is_an_error(self) -> None:
-        path = ROOT / "fixtures" / "dependency-graph" / "fail" / "requirements.txt"
+        path = ROOT / "fixtures" / "dependency-submission" / "fail" / "requirements.txt"
         _resolved, errors = snapshot.parse_requirements(path)
         self.assertTrue(any("unpinned" in error for error in errors))
 
@@ -128,7 +128,7 @@ class DependencyGraphTest(unittest.TestCase):
             )
 
     def test_quoted_sha_and_reusable_workflow_are_accepted(self) -> None:
-        path = ROOT / "fixtures" / "dependency-graph" / "pass" / "workflow.yml"
+        path = ROOT / "fixtures" / "dependency-submission" / "pass" / "workflow.yml"
         resolved, errors = snapshot.parse_actions(path)
         self.assertEqual(errors, [])
         self.assertEqual(resolved, {})
