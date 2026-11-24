@@ -388,8 +388,6 @@ jobs:
       - test-admin-web
       - test-public-www
       - test-training
-      - test-react-ui
-      - test-api-client-ts
       - test-infrastructure
       - e2e-admin-web
       - e2e-public-www
