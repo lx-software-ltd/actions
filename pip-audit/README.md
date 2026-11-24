@@ -10,6 +10,7 @@ The caller runs `setup-python` first. This action installs with `python3 -m pip 
 | --- | --- | --- | --- |
 | `requirements` | yes | | Newline-separated requirements files. |
 | `ignore-vulns` | no | empty | Advisory ids to ignore. |
+| `report-path` | no | empty | Also write the audit output to this file. |
 
 ## Permissions
 

@@ -234,6 +234,23 @@ def _plan_token(name: str, value: str) -> str:
     return f"{kind}:{value}"
 
 
+def _step_bound(lines: list[str], uses_index: int) -> int:
+    """Indent of the step list marker. Keys beside uses stay inside the step."""
+    current = lines[uses_index]
+    if current.lstrip().startswith("-"):
+        return _indent(current)
+    uses_indent = _indent(current)
+    index = uses_index - 1
+    while index >= 0:
+        earlier = lines[index]
+        if earlier.strip() and not earlier.strip().startswith("#"):
+            indent = _indent(earlier)
+            if indent < uses_indent:
+                return indent
+        index -= 1
+    return uses_indent
+
+
 def _with_plans(lines: list[str], start: int, step_indent: int) -> set[str]:
     """plan and plan-file on the cdk step's with block, including a block body."""
     found: set[str] = set()
@@ -316,7 +333,7 @@ def _alignment_findings(root: Path) -> list[str]:
             action = CDK_ACTION.search(line)
             if action is None:
                 continue
-            plans = _with_plans(lines, line_number, _indent(line)) or {""}
+            plans = _with_plans(lines, line_number, _step_bound(lines, line_number - 1)) or {""}
             if action.group(1) == "deploy":
                 saw_deploy = True
                 deploy_plans |= plans

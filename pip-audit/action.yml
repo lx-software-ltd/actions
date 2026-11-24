@@ -10,6 +10,12 @@ inputs:
     description: Space-separated advisory ids passed to --ignore-vuln.
     required: false
     default: ""
+  report-path:
+    description: >-
+      Also write the audit output to this file. Empty leaves the output
+      on the log only.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -19,4 +25,5 @@ runs:
       env:
         PIP_AUDIT_FILES: ${{ inputs.requirements }}
         PIP_AUDIT_IGNORE: ${{ inputs.ignore-vulns }}
+        PIP_AUDIT_REPORT: ${{ inputs.report-path }}
       run: bash "$GITHUB_ACTION_PATH/run.sh"

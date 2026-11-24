@@ -97,5 +97,5 @@ The action checks the pin, runner, permission, image-digest, gate, path-filter, 
 Three product checks follow `alignment`. The default is `warn`: they print `::warning::` and do not fail `enforce`. A caller sets `alignment: enforce` when that repository complies. Other repositories stay on `warn` at the same pin.
 
 - A workflow does not call `actions/setup-node` or `actions/setup-python`. A quoted `uses` counts.
-- When both `cdk-diff` and `cdk-deploy` are used, they name the same `plan-file` or the same inline `plan`. The value runs to the end of the line, or through the block body. A `${{ }}` path is the whole value.
+- When both `cdk-diff` and `cdk-deploy` are used, they name the same `plan-file` or the same inline `plan`. The value runs to the end of the line, or through the block body. A `${{ }}` path is the whole value. A step written as `name:`, then `uses:`, then `with:` is read the same way as one that starts at `uses:`.
 - A workflow does not call `describe-stacks`. `import-legacy-crm.yml` is the allow-list, because that import stays inline.

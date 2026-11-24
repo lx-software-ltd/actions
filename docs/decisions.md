@@ -71,7 +71,7 @@ This repository applies the catalogue with `github.token`. That token writes lab
 - The three alignment checks default to `warn`. A caller sets `alignment: enforce` when that repository complies. The other products stay on `warn` at the same pin.
 - The read-only diff role named by `AWS_DIFF_ROLE_NAME`. The workflows do not create it.
 - A `siutindei` pull-request diff. The workflow still warns and does not call AWS. Its adoption pull request assumes the read-only role when `AWS_DIFF_ROLE_NAME` is set and routes the parameters file only.
-- The siutindei Play upload still checks `PLAY_STORE_UPLOAD_ENABLED` and the package name inline. `play-prerequisites` now has `upload-enabled` and `require-package-name` for that caller. It moves with the pin bump. The other three mobile actions, and evolvesprouts Play, match the current pin. Those signing workflows run on a release, so they have not run yet.
+- The mobile signing workflows run on a release, so they have not run yet. siutindei calls `play-prerequisites` with `upload-enabled` from `deploy-mobile.yml`.
 - S3 `public-routes` uploads `.js` and `.css` as `application/octet-stream`. Changing that, or renaming the profiles, needs a dry-run comparison against the live buckets.
 - Product harness configs still name the old modes. The pull request that pins this checker changes `harness.json` in the same commit and omits the TypeScript prefix keys. The checker accepts `typed`, `test-names`, and `full` only.
 - Templates for the workflow files that are the same across product repositories. Conformance compares a checkout to a template before any return to reusable workflows.

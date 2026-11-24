@@ -16,8 +16,13 @@ while IFS= read -r req; do
   if [ -z "$req" ]; then
     continue
   fi
-  # shellcheck disable=SC2086
-  pip-audit -r "$req" --desc on $ignore_args
+  if [ -n "${PIP_AUDIT_REPORT:-}" ]; then
+    # shellcheck disable=SC2086
+    pip-audit -r "$req" --desc on $ignore_args 2>&1 | tee -a "$PIP_AUDIT_REPORT"
+  else
+    # shellcheck disable=SC2086
+    pip-audit -r "$req" --desc on $ignore_args
+  fi
 done << EOF
 $files
 EOF
