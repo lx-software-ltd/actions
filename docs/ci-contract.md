@@ -23,7 +23,7 @@ These five check workflows match `templates/workflows/`. The comparison ignores 
 
 `templates/workflows/` holds that canonical text. `lint.yml`, `test.yml`, and the deploy workflows are not templated yet.
 
-Bandit has no skip list. Tests that sit next to the scanned code are passed in `exclude`. An assert that remains in application code carries `# nosec`. CodeQL uses the matrix languages `python` and `javascript-typescript`, and the category is `/language:` plus that language. Checkov synthesizes with `npm run synth:ci`. `lx-software` passes `secrets.CDK_PARAM_PUBLIC_WEBSITE_CERTIFICATE_ARN` into that script.
+Bandit has no skip list. Tests that sit next to the scanned code are passed in `exclude`. An assert that remains in application code carries `# nosec`. CodeQL uses the matrix languages `python` and `javascript-typescript`, and the category is `/language:` plus that language. Checkov synthesizes with `npm run synth:ci`. The public-site certificate stays a CloudFormation parameter. Deploy reads it from `secrets.CDK_PARAM_PUBLIC_WEBSITE_CERTIFICATE_ARN`.
 
 All four repositories run `cdk bootstrap` from a manual `cdk-bootstrap.yml`. `cdk-diff.yml` runs on pull requests in `findingalpha`, `lx-software`, and `evolvesprouts`. A `siutindei` pull request warns and does not call AWS until `AWS_DIFF_ROLE_NAME` names a read-only role. That gap is in `docs/decisions.md`.
 
