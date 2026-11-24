@@ -3,8 +3,6 @@ name: Promote Public Website Release
 
 on:
 # template:optional nightly-promote
-
-on:
   # 04:00 Hong Kong time. Rebuilds the live release with the latest catalogue
   # snapshot; skipped when no activity changed since the last production build.
   schedule:

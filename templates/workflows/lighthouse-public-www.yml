@@ -128,7 +128,6 @@ jobs:
           path: apps/public_www/.lighthouseci/**
           if-no-files-found: warn
           include-hidden-files: true
-
 # template:optional lighthouse-pull-request
   lighthouse-pull-request:
     permissions:
