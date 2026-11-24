@@ -57,39 +57,41 @@ Python payload uses the standard library and runs on Python 3.12.
 
 ## Catalogue
 
-| Action | Purpose | Callers |
-| --- | --- | --- |
-| `require-jobs` | Fail unless every job in `needs` succeeded. | All four product repositories, and the gates in this repository. |
-| `workflow-conformance` | Check workflows against `docs/ci-contract.md`. | All four, and `lint.yml` here. |
-| `verify-rulesets` | Fail unless `main-protection` requires the three gates and zero reviews, and the tag rulesets block `v*`. | All four, weekly. |
-| `sync-labels` | Create and update the shared issue labels, including `mobile`. Other labels stay. | This repository. |
-| `agent-harness` | Check agent rules, file length, and test focus from `.github/harness.json`. | All four. |
-| `pii-denylist` | Fail when tracked source matches a SHA-256 denylist. The match text is not printed. | All four, and `security.yml` here. |
-| `gitleaks` | Secret scan with the gitleaks CLI. | All four, and `security.yml` here. |
-| `checkov-cloudformation` | Checkov on synthesised CloudFormation, then a SARIF upload. | All four. |
-| `codeql` | CodeQL init and analyze. | All four, and `security.yml` here. |
-| `semgrep` | `semgrep scan`, then a SARIF upload. | All four. |
-| `bandit` | Bandit on the caller's paths. | All four. |
-| `pip-audit` | `pip-audit` on requirements files. | All four. |
-| `dependency-graph` | Submit pinned requirements and npm lockfiles. Check workflow uses without submitting them. | This repository and all four product repositories. |
-| `npm-audit` | `npm audit` at the caller's level. | All four. |
-| `setup-node` | Node 26, and `npm ci` when a working directory is set. | All four. |
-| `setup-python` | Python 3.12, and a pip cache when a requirements file is set. | All four. |
-| `node-lockfiles` | Fail when `package-lock.json` is out of date. | All four. |
-| `python-requirements-pins` | Fail when a requirements file is unpinned. | All four. |
-| `flutter-lockfiles` | Fail when `pubspec.lock` is out of date. | `evolvesprouts`, `siutindei`. |
-| `setup-flutter` | Install Flutter 3.50.1. | evolvesprouts and siutindei. |
-| `pod-lockfiles` | Fail when `Podfile.lock` changes after `pod install`. | `evolvesprouts`, `siutindei`. |
-| `playwright-install` | Install Playwright browsers. | The repositories that run browser tests. |
-| `aws-oidc` | Check the account id and region the caller passed, and mask the account id. | All four. |
-| `cdk-bootstrap-check` | Read the CDK bootstrap version from SSM. It does not bootstrap. | All four, on diff. |
-| `cdk-bootstrap` | Run `cdk bootstrap` for the account and region the caller passes. | No caller yet. Adopt after this commit is on main. |
-| `cdk-diff` | Run `cdk diff` and write the summary. | All four. |
-| `cdk-deploy` | Deploy the stacks in a plan JSON from a parameters file. | All four, on backend deploy. |
-| `cfn-stack-outputs` | Read named CloudFormation outputs. | The repositories that read stack outputs. |
-| `s3-cloudfront-deploy` | Sync a build to S3 and invalidate CloudFront. | All four, on web deploy. |
-| `ios-export-options` | Write `ExportOptions.plist`. | `evolvesprouts` and `siutindei`, in `deploy-ios.yml`. |
-| `appstore-api-key` | Load the App Store Connect API key into the environment. | `evolvesprouts` and `siutindei`, in `deploy-ios.yml`. |
-| `android-signing` | Install the upload keystore. | `evolvesprouts` and `siutindei`, in `deploy-mobile.yml`. |
-| `play-prerequisites` | Skip the Play upload when a signing or track secret is missing. | evolvesprouts and siutindei, in `deploy-mobile.yml`. |
-| `lighthouse-ci` | Run Lighthouse against the caller's page list. The bypass header is not left in the workspace. | lx-software, evolvesprouts, and siutindei. Not findingalpha. |
+A green check means a workflow in that repository calls the action. Fixture jobs in `test.yml` here are not callers.
+
+| Action | Purpose | actions | findingalpha | lx-software | evolvesprouts | siutindei |
+| --- | --- | :---: | :---: | :---: | :---: | :---: |
+| `require-jobs` | Fail unless every job in `needs` succeeded. | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `workflow-conformance` | Check workflows against `docs/ci-contract.md`. | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `verify-rulesets` | Fail unless `main-protection` requires the three gates and zero reviews, and the tag rulesets block `v*`. | | ✅ | ✅ | ✅ | ✅ |
+| `sync-labels` | Create and update the shared issue labels, including `mobile`. Other labels stay. | ✅ | | | | |
+| `agent-harness` | Check agent rules, file length, and test focus from `.github/harness.json`. | | ✅ | ✅ | ✅ | ✅ |
+| `pii-denylist` | Fail when tracked source matches a SHA-256 denylist. The match text is not printed. | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `gitleaks` | Secret scan with the gitleaks CLI. | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `checkov-cloudformation` | Checkov on synthesised CloudFormation, then a SARIF upload. | | ✅ | ✅ | ✅ | ✅ |
+| `codeql` | CodeQL init and analyze. | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `semgrep` | `semgrep scan`, then a SARIF upload. | | ✅ | ✅ | ✅ | ✅ |
+| `bandit` | Bandit on the caller's paths. | | ✅ | ✅ | ✅ | ✅ |
+| `pip-audit` | `pip-audit` on requirements files. | | ✅ | ✅ | ✅ | ✅ |
+| `dependency-graph` | Submit pinned requirements and npm lockfiles. Check workflow uses without submitting them. | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `npm-audit` | `npm audit` at the caller's level. | | ✅ | ✅ | ✅ | ✅ |
+| `setup-node` | Node 26, and `npm ci` when a working directory is set. | | ✅ | ✅ | ✅ | ✅ |
+| `setup-python` | Python 3.12, and a pip cache when a requirements file is set. | | ✅ | ✅ | ✅ | ✅ |
+| `node-lockfiles` | Fail when `package-lock.json` is out of date. | | ✅ | ✅ | ✅ | ✅ |
+| `python-requirements-pins` | Fail when a requirements file is unpinned. | | ✅ | ✅ | ✅ | ✅ |
+| `flutter-lockfiles` | Fail when `pubspec.lock` is out of date. | | | | ✅ | ✅ |
+| `setup-flutter` | Install Flutter 3.50.1. | | | | ✅ | ✅ |
+| `pod-lockfiles` | Fail when `Podfile.lock` changes after `pod install`. | | | | ✅ | ✅ |
+| `playwright-install` | Install Playwright browsers. | | ✅ | ✅ | | ✅ |
+| `aws-oidc` | Check the account id and region the caller passed, and mask the account id. | | ✅ | ✅ | ✅ | ✅ |
+| `cdk-bootstrap-check` | Read the CDK bootstrap version from SSM. It does not bootstrap. | | ✅ | ✅ | ✅ | ✅ |
+| `cdk-bootstrap` | Run `cdk bootstrap` for the account and region the caller passes. | | ✅ | ✅ | ✅ | |
+| `cdk-diff` | Run `cdk diff` and write the summary. | | ✅ | ✅ | ✅ | ✅ |
+| `cdk-deploy` | Deploy the stacks in a plan JSON from a parameters file. | | ✅ | ✅ | ✅ | ✅ |
+| `cfn-stack-outputs` | Read named CloudFormation outputs. | | ✅ | ✅ | ✅ | |
+| `s3-cloudfront-deploy` | Sync a build to S3 and invalidate CloudFront. | | ✅ | ✅ | ✅ | ✅ |
+| `ios-export-options` | Write `ExportOptions.plist`. | | | | ✅ | ✅ |
+| `appstore-api-key` | Load the App Store Connect API key into the environment. | | | | ✅ | ✅ |
+| `android-signing` | Install the upload keystore. | | | | ✅ | ✅ |
+| `play-prerequisites` | Skip the Play upload when a signing or track secret is missing. | | | | ✅ | ✅ |
+| `lighthouse-ci` | Run Lighthouse against the caller's page list. The bypass header is not left in the workspace. | | | ✅ | ✅ | ✅ |
