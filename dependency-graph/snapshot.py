@@ -316,6 +316,12 @@ def post_snapshot(snapshot: dict[str, Any], repository: str, token: str) -> int:
             status = response.status
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:500]
+        if exc.code == 404 and "dependency graph is disabled" in detail.lower():
+            print(
+                "dependency graph is disabled for this repository; snapshot was not submitted",
+                file=sys.stderr,
+            )
+            return 0
         print(f"dependency graph submit failed: {exc.code} {detail}", file=sys.stderr)
         return 1
     print(f"submitted dependency snapshot ({status})")

@@ -169,6 +169,53 @@ class DependencyGraphTest(unittest.TestCase):
         self.assertIn("disabled", caught.getvalue())
         self.assertNotIn("secret-token", caught.getvalue())
 
+    def test_a_disabled_dependency_graph_does_not_fail_the_run(self) -> None:
+        def fake_open(request, timeout=30):
+            self.assertEqual(timeout, 30)
+            raise snapshot.urllib.error.HTTPError(
+                request.full_url,
+                404,
+                "no",
+                hdrs=None,
+                fp=io.BytesIO(
+                    b'{"message":"The Dependency graph is disabled for this repository."}'
+                ),
+            )
+
+        original = snapshot.urllib.request.urlopen
+        snapshot.urllib.request.urlopen = fake_open
+        try:
+            with redirect_stderr(io.StringIO()) as caught:
+                status = snapshot.post_snapshot(
+                    {"version": 0}, "lx-software-ltd/actions", "secret-token"
+                )
+        finally:
+            snapshot.urllib.request.urlopen = original
+        self.assertEqual(status, 0)
+        self.assertIn("not submitted", caught.getvalue())
+        self.assertNotIn("secret-token", caught.getvalue())
+
+    def test_another_404_still_fails_the_run(self) -> None:
+        def fake_open(request, timeout=30):
+            raise snapshot.urllib.error.HTTPError(
+                request.full_url,
+                404,
+                "no",
+                hdrs=None,
+                fp=io.BytesIO(b'{"message":"Not Found"}'),
+            )
+
+        original = snapshot.urllib.request.urlopen
+        snapshot.urllib.request.urlopen = fake_open
+        try:
+            with redirect_stderr(io.StringIO()):
+                status = snapshot.post_snapshot(
+                    {"version": 0}, "lx-software-ltd/actions", "secret-token"
+                )
+        finally:
+            snapshot.urllib.request.urlopen = original
+        self.assertEqual(status, 1)
+
 
 if __name__ == "__main__":
     unittest.main()
