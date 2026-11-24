@@ -72,7 +72,7 @@ This repository applies the catalogue with `github.token`. That token writes lab
 - The mobile signing workflows run on a release, so they have not run yet. siutindei calls `play-prerequisites` with `upload-enabled` from `deploy-mobile.yml`.
 - S3 `public-routes` uploads `.js` and `.css` as `application/octet-stream`. Changing that, or renaming the profiles, needs a dry-run comparison against the live buckets.
 - Product harness configs still name the old modes. The pull request that pins this checker changes `harness.json` in the same commit and omits the TypeScript prefix keys. The checker accepts `typed`, `test-names`, and `full` only.
-- Templates for the shared workflows that are not in `templates/workflows/` yet. The five check workflows are there, and `templates` warns. Enforce, and the gate and deploy workflows, are still open.
+- Templates for the shared workflows that are not in `templates/workflows/` yet. The five check workflows and `security.yml` are there, and `templates` warns. Enforce, and `lint.yml`, `test.yml`, and the deploy workflows, are still open.
 - Lockfile and Semgrep jobs folded under the required gates.
 - The same 31 digests held once, which waits on the denylist decision above.
 - Product repositories do not run `sync-labels` yet. This repository applies the catalogue to itself. `SYNC_LABELS_REPOSITORIES=siblings` applies it to the five repositories when `gh` can write issues on each.

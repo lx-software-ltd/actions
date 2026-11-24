@@ -19,8 +19,11 @@ These five check workflows match `templates/workflows/`. The comparison ignores 
 | `verify-rulesets.yml` | `verify-branch-protection` | Monday 09:00 UTC, `workflow_dispatch` |
 | `dependency-submission.yml` | `check`, `submit` | `pull_request`, `push` to `main`, `workflow_dispatch` |
 | `cdk-bootstrap.yml` | `bootstrap` | `workflow_dispatch` only |
+| `security.yml` | `checkov`, `codeql`, `pii-denylist`, `secrets-scan`, `dependency-audit`, `bandit`, `npm-audit`, `security-summary` | `push` to `main`, `pull_request` with no path filter, Monday 08:00 UTC, `workflow_dispatch` |
 
-`templates/workflows/` holds that canonical text. The gate and deploy workflows are not templated yet.
+`templates/workflows/` holds that canonical text. `lint.yml`, `test.yml`, and the deploy workflows are not templated yet.
+
+Bandit has no skip list. A reviewed line carries `# nosec`. CodeQL uses the matrix languages `python` and `javascript-typescript`, and the category is `/language:` plus that language. Checkov synthesizes with `npm run synth:ci`.
 
 All four repositories run `cdk bootstrap` from a manual `cdk-bootstrap.yml`. `cdk-diff.yml` runs on pull requests in `findingalpha`, `lx-software`, and `evolvesprouts`. A `siutindei` pull request warns and does not call AWS until `AWS_DIFF_ROLE_NAME` names a read-only role. That gap is in `docs/decisions.md`.
 
@@ -30,15 +33,12 @@ A workflow that runs on pull requests or writes to AWS has a concurrency group. 
 
 ### Phase 2 target: gate workflows
 
-These rows are the target. They are not the files in the product repositories today. `evolvesprouts` still calls the harness job `validate-agent-rules`. `findingalpha` and `lx-software` still call `build-cdk`. Bandit still has a skip list in `findingalpha` (`B101,B311`) and `lx-software` (`B101`). CodeQL's JavaScript category is still `/language:javascript` in the web repositories.
+These rows are the target. They are not the files in the product repositories today. `evolvesprouts` still calls the harness job `validate-agent-rules`. `findingalpha` and `lx-software` still call `build-cdk`. `findingalpha` and `lx-software` still run Ruff and mypy directly, and `evolvesprouts` and `siutindei` do not run mypy in `lint.yml`.
 
 | File | Jobs | Triggers |
 | --- | --- | --- |
 | `lint.yml` | `validate-agent-harness`, `workflow-conformance`, `lint-python`, one `lint-<app>` per Node app, `lint-cdk`, `type-check`, `repo-checks`, gate `lint`. Mobile repositories also `lint-openapi` and `lint-dart` | `pull_request` and `push` to `main`, neither with a path filter, plus `workflow_dispatch` |
 | `test.yml` | `test-python`, one `test-<app>` per Node app, `test-infrastructure`, gate `test`. Playwright repositories also `e2e-<app>`. Mobile repositories also `test-flutter` and `build-android` | `pull_request` and `push` to `main`, neither with a path filter, plus `workflow_dispatch` |
-| `security.yml` | `checkov`, `codeql`, `pii-denylist`, `secrets-scan`, `dependency-audit`, `bandit`, `npm-audit`, `security-summary` | `push` to `main`, `pull_request` with no path filter, weekly, `workflow_dispatch` |
-
-The target for Bandit is no skip list. A reviewed line carries `# nosec`. The target for CodeQL's JavaScript category is `/language:javascript-typescript`.
 
 ### Phase 3 target: deploy workflows
 
