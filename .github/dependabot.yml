@@ -21,10 +21,14 @@ updates:
       github-actions:
         patterns:
           - "*"
-  # Fail fixtures must stay vulnerable. A security bump that makes one
-  # install cleanly turns the fixture green. Only directories that hold
-  # a manifest for that ecosystem are listed. A glob would include
+  # Fail fixtures that stay on main. A bump that makes one install
+  # cleanly turns the fixture green. Only directories that hold a
+  # manifest for that ecosystem are listed. A glob would include
   # directories Dependabot rejects for having no manifest.
+  #
+  # The pip-audit and npm-audit vulnerable pins are written in the test
+  # job under RUNNER_TEMP. They are not files on main, so they are not
+  # in the dependency graph.
   #
   # ignore stops the pull request. Organisation grouped security updates
   # record all_versions_ignored and fail the Dependabot job when an
@@ -34,7 +38,6 @@ updates:
   # update and the job completes.
   - package-ecosystem: pip
     directories:
-      - "/fixtures/pip-audit/fail"
       - "/fixtures/python-requirements/fail"
       - "/fixtures/dependency-submission/fail"
     schedule:
@@ -53,7 +56,6 @@ updates:
       - dependencies
   - package-ecosystem: npm
     directories:
-      - "/fixtures/npm-audit/fail"
       - "/fixtures/node-lockfiles/fail"
     schedule:
       interval: weekly
