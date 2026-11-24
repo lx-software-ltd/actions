@@ -12,6 +12,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
@@ -23,6 +24,10 @@ from stack_outputs import ReadError, command as stack_command, decide, redact, s
 
 IMMUTABLE = "public,max-age=31536000,immutable"
 ROOT_CACHE = "no-cache,must-revalidate"
+ASSET_CACHE = "public, max-age=31536000, immutable"
+DOCUMENT_CACHE = "public, max-age=300, must-revalidate"
+NO_STORE = "no-store, max-age=0"
+RELEASE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 ACCOUNT_ID = re.compile(r"\b\d{12}\b")
 
 Runner = Callable[[list[str]], subprocess.CompletedProcess[str]]
@@ -275,6 +280,158 @@ def _deploy_next_export(
     _invalidate(run_aws, distribution, dry_run)
 
 
+def _exclude_args(extra: list[str]) -> list[str]:
+    arguments: list[str] = ["--exclude", "_next/static/*", "--exclude", "releases/*"]
+    for item in extra:
+        arguments.extend(["--exclude", item])
+    return arguments
+
+
+def _sync_uri(run_aws: Runner, source: str, dest: str, extra: list[str]) -> None:
+    result = run_aws(["aws", "s3", "sync", source, dest, *extra])
+    if result.returncode != 0:
+        raise SyncError(_redact(result.stderr or result.stdout or "s3 sync failed"))
+
+
+def _prefix_exists(run_aws: Runner, bucket: str, prefix: str) -> bool:
+    listed = run_aws(
+        [
+            "aws",
+            "s3api",
+            "list-objects-v2",
+            "--bucket",
+            bucket,
+            "--prefix",
+            prefix,
+            "--max-keys",
+            "1",
+            "--query",
+            "KeyCount",
+            "--output",
+            "text",
+        ]
+    )
+    if listed.returncode != 0:
+        raise SyncError(_redact(listed.stderr or listed.stdout or "release listing failed"))
+    count = (listed.stdout or "").strip()
+    return count not in {"", "0", "None"}
+
+
+def _parse_s3_uri(value: str) -> tuple[str, str]:
+    text = value.strip().rstrip("/")
+    if not text.startswith("s3://"):
+        raise SyncError(f"promote-from must be an s3 URI. Got: {value}")
+    rest = text[len("s3://") :]
+    bucket, separator, prefix = rest.partition("/")
+    if separator == "" or not bucket or not prefix:
+        raise SyncError("promote-from must be s3://bucket/releases/<id>")
+    return bucket, prefix
+
+
+def _sync_next_site(
+    run_aws: Runner,
+    *,
+    source: Path | None,
+    source_uri: str,
+    dest: str,
+    extra_excludes: list[str],
+    asset_cache: str,
+    document_cache: str,
+) -> None:
+    """Match the public-www scripts: immutable hashed assets, then documents."""
+    excludes = _exclude_args(extra_excludes)
+    if source is not None:
+        static = source / "_next" / "static"
+        if static.is_dir():
+            _sync(
+                run_aws,
+                static,
+                f"{dest}/_next/static",
+                ["--cache-control", asset_cache],
+            )
+    else:
+        bucket, prefix = _parse_s3_uri(source_uri)
+        if _prefix_exists(run_aws, bucket, f"{prefix}/_next/static/"):
+            _sync_uri(
+                run_aws,
+                f"{source_uri}/_next/static",
+                f"{dest}/_next/static",
+                ["--cache-control", asset_cache],
+            )
+    document = [*excludes, "--cache-control", document_cache, "--delete"]
+    if source is not None:
+        _sync(run_aws, source, dest, document)
+        return
+    _sync_uri(run_aws, source_uri, dest, document)
+
+
+def _write_release_marker(
+    run_aws: Runner,
+    bucket: str,
+    release_id: str,
+    cache: str,
+    content_type: str,
+) -> None:
+    handle = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False)
+    handle.write(f"{release_id}\n")
+    handle.close()
+    path = Path(handle.name)
+    try:
+        command = [
+            "aws",
+            "s3",
+            "cp",
+            str(path),
+            f"s3://{bucket}/releases/latest-release-id.txt",
+        ]
+        if cache:
+            command.extend(["--cache-control", cache])
+        if content_type:
+            command.extend(["--content-type", content_type])
+        result = run_aws(command)
+        if result.returncode != 0:
+            raise SyncError(_redact(result.stderr or result.stdout or "release marker failed"))
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def _staging_robots(run_aws: Runner, bucket: str) -> None:
+    handle = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False)
+    handle.write("User-agent: *\nDisallow: /\n")
+    handle.close()
+    path = Path(handle.name)
+    try:
+        _cp(
+            run_aws,
+            path,
+            bucket,
+            "robots.txt",
+            NO_STORE,
+            "text/plain; charset=utf-8",
+        )
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def _path_segment(value: str) -> str:
+    chosen = value.strip().strip("/")
+    if not chosen:
+        return ""
+    if "/" in chosen or "\\" in chosen or chosen in {".", ".."}:
+        raise SyncError("maintenance-assets must be one directory name")
+    return chosen
+
+
+def _check_release_id(release_id: str) -> str:
+    chosen = release_id.strip()
+    if chosen and RELEASE_ID.fullmatch(chosen) is None:
+        raise SyncError(
+            "Release id must be letters, digits, dot, dash, or underscore, "
+            f"at most 128 characters. Got: {chosen}"
+        )
+    return chosen
+
+
 def _deploy_public_routes(
     run_aws: Runner,
     source: Path,
@@ -407,12 +564,113 @@ def deploy(
     indexnow: bool,
     dry_run: bool = False,
     run_aws: Runner,
+    release_id: str = "",
+    release_marker: bool = False,
+    staging_robots: bool = False,
+    promote_from: str = "",
+    sync_exclude: list[str] | None = None,
+    asset_cache: str = ASSET_CACHE,
+    document_cache: str = DOCUMENT_CACHE,
+    marker_cache: str = "",
+    marker_content_type: str = "",
+    maintenance_assets: str = "",
+    maintenance_asset_cache: str = "public, max-age=3600, must-revalidate",
 ) -> None:
     bucket = _require_bucket(bucket)
     distribution = _distribution(distribution)
+    chosen_release = _check_release_id(release_id)
+    promote = promote_from.strip()
+    excludes = [item.strip() for item in (sync_exclude or []) if item.strip()]
+    if release_marker and not chosen_release:
+        raise SyncError("release-marker requires release-id")
+    if chosen_release and profile == "maintenance":
+        raise SyncError("release-id cannot be used with the maintenance profile")
+    if promote and profile != "next-site":
+        raise SyncError("promote-from requires profile next-site")
+    if promote and chosen_release:
+        raise SyncError("promote-from and release-id are mutually exclusive")
     if dry_run:
         print("Dry run: every s3 command uses --dryrun and CloudFront is not invalidated.")
         run_aws = _dry_run_runner(run_aws)
+    if profile == "maintenance":
+        if not source.is_dir():
+            raise SyncError(f"Build output not found at {source}")
+        print(f"Syncing the maintenance site to s3://{bucket}")
+        asset_name = _path_segment(maintenance_assets)
+        maintenance_extra = ["--exclude", "releases/*"]
+        if asset_name:
+            asset_dir = source / asset_name
+            if asset_dir.is_dir():
+                _sync(
+                    run_aws,
+                    asset_dir,
+                    f"s3://{bucket}/{asset_name}",
+                    ["--cache-control", maintenance_asset_cache, "--delete"],
+                )
+            maintenance_extra.extend(["--exclude", f"{asset_name}/*"])
+        _sync(
+            run_aws,
+            source,
+            f"s3://{bucket}",
+            [*maintenance_extra, "--cache-control", NO_STORE, "--delete"],
+        )
+        if staging_robots:
+            _staging_robots(run_aws, bucket)
+        _invalidate(run_aws, distribution, dry_run)
+        return
+    if profile == "next-site":
+        if promote:
+            source_bucket, prefix = _parse_s3_uri(promote)
+            if not _prefix_exists(run_aws, source_bucket, f"{prefix}/"):
+                raise SyncError(f"Release prefix not found: {promote}")
+            print(f"Promoting {promote} to s3://{bucket}")
+            _sync_next_site(
+                run_aws,
+                source=None,
+                source_uri=promote.rstrip("/"),
+                dest=f"s3://{bucket}",
+                extra_excludes=excludes,
+                asset_cache=asset_cache,
+                document_cache=document_cache,
+            )
+        else:
+            if not source.is_dir():
+                raise SyncError(f"Build output not found at {source}")
+            print(f"Syncing the Next.js site to s3://{bucket}")
+            _sync_next_site(
+                run_aws,
+                source=source,
+                source_uri="",
+                dest=f"s3://{bucket}",
+                extra_excludes=excludes,
+                asset_cache=asset_cache,
+                document_cache=document_cache,
+            )
+            if chosen_release:
+                print(f"Saving immutable release at releases/{chosen_release}/")
+                _sync_next_site(
+                    run_aws,
+                    source=source,
+                    source_uri="",
+                    dest=f"s3://{bucket}/releases/{chosen_release}",
+                    extra_excludes=excludes,
+                    asset_cache=asset_cache,
+                    document_cache=document_cache,
+                )
+                if release_marker:
+                    _write_release_marker(
+                        run_aws,
+                        bucket,
+                        chosen_release,
+                        marker_cache,
+                        marker_content_type,
+                    )
+        if staging_robots:
+            _staging_robots(run_aws, bucket)
+        _invalidate(run_aws, distribution, dry_run)
+        return
+    if chosen_release or staging_robots or release_marker:
+        raise SyncError("release-id and staging-robots require profile next-site or maintenance")
     if profile == "public-hashed":
         if not source.is_dir():
             raise SyncError(f"Build output not found at {source}")
@@ -477,7 +735,12 @@ def resolve_destination(
 
 
 def main(run_aws: Runner = _run_aws) -> int:
-    source = Path(os.environ.get("SOURCE", ""))
+    source_text = os.environ.get("SOURCE", "").strip()
+    promote = os.environ.get("PROMOTE_FROM", "").strip()
+    if not source_text and not promote:
+        print("source is required unless promote-from is set", file=sys.stderr)
+        return 1
+    source = Path(source_text) if source_text else Path(".")
     bucket = os.environ.get("BUCKET", "")
     distribution = os.environ.get("DISTRIBUTION_ID", "")
     try:
@@ -505,6 +768,22 @@ def main(run_aws: Runner = _run_aws) -> int:
             indexnow=indexnow,
             dry_run=dry_run,
             run_aws=run_aws,
+            release_id=os.environ.get("RELEASE_ID", ""),
+            release_marker=os.environ.get("RELEASE_MARKER", "false").lower() == "true",
+            staging_robots=os.environ.get("STAGING_ROBOTS", "false").lower() == "true",
+            promote_from=os.environ.get("PROMOTE_FROM", ""),
+            sync_exclude=[
+                item.strip()
+                for item in os.environ.get("SYNC_EXCLUDE", "").split(",")
+                if item.strip()
+            ],
+            asset_cache=os.environ.get("ASSET_CACHE", "") or ASSET_CACHE,
+            document_cache=os.environ.get("DOCUMENT_CACHE", "") or DOCUMENT_CACHE,
+            marker_cache=os.environ.get("MARKER_CACHE", ""),
+            marker_content_type=os.environ.get("MARKER_CONTENT_TYPE", ""),
+            maintenance_assets=os.environ.get("MAINTENANCE_ASSETS", ""),
+            maintenance_asset_cache=os.environ.get("MAINTENANCE_ASSET_CACHE", "")
+            or "public, max-age=3600, must-revalidate",
         )
     except SyncError as error:
         print(str(error), file=sys.stderr)

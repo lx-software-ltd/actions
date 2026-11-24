@@ -23,6 +23,14 @@ PATH_FILTERED = {"lint.yml", "test.yml", "security.yml"}
 REQUIRE_JOBS = re.compile(
     r"uses:\s+lx-software-ltd/actions/require-jobs@[0-9a-f]{40}\b"
 )
+DESCRIBE_STACKS_ALLOW = {
+    ".github/workflows/import-legacy-crm.yml",
+}
+SETUP_ACTION = re.compile(r"""uses:\s+['"]?actions/setup-(?:node|python)@""")
+CDK_ACTION = re.compile(
+    r"""uses:\s+['"]?lx-software-ltd/actions/cdk-(deploy|diff)@"""
+)
+_BLOCK = {"|", ">", "|-", ">-", "|+", ">+"}
 PRODUCT_SECURITY_JOBS = (
     "checkov",
     "codeql",
@@ -196,6 +204,141 @@ def _permission_findings(rel: str, text: str) -> list[str]:
     return [f"{rel}: missing a top-level permissions block"]
 
 
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip(" "))
+
+
+def _without_comment(text: str) -> str:
+    """Drop a trailing comment. A hash inside quotes stays."""
+    quote = ""
+    for index, char in enumerate(text):
+        if char in {"'", '"'}:
+            quote = "" if quote == char else (quote or char)
+            continue
+        if char == "#" and not quote:
+            return text[:index].rstrip()
+    return text.rstrip()
+
+
+def _scalar(raw: str) -> tuple[str, bool]:
+    text = _without_comment(raw.strip())
+    if text in _BLOCK:
+        return "", True
+    if len(text) >= 2 and text[0] in {"'", '"'} and text.endswith(text[0]):
+        return text[1:-1], False
+    return text, False
+
+
+def _plan_token(name: str, value: str) -> str:
+    kind = "file" if name == "plan-file" else "inline"
+    return f"{kind}:{value}"
+
+
+def _with_plans(lines: list[str], start: int, step_indent: int) -> set[str]:
+    """plan and plan-file on the cdk step's with block, including a block body."""
+    found: set[str] = set()
+    in_with = False
+    with_indent = 0
+    pending: tuple[str, int] | None = None
+    block: list[str] = []
+    index = start
+    while index < len(lines):
+        line = lines[index]
+        if not line.strip() or line.strip().startswith("#"):
+            if pending is not None:
+                block.append("")
+            index += 1
+            continue
+        indent = _indent(line)
+        if indent <= step_indent:
+            break
+        if pending is not None:
+            if indent > pending[1]:
+                block.append(line.strip())
+                index += 1
+                continue
+            while block and block[-1] == "":
+                block.pop()
+            found.add(_plan_token(pending[0], "\n".join(block)))
+            pending = None
+            block = []
+        stripped = line.strip()
+        if re.fullmatch(r"with:\s*", _without_comment(stripped)):
+            in_with = True
+            with_indent = indent
+            index += 1
+            continue
+        if in_with and indent <= with_indent:
+            in_with = False
+        if not in_with:
+            index += 1
+            continue
+        key = re.fullmatch(r"(plan-file|plan):(.*)", stripped)
+        if key:
+            value, is_block = _scalar(key.group(2))
+            if is_block:
+                pending = (key.group(1), indent)
+                block = []
+            else:
+                found.add(_plan_token(key.group(1), value))
+        index += 1
+    if pending is not None:
+        while block and block[-1] == "":
+            block.pop()
+        found.add(_plan_token(pending[0], "\n".join(block)))
+    return found
+
+
+def _alignment_findings(root: Path) -> list[str]:
+    """Shared setup, one plan, and no inline describe-stacks."""
+    notes: list[str] = []
+    workflow_dir = root / ".github" / "workflows"
+    if not workflow_dir.is_dir():
+        return []
+    deploy_plans: set[str] = set()
+    diff_plans: set[str] = set()
+    saw_deploy = False
+    saw_diff = False
+    for path in _workflows(workflow_dir):
+        rel = path.relative_to(root).as_posix()
+        text = path.read_text(encoding="utf-8")
+        lines = text.splitlines()
+        for line_number, line in enumerate(lines, start=1):
+            if line.strip().startswith("#"):
+                continue
+            if SETUP_ACTION.search(line):
+                notes.append(
+                    f"{rel}:{line_number}: use lx-software-ltd/actions/setup-node "
+                    "or setup-python"
+                )
+            if "describe-stacks" in line and rel not in DESCRIBE_STACKS_ALLOW:
+                notes.append(f"{rel}:{line_number}: describe-stacks stays out of workflows")
+            action = CDK_ACTION.search(line)
+            if action is None:
+                continue
+            plans = _with_plans(lines, line_number, _indent(line)) or {""}
+            if action.group(1) == "deploy":
+                saw_deploy = True
+                deploy_plans |= plans
+            else:
+                saw_diff = True
+                diff_plans |= plans
+    same = deploy_plans == diff_plans and len(deploy_plans) == 1
+    if saw_deploy and saw_diff and not same:
+        notes.append(
+            "cdk-diff and cdk-deploy do not name the same plan file: "
+            f"diff={sorted(diff_plans)} deploy={sorted(deploy_plans)}"
+        )
+    return notes
+
+
+def advisory_findings(root: Path, profile: str = "product") -> list[str]:
+    """Alignment findings. Callers warn by default and enforce per repository."""
+    if profile != "product":
+        return []
+    return _alignment_findings(root)
+
+
 def findings(root: Path, profile: str = "product") -> list[str]:
     if profile not in {"product", "producer"}:
         return [f"workflow-conformance: unknown profile {profile}"]
@@ -279,23 +422,40 @@ def findings(root: Path, profile: str = "product") -> list[str]:
 def main() -> int:
     mode = os.environ.get("CONFORMANCE_MODE", "enforce")
     profile = os.environ.get("CONFORMANCE_PROFILE", "product")
+    alignment = os.environ.get("CONFORMANCE_ALIGNMENT", "warn").strip().lower()
     if mode not in {"warn", "enforce"}:
         print("workflow-conformance: mode must be warn or enforce", file=sys.stderr)
         return 1
     if profile not in {"product", "producer"}:
         print("workflow-conformance: profile must be product or producer", file=sys.stderr)
         return 1
+    if alignment not in {"warn", "enforce"}:
+        print("workflow-conformance: alignment must be warn or enforce", file=sys.stderr)
+        return 1
     root_text = os.environ.get("CONFORMANCE_ROOT", "").strip()
     root = Path(root_text).resolve() if root_text else Path.cwd().resolve()
     found = findings(root, profile)
-    if not found:
+    aligned = advisory_findings(root, profile)
+    advised = aligned if alignment == "warn" else []
+    if alignment == "enforce":
+        found.extend(aligned)
+    for item in advised:
+        print(f"::warning::{item}", file=sys.stderr)
+    if not found and not advised:
         print("Workflow conformance passed.")
         return 0
-    print(f"Workflow conformance found {len(found)} issue(s):", file=sys.stderr)
-    for item in found:
-        print(f"- {item}", file=sys.stderr)
-    if mode == "warn":
-        print("Workflow conformance is in warn mode.")
+    if found:
+        print(f"Workflow conformance found {len(found)} issue(s):", file=sys.stderr)
+        for item in found:
+            print(f"- {item}", file=sys.stderr)
+    if advised:
+        print(
+            f"Workflow conformance found {len(advised)} advisory issue(s).",
+            file=sys.stderr,
+        )
+    if mode == "warn" or not found:
+        if mode == "warn" and found:
+            print("Workflow conformance is in warn mode.")
         return 0
     return 1
 
