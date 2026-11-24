@@ -5,16 +5,20 @@ on:
     types: [deploy-backend]
   workflow_dispatch:
     inputs:
+      # template:optional migration-recovery
       destroy_before_deploy:
         description: "Run cdk destroy before deploy"
         required: false
         default: false
         type: boolean
+      # template:end
+      # template:optional database
       force_migration_run:
         description: "Force RunMigrations custom resource"
         required: false
         default: false
         type: boolean
+      # template:end
       cdk_stacks:
         description: "CDK stacks to deploy"
         required: false
@@ -24,11 +28,13 @@ on:
           # template:set
           - "example"
           # template:end
+      # template:optional database
       run_seed_data:
         description: "Run seed data after migrations (backend stack only)"
         required: false
         default: false
         type: boolean
+      # template:end
   push:
     branches:
       - main

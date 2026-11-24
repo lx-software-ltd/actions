@@ -3,6 +3,7 @@
   "ios-pods": "apps/*/ios/Podfile",
   "openapi": "docs/api/*.yaml",
   "database": "backend/db",
+  "migration-recovery": "scripts/check_stack_invariants.py",
   "training": "apps/training/package.json",
   "search-fixture": "scripts/codegen/sync-activity-search-staging-fixture.sh",
   "playwright-admin": "apps/admin_web/playwright.config.*",

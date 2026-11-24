@@ -39,7 +39,7 @@ Empty values are omitted, except the names in `pass-empty`. Sending an empty str
 | `evolvesprouts` | `WafWebAclArn` and the four edge-verify secrets. An empty edge-verify secret must be able to turn the origin lock off. |
 | `siutindei` | `WafWebAclArn`, `CognitoCustomDomainName`, `CognitoCustomDomainCertificateArn`, `ApiCustomDomainName`, `ApiCustomDomainCertificateArn`, `SearchAreaScope`. |
 
-`run_seed_data: true` on a workflow dispatch replaces `RunSeedData` on the API stack only. The default is false. `siutindei` can also destroy the selected stacks before deploy when `destroy_before_deploy` is true. The other three do not. The action input `destroy` defaults false, and only `siutindei` passes true.
+`run_seed_data: true` on a workflow dispatch replaces `RunSeedData` on the API stack only. The default is false. That input is present where `backend/db` exists, which is `evolvesprouts` and `siutindei`. Both also pass `MIGRATIONS_FORCE_RUN_ID` from `force_migration_run`, because their migration resource reads it. `siutindei` can also destroy the selected stacks before deploy when `destroy_before_deploy` is true. The other three do not. The action input `destroy` defaults false, and only `siutindei` passes true. `findingalpha` and `lx-software` have none of these inputs.
 
 ## Retry and recovery
 

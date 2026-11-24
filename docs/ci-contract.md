@@ -95,6 +95,7 @@ These are not workflow text. A block that exists only in some repositories is a 
 | `ios-pods` | `apps/*/ios/Podfile` | none |
 | `openapi` | `docs/api/*.yaml` | evolvesprouts, siutindei |
 | `database` | `backend/db` | evolvesprouts, siutindei |
+| `migration-recovery` | `scripts/check_stack_invariants.py` | siutindei |
 | `training` | `apps/training/package.json` | evolvesprouts |
 | `search-fixture` | `scripts/codegen/sync-activity-search-staging-fixture.sh` | siutindei |
 | `playwright-admin` | `apps/admin_web/playwright.config.*` | findingalpha, lx-software, siutindei |
@@ -110,7 +111,7 @@ These are not workflow text. A block that exists only in some repositories is a 
 | `staged-release` | `scripts/deploy/deploy-public-www.sh` | evolvesprouts, siutindei |
 | `public-api-keys` | `scripts/deploy/create-api-key.sh` | findingalpha, lx-software |
 
-`deploy-ios.yml` and `deploy-mobile.yml` follow `mobile`. The staged public-site workflows follow `staged-release`. `deploy-public-www.yml` follows `!staged-release`. `manage-api-keys.yml` follows `public-api-keys`. A workflow with no template is listed in `templates/untemplated-workflows.txt`.
+`deploy-backend.yml` offers `destroy_before_deploy` for `migration-recovery`. That probe is the stack-invariant check, present in the only repository that passes `destroy`. `force_migration_run` and `run_seed_data` follow `database`. `deploy-ios.yml` and `deploy-mobile.yml` follow `mobile`. The staged public-site workflows follow `staged-release`. `deploy-public-www.yml` follows `!staged-release`. `manage-api-keys.yml` follows `public-api-keys`. A workflow with no template is listed in `templates/untemplated-workflows.txt`.
 
 ## This repository
 

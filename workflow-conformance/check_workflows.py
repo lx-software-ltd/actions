@@ -1010,6 +1010,9 @@ def _untemplated_findings(root: Path, template_dir: Path, allow_path: Path | Non
 
 
 def _literal_prefix(entry: str) -> str:
+    # A leading ! excludes the path. The file it names still has to exist.
+    if entry.startswith("!"):
+        entry = entry[1:]
     cut = len(entry)
     for index, char in enumerate(entry):
         if char in "*?[":

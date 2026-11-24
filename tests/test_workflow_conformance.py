@@ -1041,6 +1041,7 @@ class TemplateContractTest(unittest.TestCase):
             root = Path(directory)
             _valid(root)
             (root / "backend").mkdir()
+            (root / "backend" / "keep.json").write_text("{}\n", encoding="utf-8")
             (root / ".github" / "workflows" / "cdk-diff.yml").write_text(
                 textwrap.dedent(
                     """\
@@ -1050,6 +1051,8 @@ class TemplateContractTest(unittest.TestCase):
                         paths:
                           - packages/*
                           - "backend/**"
+                          - "!backend/keep.json"
+                          - "!backend/roadmap.json"
                     permissions:
                       contents: read
                     jobs:
@@ -1064,6 +1067,8 @@ class TemplateContractTest(unittest.TestCase):
             found = checker.findings(root)
             self.assertTrue(any("packages/*" in item for item in found), found)
             self.assertFalse(any("backend/**" in item for item in found), found)
+            self.assertFalse(any("keep.json" in item for item in found), found)
+            self.assertTrue(any("!backend/roadmap.json" in item for item in found), found)
 
     def test_a_listed_directory_without_package_json_fails(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
