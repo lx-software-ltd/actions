@@ -848,6 +848,20 @@ jobs:
           OUTCOME: ${{ steps.scan.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  bandit-exclude:
+    name: Bandit exclude fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Scan and skip the test file
+        uses: ./bandit
+        with:
+          paths: .
+          root: fixtures/bandit/exclude
+          exclude: "**/test_*.py"
+
   npm-audit-pass:
     name: npm audit pass fixture
     runs-on: ubuntu-26.04
@@ -1757,6 +1771,7 @@ jobs:
       - pip-audit-fail
       - bandit-pass
       - bandit-fail
+      - bandit-exclude
       - npm-audit-pass
       - npm-audit-fail
       - playwright-pass

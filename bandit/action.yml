@@ -14,6 +14,12 @@ inputs:
     description: Directory to run in. Empty uses the workspace.
     required: false
     default: ""
+  exclude:
+    description: >-
+      Glob paths passed to bandit --exclude, comma-separated. Use it for
+      tests that sit next to the scanned code. Empty excludes nothing.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -24,4 +30,5 @@ runs:
         BANDIT_PATHS: ${{ inputs.paths }}
         BANDIT_SKIP: ${{ inputs.skip }}
         BANDIT_ROOT: ${{ inputs.root }}
+        BANDIT_EXCLUDE: ${{ inputs.exclude }}
       run: bash "$GITHUB_ACTION_PATH/run.sh"

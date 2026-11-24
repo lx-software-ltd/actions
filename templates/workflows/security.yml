@@ -36,8 +36,8 @@ jobs:
 
       - name: Sync staging search fixture for Lambda bundle
         run: bash scripts/codegen/sync-activity-search-staging-fixture.sh backend
-
         # template:end
+
       - name: Set up Node.js
         uses: lx-software-ltd/actions/setup-node@ACTIONS_PIN # main DATE
         with:
@@ -51,6 +51,9 @@ jobs:
         working-directory: backend/infrastructure
         env:
           CDK_DISABLE_CONTEXT_LOOKUPS: "1"
+          # template:optional certificate-arn
+          CDK_PARAM_PUBLIC_WEBSITE_CERTIFICATE_ARN: ${{ secrets.CDK_PARAM_PUBLIC_WEBSITE_CERTIFICATE_ARN }}
+          # template:end
         run: npm run synth:ci
 
       - name: Run Checkov
