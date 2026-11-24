@@ -1,0 +1,24 @@
+name: Verify GitHub Rulesets
+
+on:
+  schedule:
+    # Run weekly on Monday at 9am UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-branch-protection:
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Verify rulesets
+        uses: lx-software-ltd/actions/verify-rulesets@ACTIONS_PIN # main DATE
+        with:
+          token: ${{ github.token }}
+          expected-reviews: "0"
+          required-checks: lint test security-summary

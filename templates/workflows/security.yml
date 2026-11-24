@@ -1,0 +1,202 @@
+name: Security Scanning
+
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checkov:
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    name: Checkov IaC Security
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        # template:optional search-fixture
+        with:
+          lfs: true
+
+      - name: Pull Git LFS objects
+        run: git lfs pull
+
+      - name: Sync staging search fixture for Lambda bundle
+        run: bash scripts/codegen/sync-activity-search-staging-fixture.sh backend
+        # template:end
+
+      - name: Set up Node.js
+        uses: lx-software-ltd/actions/setup-node@ACTIONS_PIN # main DATE
+        with:
+          cache: npm
+          working-directory: backend/infrastructure
+
+      - name: Set up Python
+        uses: lx-software-ltd/actions/setup-python@ACTIONS_PIN # main DATE
+
+      - name: Synthesize CDK templates
+        working-directory: backend/infrastructure
+        env:
+          CDK_DISABLE_CONTEXT_LOOKUPS: "1"
+          # template:optional certificate-arn
+          CDK_PARAM_PUBLIC_WEBSITE_CERTIFICATE_ARN: ${{ secrets.CDK_PARAM_PUBLIC_WEBSITE_CERTIFICATE_ARN }}
+          # template:end
+        run: npm run synth:ci
+
+      - name: Run Checkov
+        uses: lx-software-ltd/actions/checkov-cloudformation@ACTIONS_PIN # main DATE
+        with:
+          directory: backend/infrastructure/cdk.out
+          config-file: backend/infrastructure/.checkov.yaml
+
+  codeql:
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    name: CodeQL Analysis
+    runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript-typescript]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Analyze
+        uses: lx-software-ltd/actions/codeql@ACTIONS_PIN # main DATE
+        with:
+          language: ${{ matrix.language }}
+          queries: security-extended
+          # template:set
+          config-file: .github/codeql/codeql-config.yml
+          # template:end
+          category: "/language:${{ matrix.language }}"
+
+  pii-denylist:
+    permissions:
+      contents: read
+    name: PII denylist
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: lx-software-ltd/actions/setup-python@ACTIONS_PIN # main DATE
+
+      - name: Check hashed PII denylist
+        uses: lx-software-ltd/actions/pii-denylist@ACTIONS_PIN # main DATE
+
+  secrets-scan:
+    permissions:
+      contents: read
+    name: Secret Scanning
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: lx-software-ltd/actions/gitleaks@ACTIONS_PIN # main DATE
+        with:
+          config-path: .gitleaks.toml
+
+  dependency-audit:
+    permissions:
+      contents: read
+    name: Python Dependency Audit
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: lx-software-ltd/actions/setup-python@ACTIONS_PIN # main DATE
+
+      - name: Audit Python requirements
+        uses: lx-software-ltd/actions/pip-audit@ACTIONS_PIN # main DATE
+        with:
+          # template:set
+          requirements: backend/requirements.txt
+          ignore-vulns: PYSEC-2025-183
+          # template:end
+
+  bandit:
+    permissions:
+      contents: read
+    name: Bandit Security Linter
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: lx-software-ltd/actions/setup-python@ACTIONS_PIN # main DATE
+
+      - name: Run Bandit
+        uses: lx-software-ltd/actions/bandit@ACTIONS_PIN # main DATE
+        with:
+          # template:set
+          paths: src lambda
+          root: backend
+          # template:end
+
+  npm-audit:
+    permissions:
+      contents: read
+    name: npm audit
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: lx-software-ltd/actions/setup-node@ACTIONS_PIN # main DATE
+
+      - name: Audit npm lockfiles
+        uses: lx-software-ltd/actions/npm-audit@ACTIONS_PIN # main DATE
+        with:
+          # template:set
+          directories: |
+            apps/admin_web
+            apps/public_www
+            apps/training
+            backend/infrastructure
+          # template:end
+
+  security-summary:
+    permissions:
+      contents: read
+    name: security-summary
+    runs-on: ubuntu-26.04
+    needs:
+      - checkov
+      - codeql
+      - pii-denylist
+      - secrets-scan
+      - dependency-audit
+      - bandit
+      - npm-audit
+    if: always()
+    steps:
+      - name: Require every security job
+        uses: lx-software-ltd/actions/require-jobs@ACTIONS_PIN # main DATE
+        with:
+          needs-json: ${{ toJson(needs) }}

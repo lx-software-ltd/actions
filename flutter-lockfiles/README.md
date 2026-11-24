@@ -7,7 +7,7 @@ Runs `flutter pub get` and fails when `pubspec.lock` is missing or `git diff` sh
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
 | `working-directory` | yes | | Directory with `pubspec.yaml`. |
-| `flutter-version` | yes | | SDK. The action fails when this is empty. |
+| `flutter-version` | no | `3.50.1` | SDK. Empty fails. |
 | `setup` | no | `true` | `false` uses `flutter` already on PATH. |
 
 Flutter is `subosito/flutter-action` `1a449444c387b1966244ae4d4f8c696479add0b2` (`v2.23.0`).

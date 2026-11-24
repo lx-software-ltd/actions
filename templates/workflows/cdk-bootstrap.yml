@@ -1,0 +1,45 @@
+name: CDK Bootstrap
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cdk-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: lx-software-ltd/actions/setup-node@ACTIONS_PIN # main DATE
+        with:
+          cache: npm
+          working-directory: backend/infrastructure
+          install: "false"
+
+      - name: Set up Python
+        uses: lx-software-ltd/actions/setup-python@ACTIONS_PIN # main DATE
+
+      - name: Configure AWS credentials
+        uses: lx-software-ltd/actions/aws-oidc@ACTIONS_PIN # main DATE
+        with:
+          account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+          region: ${{ vars.AWS_REGION }}
+
+      - name: Bootstrap CDK
+        uses: lx-software-ltd/actions/cdk-bootstrap@ACTIONS_PIN # main DATE
+        with:
+          working-directory: backend/infrastructure
+          account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+          region: ${{ vars.AWS_REGION }}
+          qualifier: ${{ vars.CDK_BOOTSTRAP_QUALIFIER }}

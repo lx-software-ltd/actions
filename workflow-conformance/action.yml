@@ -20,7 +20,14 @@ inputs:
     description: >-
       warn or enforce for the product alignment checks. warn prints
       them and does not fail. enforce makes them findings for this
-      caller. Other repositories stay on warn until they opt in.
+      caller.
+    required: false
+    default: enforce
+  templates:
+    description: >-
+      off, warn, or enforce. warn compares a product workflow with
+      templates/workflows and does not fail. enforce makes a mismatch
+      a finding. off skips the comparison. The producer profile skips it.
     required: false
     default: warn
 
@@ -34,4 +41,5 @@ runs:
         CONFORMANCE_PROFILE: ${{ inputs.profile }}
         CONFORMANCE_ROOT: ${{ inputs.root }}
         CONFORMANCE_ALIGNMENT: ${{ inputs.alignment }}
+        CONFORMANCE_TEMPLATES: ${{ inputs.templates }}
       run: python3 "$GITHUB_ACTION_PATH/check_workflows.py"

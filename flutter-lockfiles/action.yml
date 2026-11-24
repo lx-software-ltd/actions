@@ -9,9 +9,9 @@ inputs:
     required: true
     default: ""
   flutter-version:
-    description: Flutter SDK. Required. There is no default.
-    required: true
-    default: ""
+    description: Flutter SDK. Empty fails. The default is 3.50.1.
+    required: false
+    default: "3.50.1"
   setup:
     description: When false, use flutter already on PATH. Fixtures use this.
     required: false

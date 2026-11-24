@@ -71,7 +71,7 @@ The script rewrites every `lx-software-ltd/actions` pin, the `# main YYYY-MM-DD`
 
 A green check means a workflow in that repository calls the action. Fixture jobs in `test.yml` here are not callers.
 
-Product repositories still call [`dependency-submission`](dependency-submission/README.md) as `dependency-graph` at `48ffe6dadb6c1540b8992e8e8edfda4f8aa0933e`. That commit contains the directory before the rename. The next pin moves the path to `dependency-submission`.
+Product repositories call [`dependency-submission`](dependency-submission/README.md) by that directory name. Commits through `48ffe6dadb6c1540b8992e8e8edfda4f8aa0933e` keep the old directory name `dependency-graph`.
 
 | Action | Purpose | actions | findingalpha | lx-software | evolvesprouts | siutindei |
 | --- | --- | :---: | :---: | :---: | :---: | :---: |
