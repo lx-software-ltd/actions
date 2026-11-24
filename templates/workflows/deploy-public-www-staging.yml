@@ -141,9 +141,16 @@ jobs:
           bucket-output: PublicWwwStagingBucketName
           distribution-output: ""
           profile: next-site
+          # template:set
+          document-cache: public, max-age=300, must-revalidate, stale-while-revalidate=60
+          # template:end
           release-id: ${{ github.sha }}
           release-marker: "true"
+          # template:set
           sync-exclude: landing-pages-manifest.json
+          marker-cache: no-store, max-age=0
+          marker-content-type: text/plain; charset=utf-8
+          # template:end
           staging-robots: "true"
           dry-run: "false"
 
