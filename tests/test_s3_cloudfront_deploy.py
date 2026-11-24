@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -343,3 +344,187 @@ class SyncProfileTest(unittest.TestCase):
             self.assertEqual(distribution, "")
             self.assertIn("::warning::", printed.getvalue())
             self.assertIn("CloudFront invalidation will be skipped", printed.getvalue())
+
+    def test_next_site_copies_a_release_and_writes_robots(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            return _ok()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            static = source / "_next" / "static"
+            static.mkdir(parents=True)
+            (static / "app.js").write_text("js", encoding="utf-8")
+            (source / "index.html").write_text("<html>", encoding="utf-8")
+            s3_sync.deploy(
+                source=source,
+                bucket="site-bucket",
+                distribution="E123",
+                profile="next-site",
+                indexnow=False,
+                run_aws=run_aws,
+                release_id="2026.11.24",
+                release_marker=True,
+                staging_robots=True,
+                sync_exclude=["landing-pages-manifest.json"],
+            )
+        syncs = [call for call in calls if call[1:3] == ["s3", "sync"]]
+        self.assertEqual(syncs[0][3], str(static))
+        self.assertIn("public, max-age=31536000, immutable", syncs[0])
+        self.assertIn("--exclude", syncs[1])
+        self.assertIn("landing-pages-manifest.json", syncs[1])
+        self.assertIn("public, max-age=300, must-revalidate", syncs[1])
+        self.assertIn("--delete", syncs[1])
+        self.assertTrue(any(call[4].endswith("/releases/2026.11.24") for call in syncs if len(call) > 4))
+        marker = [call for call in calls if call[-1].endswith("latest-release-id.txt")]
+        self.assertEqual(len(marker), 1)
+        self.assertNotIn("--cache-control", marker[0])
+        robots = [call for call in calls if call[4] == "s3://site-bucket/robots.txt"]
+        self.assertIn("text/plain; charset=utf-8", robots[0])
+        self.assertIn("no-store, max-age=0", robots[0])
+        self.assertEqual(calls[-1][1:3], ["cloudfront", "create-invalidation"])
+
+    def test_promote_requires_the_release_prefix(self) -> None:
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            if command[1:3] == ["s3api", "list-objects-v2"]:
+                return _ok("0\n")
+            return _ok()
+
+        with self.assertRaises(s3_sync.SyncError) as caught:
+            s3_sync.deploy(
+                source=Path("."),
+                bucket="site-bucket",
+                distribution="",
+                profile="next-site",
+                indexnow=False,
+                run_aws=run_aws,
+                promote_from="s3://staging-bucket/releases/2026.11.24",
+            )
+        self.assertIn("not found", str(caught.exception))
+
+    def test_maintenance_excludes_releases(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            return _ok()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            (source / "index.html").write_text("down", encoding="utf-8")
+            s3_sync.deploy(
+                source=source,
+                bucket="site-bucket",
+                distribution="",
+                profile="maintenance",
+                indexnow=False,
+                run_aws=run_aws,
+            )
+        self.assertIn("--exclude", calls[0])
+        self.assertIn("releases/*", calls[0])
+        self.assertIn("no-store, max-age=0", calls[0])
+        self.assertIn("--delete", calls[0])
+
+    def test_maintenance_assets_sync_before_the_page(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            return _ok()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            images = source / "images"
+            images.mkdir()
+            (images / "logo.svg").write_text("<svg>", encoding="utf-8")
+            (source / "index.html").write_text("down", encoding="utf-8")
+            s3_sync.deploy(
+                source=source,
+                bucket="site-bucket",
+                distribution="",
+                profile="maintenance",
+                indexnow=False,
+                run_aws=run_aws,
+                maintenance_assets="images",
+            )
+        self.assertEqual(calls[0][4], "s3://site-bucket/images")
+        self.assertIn("public, max-age=3600, must-revalidate", calls[0])
+        self.assertIn("images/*", calls[1])
+        self.assertIn("no-store, max-age=0", calls[1])
+
+    def test_document_cache_and_marker_headers(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            return _ok()
+
+        document = "public, max-age=300, must-revalidate, stale-while-revalidate=60"
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            (source / "index.html").write_text("<html>", encoding="utf-8")
+            s3_sync.deploy(
+                source=source,
+                bucket="site-bucket",
+                distribution="",
+                profile="next-site",
+                indexnow=False,
+                run_aws=run_aws,
+                release_id="2026.11.24",
+                release_marker=True,
+                document_cache=document,
+                marker_cache=s3_sync.NO_STORE,
+                marker_content_type="text/plain; charset=utf-8",
+            )
+        documents = [call for call in calls if document in call]
+        self.assertGreaterEqual(len(documents), 1)
+        marker = [
+            call
+            for call in calls
+            if any(item.endswith("latest-release-id.txt") for item in call)
+        ]
+        self.assertIn(s3_sync.NO_STORE, marker[0])
+        self.assertIn("text/plain; charset=utf-8", marker[0])
+
+    def test_promote_allows_an_empty_source(self) -> None:
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            if command[1:3] == ["s3api", "list-objects-v2"]:
+                return _ok("1\n")
+            return _ok()
+
+        env = {
+            "SOURCE": "",
+            "BUCKET": "site-bucket",
+            "DISTRIBUTION_ID": "",
+            "STACK": "",
+            "PROFILE": "next-site",
+            "PROMOTE_FROM": "s3://staging-bucket/releases/2026.11.24",
+            "DRY_RUN": "false",
+            "INDEXNOW": "false",
+            "RELEASE_ID": "",
+            "RELEASE_MARKER": "false",
+            "STAGING_ROBOTS": "false",
+        }
+        with mock.patch.dict(os.environ, env, clear=False):
+            self.assertEqual(s3_sync.main(run_aws), 0)
+        env["PROMOTE_FROM"] = ""
+        with mock.patch.dict(os.environ, env, clear=False):
+            with mock.patch("sys.stderr", new_callable=io.StringIO) as printed:
+                status = s3_sync.main(run_aws)
+            self.assertEqual(status, 1)
+            self.assertIn("source is required", printed.getvalue())
+
+    def test_a_release_id_with_maintenance_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(s3_sync.SyncError):
+                s3_sync.deploy(
+                    source=Path(tmp),
+                    bucket="site-bucket",
+                    distribution="",
+                    profile="maintenance",
+                    indexnow=False,
+                    run_aws=lambda command: _ok(),
+                    release_id="bad id",
+                )
