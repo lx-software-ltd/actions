@@ -96,7 +96,7 @@ Product repositories still call [`dependency-submission`](dependency-submission/
 | [`flutter-lockfiles`](flutter-lockfiles/README.md) | Fail when `pubspec.lock` is out of date. | | | | ✅ | ✅ |
 | [`setup-flutter`](setup-flutter/README.md) | Install Flutter 3.50.1. | | | | ✅ | ✅ |
 | [`pod-lockfiles`](pod-lockfiles/README.md) | Fail when `Podfile.lock` changes after `pod install`. | | | | ✅ | ✅ |
-| [`playwright-install`](playwright-install/README.md) | Install Playwright browsers. | | ✅ | ✅ | | ✅ |
+| [`playwright-install`](playwright-install/README.md) | Install Playwright browsers. | | ✅ | ✅ | ✅ | ✅ |
 | [`aws-oidc`](aws-oidc/README.md) | Check the account id and region the caller passed, and mask the account id. | | ✅ | ✅ | ✅ | ✅ |
 | [`cdk-bootstrap-check`](cdk-bootstrap-check/README.md) | Read the CDK bootstrap version from SSM. It does not bootstrap. | | ✅ | ✅ | ✅ | ✅ |
 | [`cdk-bootstrap`](cdk-bootstrap/README.md) | Run `cdk bootstrap` for the account and region the caller passes. | | ✅ | ✅ | ✅ | ✅ |
@@ -108,7 +108,7 @@ Product repositories still call [`dependency-submission`](dependency-submission/
 | [`appstore-api-key`](appstore-api-key/README.md) | Load the App Store Connect API key into the environment. | | | | ✅ | ✅ |
 | [`android-signing`](android-signing/README.md) | Install the upload keystore. | | | | ✅ | ✅ |
 | [`play-prerequisites`](play-prerequisites/README.md) | Skip the Play upload when a signing or track secret is missing. | | | | ✅ | ✅ |
-| [`lighthouse-ci`](lighthouse-ci/README.md) | Run Lighthouse against the caller's page list. The bypass header is not left in the workspace. | | | ✅ | ✅ | ✅ |
+| [`lighthouse-ci`](lighthouse-ci/README.md) | Run Lighthouse against the caller's page list. The bypass header is not left in the workspace. | | ✅ | ✅ | ✅ | ✅ |
 
 ## Documentation
 
