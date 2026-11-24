@@ -23,6 +23,13 @@ PATH_FILTERED = {"lint.yml", "test.yml", "security.yml"}
 REQUIRE_JOBS = re.compile(
     r"uses:\s+lx-software-ltd/actions/require-jobs@[0-9a-f]{40}\b"
 )
+# These warn under enforce. The pin bump that follows promotes them to failures.
+ADVISORY = True
+DESCRIBE_STACKS_ALLOW = {
+    ".github/workflows/import-legacy-crm.yml",
+}
+SETUP_ACTION = re.compile(r"uses:\s+actions/setup-(?:node|python)@")
+PLAN_FILE = re.compile(r"(?m)^\s*plan-file:\s*['\"]?([^'\"\s#]+)")
 PRODUCT_SECURITY_JOBS = (
     "checkov",
     "codeql",
@@ -196,6 +203,51 @@ def _permission_findings(rel: str, text: str) -> list[str]:
     return [f"{rel}: missing a top-level permissions block"]
 
 
+def _alignment_findings(root: Path) -> list[str]:
+    """Shared setup, one plan file, and no inline describe-stacks."""
+    notes: list[str] = []
+    workflow_dir = root / ".github" / "workflows"
+    if not workflow_dir.is_dir():
+        return []
+    deploy_plans: set[str] = set()
+    diff_plans: set[str] = set()
+    saw_deploy = False
+    saw_diff = False
+    for path in _workflows(workflow_dir):
+        rel = path.relative_to(root).as_posix()
+        text = path.read_text(encoding="utf-8")
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if line.strip().startswith("#"):
+                continue
+            if SETUP_ACTION.search(line):
+                notes.append(
+                    f"{rel}:{line_number}: use lx-software-ltd/actions/setup-node "
+                    "or setup-python"
+                )
+            if "describe-stacks" in line and rel not in DESCRIBE_STACKS_ALLOW:
+                notes.append(f"{rel}:{line_number}: describe-stacks stays out of workflows")
+        plans = set(PLAN_FILE.findall(text))
+        if "lx-software-ltd/actions/cdk-deploy@" in text:
+            saw_deploy = True
+            deploy_plans |= plans or {""}
+        if "lx-software-ltd/actions/cdk-diff@" in text:
+            saw_diff = True
+            diff_plans |= plans or {""}
+    if saw_deploy and saw_diff and deploy_plans != diff_plans:
+        notes.append(
+            "cdk-diff and cdk-deploy do not name the same plan file: "
+            f"diff={sorted(diff_plans)} deploy={sorted(deploy_plans)}"
+        )
+    return notes
+
+
+def advisory_findings(root: Path, profile: str = "product") -> list[str]:
+    """The alignment checks warn until the next pin bump enforces them."""
+    if profile != "product" or not ADVISORY:
+        return []
+    return _alignment_findings(root)
+
+
 def findings(root: Path, profile: str = "product") -> list[str]:
     if profile not in {"product", "producer"}:
         return [f"workflow-conformance: unknown profile {profile}"]
@@ -256,6 +308,8 @@ def findings(root: Path, profile: str = "product") -> list[str]:
             names = {_job_name(job_id, body) for job_id, body in semgrep_jobs.items()}
             if "semgrep/ci" not in semgrep_jobs and "semgrep/ci" not in names:
                 errors.append(".github/workflows/semgrep.yml: missing the semgrep/ci job")
+    if profile == "product" and not ADVISORY:
+        errors.extend(_alignment_findings(root))
     unique = sorted(set(pins))
     if len(unique) > 1:
         errors.append("more than one lx-software-ltd/actions commit: " + ", ".join(unique))
@@ -288,14 +342,24 @@ def main() -> int:
     root_text = os.environ.get("CONFORMANCE_ROOT", "").strip()
     root = Path(root_text).resolve() if root_text else Path.cwd().resolve()
     found = findings(root, profile)
-    if not found:
+    advised = advisory_findings(root, profile)
+    for item in advised:
+        print(f"::warning::{item}", file=sys.stderr)
+    if not found and not advised:
         print("Workflow conformance passed.")
         return 0
-    print(f"Workflow conformance found {len(found)} issue(s):", file=sys.stderr)
-    for item in found:
-        print(f"- {item}", file=sys.stderr)
-    if mode == "warn":
-        print("Workflow conformance is in warn mode.")
+    if found:
+        print(f"Workflow conformance found {len(found)} issue(s):", file=sys.stderr)
+        for item in found:
+            print(f"- {item}", file=sys.stderr)
+    if advised:
+        print(
+            f"Workflow conformance found {len(advised)} advisory issue(s).",
+            file=sys.stderr,
+        )
+    if mode == "warn" or not found:
+        if mode == "warn" and found:
+            print("Workflow conformance is in warn mode.")
         return 0
     return 1
 

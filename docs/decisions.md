@@ -67,7 +67,8 @@ This repository applies the catalogue with `github.token`. That token writes lab
 ## Not finished
 
 - A Dependabot path that bumps this pin, and a measured cooldown exclusion.
-- The public-site release action. The design is written. The scripts stay until a dry-run matches them.
+- Product workflows still call the public-www release scripts. `s3-cloudfront-deploy` now has `next-site`, a release prefix, a deny-all staging `robots.txt`, promote, and a maintenance profile. Defaults match the evolvesprouts cache headers. siutindei passes its document cache, marker headers, and `maintenance-assets: images`. The action invalidates `/*`; a caller that keeps the script's path list leaves the distribution empty. The product pin that adopts it compares the commands in dry-run, staging first, one repository at a time. Maintenance assembly, image optimisation, the `/www/*` switch, catalogue comparison, and fixture removal stay in the scripts.
+- The three advisory conformance checks warn. The pin bump after the product workflows comply promotes them to failures.
 - The read-only diff role named by `AWS_DIFF_ROLE_NAME`. The workflows do not create it.
 - A `siutindei` pull-request diff. The workflow still warns and does not call AWS. Its adoption pull request assumes the read-only role when `AWS_DIFF_ROLE_NAME` is set and routes the parameters file only.
 - The siutindei Play upload still checks `PLAY_STORE_UPLOAD_ENABLED` and the package name inline. `play-prerequisites` now has `upload-enabled` and `require-package-name` for that caller. It moves with the pin bump. The other three mobile actions, and evolvesprouts Play, match the current pin. Those signing workflows run on a release, so they have not run yet.

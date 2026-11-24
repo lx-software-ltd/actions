@@ -222,6 +222,81 @@ class WorkflowConformanceTest(unittest.TestCase):
             self.assertTrue(any("missing job checkov" in item for item in found), found)
             self.assertTrue(any("semgrep/ci" in item for item in found), found)
 
+    def test_alignment_checks_warn_and_do_not_fail_enforce(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _valid(root)
+            pin = REQUIRE
+            workflows = root / ".github" / "workflows"
+            jobs = [
+                "checkov",
+                "codeql",
+                "pii-denylist",
+                "secrets-scan",
+                "dependency-audit",
+                "bandit",
+                "npm-audit",
+            ]
+            needs = "\n".join(f"      - {job}" for job in jobs)
+            bodies = "\n".join(
+                f"  {job}:\n    runs-on: ubuntu-26.04\n    steps:\n      - run: 'true'"
+                for job in jobs
+            )
+            (workflows / "security.yml").write_text(
+                "name: Security\non:\n  pull_request:\npermissions:\n  contents: read\njobs:\n"
+                + bodies
+                + "\n  security-summary:\n    runs-on: ubuntu-26.04\n    needs:\n"
+                + needs
+                + "\n    if: always()\n    steps:\n"
+                + f"      - uses: lx-software-ltd/actions/require-jobs@{REQUIRE} # main 2026-11-20\n",
+                encoding="utf-8",
+            )
+            (workflows / "semgrep.yml").write_text(
+                "name: Semgrep\non:\n  pull_request:\npermissions:\n  contents: read\njobs:\n"
+                "  semgrep:\n    name: semgrep/ci\n    runs-on: ubuntu-26.04\n    steps:\n      - run: 'true'\n",
+                encoding="utf-8",
+            )
+            (workflows / "deploy-backend.yml").write_text(
+                "name: Deploy\non:\n  workflow_dispatch:\npermissions:\n  contents: read\njobs:\n"
+                "  deploy:\n    runs-on: ubuntu-26.04\n    steps:\n"
+                f"      - uses: actions/setup-node@{pin} # v4\n"
+                f"      - uses: lx-software-ltd/actions/cdk-deploy@{pin} # main 2026-11-24\n"
+                "        with:\n          plan-file: backend/infrastructure/cdk-plan.json\n"
+                "      - run: aws cloudformation describe-stacks\n",
+                encoding="utf-8",
+            )
+            (workflows / "cdk-diff.yml").write_text(
+                "name: Diff\non:\n  pull_request:\npermissions:\n  contents: read\njobs:\n"
+                "  diff:\n    runs-on: ubuntu-26.04\n    steps:\n"
+                f"      - uses: lx-software-ltd/actions/cdk-diff@{pin} # main 2026-11-24\n",
+                encoding="utf-8",
+            )
+            (workflows / "import-legacy-crm.yml").write_text(
+                "name: Import\non:\n  workflow_dispatch:\npermissions:\n  contents: read\njobs:\n"
+                "  import:\n    runs-on: ubuntu-26.04\n    steps:\n"
+                "      - run: aws cloudformation describe-stacks\n",
+                encoding="utf-8",
+            )
+            advised = checker.advisory_findings(root)
+            self.assertTrue(any("setup-node" in item for item in advised), advised)
+            self.assertTrue(any("describe-stacks" in item for item in advised), advised)
+            self.assertFalse(any("import-legacy-crm" in item for item in advised), advised)
+            self.assertTrue(any("same plan file" in item for item in advised), advised)
+            completed = subprocess.run(
+                ["python3", str(_PATH)],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                env={
+                    "CONFORMANCE_MODE": "enforce",
+                    "CONFORMANCE_PROFILE": "product",
+                    "PATH": "/usr/bin:/bin",
+                },
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertIn("::warning::", completed.stderr)
+
 
 REQUIRE = "1a3cca7c38163f8164c262323601c34a4df5b7a4"
 

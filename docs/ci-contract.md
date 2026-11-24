@@ -93,3 +93,9 @@ CodeQL scans Python and GitHub Actions. The Actions language is the one that cov
 The action checks the pin, runner, permission, image-digest, gate, path-filter, one-commit, `# main YYYY-MM-DD` comment, and pre-commit `rev` rules above. A `pull_request` `paths-ignore` is a path filter. A gate job has `if: always()`, lists every other job in that file under `needs`, and pins `require-jobs` by commit SHA. `security-summary` is that gate in `security.yml`. `lint.yml`, `test.yml`, and `security.yml` must exist, and none of them may filter `pull_request` by path. Top-level permissions are `contents: read`. Container and service images are pinned by digest.
 
 `profile: product` also requires the `security.yml` job ids in the table above and a `semgrep/ci` job. `profile: producer` is this repository, which does not have those product job ids. `mode: enforce` exits 1 when there is a finding. `mode: warn` prints findings and exits 0. The default mode is `enforce`.
+
+Three product checks are advisory. They print `::warning::` and do not fail `enforce`. The pin bump that follows, once the product workflows comply, promotes them to failures:
+
+- A workflow does not call `actions/setup-node` or `actions/setup-python`.
+- When both `cdk-diff` and `cdk-deploy` are used, every `plan-file` value is the same.
+- A workflow does not call `describe-stacks`. `import-legacy-crm.yml` is the allow-list, because that import stays inline.

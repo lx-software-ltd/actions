@@ -16,6 +16,8 @@ Checks the caller's workflows.
 
 `mode` is `enforce` or `warn`. Enforce exits 1 when there is a finding. Warn prints the findings and exits 0. The default is `enforce`.
 
+Three product checks print `::warning::` and do not fail `enforce` yet: no direct `actions/setup-node` or `actions/setup-python`, `cdk-diff` and `cdk-deploy` name the same `plan-file` when both are used, and no `describe-stacks` except `.github/workflows/import-legacy-crm.yml`. The pin bump after the workflows comply turns those warnings into failures.
+
 ## Inputs
 
 | Input | Required | Default | Meaning |

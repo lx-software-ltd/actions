@@ -39,8 +39,10 @@ inputs:
     default: ""
   profile:
     description: >-
-      public-hashed, admin-hashed, public-routes, or next-export
-      (a Next.js out/ directory, synced with --delete).
+      public-hashed, admin-hashed, public-routes, next-export
+      (a Next.js out/ directory, synced with --delete), next-site
+      (immutable _next/static, then short-cache documents), or
+      maintenance (no-store, excluding releases/).
     required: false
     default: public-hashed
   indexnow:
@@ -55,6 +57,67 @@ inputs:
       invalidation. IndexNow is skipped too.
     required: false
     default: "false"
+  release-id:
+    description: >-
+      Copy the next-site upload to releases/<id>/ after the live sync.
+      Empty skips the copy. Letters, digits, dot, dash, or underscore.
+    required: false
+    default: ""
+  release-marker:
+    description: >-
+      When true with release-id, write releases/latest-release-id.txt.
+      The object has no cache header.
+    required: false
+    default: "false"
+  staging-robots:
+    description: >-
+      Upload a deny-all robots.txt with no-store. Used for staging.
+    required: false
+    default: "false"
+  promote-from:
+    description: >-
+      s3://bucket/releases/<id>. Copies that prefix to the destination
+      with the next-site cache rules. Requires profile next-site.
+    required: false
+    default: ""
+  sync-exclude:
+    description: >-
+      Extra aws s3 sync --exclude patterns for next-site, comma-separated.
+      _next/static/* and releases/* are always excluded from the document sync.
+    required: false
+    default: ""
+  asset-cache:
+    description: >-
+      Cache-Control for _next/static. The default matches the public-www
+      scripts.
+    required: false
+    default: "public, max-age=31536000, immutable"
+  document-cache:
+    description: >-
+      Cache-Control for the remaining next-site files. siutindei passes
+      public, max-age=300, must-revalidate, stale-while-revalidate=60.
+    required: false
+    default: "public, max-age=300, must-revalidate"
+  marker-cache:
+    description: >-
+      Cache-Control for releases/latest-release-id.txt. Empty writes the
+      marker with no cache header.
+    required: false
+    default: ""
+  marker-content-type:
+    description: Content-Type for the release marker. Empty omits the header.
+    required: false
+    default: ""
+  maintenance-assets:
+    description: >-
+      One directory, such as images, synced before the no-store maintenance
+      upload and then excluded from it. Empty keeps a single sync.
+    required: false
+    default: ""
+  maintenance-asset-cache:
+    description: Cache-Control for maintenance-assets.
+    required: false
+    default: "public, max-age=3600, must-revalidate"
 
 runs:
   using: composite
@@ -72,4 +135,15 @@ runs:
         PROFILE: ${{ inputs.profile }}
         INDEXNOW: ${{ inputs.indexnow }}
         DRY_RUN: ${{ inputs.dry-run }}
+        RELEASE_ID: ${{ inputs.release-id }}
+        RELEASE_MARKER: ${{ inputs.release-marker }}
+        STAGING_ROBOTS: ${{ inputs.staging-robots }}
+        PROMOTE_FROM: ${{ inputs.promote-from }}
+        SYNC_EXCLUDE: ${{ inputs.sync-exclude }}
+        ASSET_CACHE: ${{ inputs.asset-cache }}
+        DOCUMENT_CACHE: ${{ inputs.document-cache }}
+        MARKER_CACHE: ${{ inputs.marker-cache }}
+        MARKER_CONTENT_TYPE: ${{ inputs.marker-content-type }}
+        MAINTENANCE_ASSETS: ${{ inputs.maintenance-assets }}
+        MAINTENANCE_ASSET_CACHE: ${{ inputs.maintenance-asset-cache }}
       run: python3 "$GITHUB_ACTION_PATH/s3_sync.py"
