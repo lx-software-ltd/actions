@@ -21,3 +21,30 @@ updates:
       github-actions:
         patterns:
           - "*"
+  # Fail fixtures must stay vulnerable. A security bump that makes one
+  # install cleanly turns the fixture green. Only directories that hold
+  # a manifest for that ecosystem are listed. A glob would include
+  # directories Dependabot rejects for having no manifest.
+  - package-ecosystem: pip
+    directories:
+      - "/fixtures/pip-audit/fail"
+      - "/fixtures/python-requirements/fail"
+      - "/fixtures/dependency-graph/fail"
+    schedule:
+      interval: weekly
+      day: monday
+    ignore:
+      - dependency-name: "*"
+    labels:
+      - dependencies
+  - package-ecosystem: npm
+    directories:
+      - "/fixtures/npm-audit/fail"
+      - "/fixtures/node-lockfiles/fail"
+    schedule:
+      interval: weekly
+      day: monday
+    ignore:
+      - dependency-name: "*"
+    labels:
+      - dependencies

@@ -379,6 +379,60 @@ class WorkflowConformanceTest(unittest.TestCase):
             same = checker.advisory_findings(root)
             self.assertFalse(any("same plan file" in item for item in same), same)
 
+    def test_a_name_before_uses_still_reads_the_plan(self) -> None:
+        pin = "b" * 40
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workflows = root / ".github" / "workflows"
+            workflows.mkdir(parents=True)
+
+            def write(name: str, body: str) -> None:
+                (workflows / name).write_text(body, encoding="utf-8")
+
+            write(
+                "uses-first.yml",
+                "jobs:\n  job:\n    steps:\n"
+                f"      - uses: lx-software-ltd/actions/cdk-deploy@{pin}\n"
+                "        with:\n"
+                "          plan-file: two.json\n"
+                f"      - uses: lx-software-ltd/actions/cdk-diff@{pin}\n"
+                "        with:\n"
+                "          plan-file: two.json\n",
+            )
+            advised = checker.advisory_findings(root)
+            self.assertFalse(any("same plan file" in item for item in advised), advised)
+            write(
+                "name-first.yml",
+                "jobs:\n  job:\n    steps:\n"
+                "      - name: Deploy\n"
+                f"        uses: lx-software-ltd/actions/cdk-deploy@{pin}\n"
+                "        with:\n"
+                "          plan-file: two.json\n"
+                "      - name: Diff\n"
+                f"        uses: lx-software-ltd/actions/cdk-diff@{pin}\n"
+                "        with:\n"
+                "          plan-file: other.json\n",
+            )
+            named = checker.advisory_findings(root)
+            mismatch = [item for item in named if "same plan file" in item]
+            self.assertEqual(len(mismatch), 1, named)
+            self.assertIn("file:two.json", mismatch[0])
+            self.assertIn("file:other.json", mismatch[0])
+            write(
+                "name-first.yml",
+                "jobs:\n  job:\n    steps:\n"
+                "      - name: Deploy\n"
+                f"        uses: lx-software-ltd/actions/cdk-deploy@{pin}\n"
+                "        with:\n"
+                "          plan-file: two.json\n"
+                "      - name: Diff\n"
+                f"        uses: lx-software-ltd/actions/cdk-diff@{pin}\n"
+                "        with:\n"
+                "          plan-file: two.json\n",
+            )
+            matched = checker.advisory_findings(root)
+            self.assertFalse(any("same plan file" in item for item in matched), matched)
+
 
 REQUIRE = "1a3cca7c38163f8164c262323601c34a4df5b7a4"
 

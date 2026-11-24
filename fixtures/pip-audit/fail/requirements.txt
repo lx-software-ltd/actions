@@ -1,1 +1,3 @@
-pyyaml==5.4
+# PYSEC-2018-28. The pin ships a wheel, so the audit fails on the advisory
+# rather than on a source build.
+requests==2.19.1

@@ -802,11 +802,15 @@ jobs:
         uses: ./pip-audit
         with:
           requirements: fixtures/pip-audit/fail/requirements.txt
+          report-path: ${{ runner.temp }}/pip-audit-fail.txt
 
-      - name: Expect the action to fail
+      - name: Expect PYSEC-2018-28
         env:
           OUTCOME: ${{ steps.scan.outcome }}
-        run: test "$OUTCOME" = "failure"
+          REPORT: ${{ runner.temp }}/pip-audit-fail.txt
+        run: |
+          test "$OUTCOME" = "failure"
+          grep -F 'PYSEC-2018-28' "$REPORT"
 
   bandit-pass:
     name: Bandit pass fixture
