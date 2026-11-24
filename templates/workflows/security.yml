@@ -76,7 +76,7 @@ jobs:
           language: ${{ matrix.language }}
           queries: security-extended
           # template:set
-          config-file: .github/codeql/codeql-config.yml
+          example-field: example-value
           # template:end
           category: "/language:${{ matrix.language }}"
 
@@ -127,8 +127,7 @@ jobs:
         uses: lx-software-ltd/actions/pip-audit@ACTIONS_PIN # main DATE
         with:
           # template:set
-          requirements: backend/requirements.txt
-          ignore-vulns: PYSEC-2025-183
+          example-field: example-value
           # template:end
 
   bandit:
@@ -147,8 +146,7 @@ jobs:
         uses: lx-software-ltd/actions/bandit@ACTIONS_PIN # main DATE
         with:
           # template:set
-          paths: src lambda
-          root: backend
+          example-field: example-value
           # template:end
 
   npm-audit:
@@ -167,11 +165,7 @@ jobs:
         uses: lx-software-ltd/actions/npm-audit@ACTIONS_PIN # main DATE
         with:
           # template:set
-          directories: |
-            apps/admin_web
-            apps/public_www
-            apps/training
-            backend/infrastructure
+          example-field: example-value
           # template:end
 
   security-summary:

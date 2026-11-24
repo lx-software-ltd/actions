@@ -61,15 +61,35 @@ def _unbound_optional(text: str, capabilities: dict[str, str]) -> int:
 
 
 def _product_name_count(text: str) -> int:
-    try:
-        lines = checker._unmarked_lines(text)
-    except checker._TemplateSyntax:
-        return 0
+    lines = checker._unmarked_lines(text)
     count = 0
     for line in lines:
         count += len(
             checker._PRODUCT_NAME.findall(line.replace("lx-software-ltd", "ORG"))
         )
+    return count
+
+
+def _identical_blocks(texts: dict[str, str]) -> int:
+    """Count non-empty blocks that match at the same anchor in every checkout."""
+    anchored = {
+        repo: checker._anchored_value_bodies(text) for repo, text in texts.items()
+    }
+    keys: set[tuple[tuple[str, ...], int]] = set()
+    for items in anchored.values():
+        for stack, local, _body in items:
+            keys.add((stack, local))
+    count = 0
+    for key in keys:
+        present: list[str] = []
+        for items in anchored.values():
+            matches = [body for stack, local, body in items if (stack, local) == key]
+            if matches:
+                present.append(matches[0])
+        if len(present) != len(anchored) or not present[0]:
+            continue
+        if len(set(present)) == 1:
+            count += 1
     return count
 
 
@@ -81,6 +101,8 @@ def measure(checkouts: list[Path]) -> dict[str, int]:
     unbound = 0
     commands = 0
     names = 0
+    for path in sorted((ROOT / "templates" / "workflows").glob("*.yml")):
+        names += _product_name_count(path.read_text(encoding="utf-8"))
     for checkout in checkouts:
         templates = {
             path.name for path in (ROOT / "templates" / "workflows").glob("*.yml")
@@ -91,21 +113,11 @@ def measure(checkouts: list[Path]) -> dict[str, int]:
             by_file[filename][checkout.name] = text
             unbound += _unbound_optional(text, capabilities)
             commands += _command_blocks(text)
-            names += _product_name_count(text)
     identical = 0
     for texts in by_file.values():
         if len(texts) < 2:
             continue
-        bodies = {repo: _set_bodies(text) for repo, text in texts.items()}
-        width = max(len(items) for items in bodies.values())
-        for index in range(width):
-            present = [
-                items[index] for items in bodies.values() if index < len(items)
-            ]
-            if len(present) != len(bodies):
-                continue
-            if len(set(present)) == 1:
-                identical += 1
+        identical += _identical_blocks(texts)
     return {
         "optional blocks not bound to a capability": unbound,
         "value blocks containing run, id, or comment lines": commands,
@@ -116,13 +128,25 @@ def measure(checkouts: list[Path]) -> dict[str, int]:
 
 def main(argv: list[str] | None = None) -> int:
     arguments = list(sys.argv[1:] if argv is None else argv)
+    if any(argument in ("-h", "--help") for argument in arguments):
+        print(
+            "usage: check_template_drift.py CHECKOUT [CHECKOUT...]",
+            file=sys.stderr,
+        )
+        return 0
     if not arguments:
         print(
             "check_template_drift: pass the product checkouts",
             file=sys.stderr,
         )
         return 1
-    counts = measure([Path(argument).resolve() for argument in arguments])
+    paths = [Path(argument).resolve() for argument in arguments]
+    missing = [path for path in paths if not path.is_dir()]
+    if missing:
+        for path in missing:
+            print(f"check_template_drift: not a directory: {path}", file=sys.stderr)
+        return 1
+    counts = measure(paths)
     for label, count in counts.items():
         print(f"{label}: {count}")
     if any(count != 0 for count in counts.values()):

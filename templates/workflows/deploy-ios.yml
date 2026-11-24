@@ -45,7 +45,7 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 # template:set
-        working-directory: apps/evolvesprouts_app
+          example-field: example-value
 # template:end
 
       - name: Setup SSH for certificates repo
@@ -56,7 +56,7 @@ jobs:
 
       - name: Sync signing assets (match)
 # template:set
-        working-directory: apps/evolvesprouts_app/ios
+          example-field: example-value
 # template:end
         run: |
           if [ -z "$MATCH_GIT_URL" ] || [ -z "$MATCH_PASSWORD" ] || [ -z "$FASTLANE_USER" ] || [ -z "$FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD" ]; then
@@ -77,7 +77,7 @@ jobs:
         uses: lx-software-ltd/actions/ios-export-options@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
         with:
 # template:set
-          working-directory: apps/evolvesprouts_app
+          example-field: example-value
 # template:end
           team-id: ${{ vars.APPLE_TEAM_ID }}
           bundle-id: ${{ vars.IOS_BUNDLE_ID }}
@@ -128,7 +128,7 @@ jobs:
         uses: apple-actions/upload-testflight-build@665328adbecbc3ad929d3da710696d928b8a7ba9 # v5.9.0
         with:
 # template:set
-          app-path: apps/evolvesprouts_app/build/ios/ipa/*.ipa
+          example-field: example-value
 # template:end
           issuer-id: ${{ env.APPSTORE_ISSUER_ID }}
           api-key-id: ${{ env.APPSTORE_API_KEY_ID }}

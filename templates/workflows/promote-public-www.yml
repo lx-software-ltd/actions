@@ -19,9 +19,7 @@ on:
         type: choice
         options:
 # template:set
-          - latest_staging
-          - release_id
-          - maintenance_on
+          example-field: example-value
 # template:end
       release_id:
         description: 'Required when promotion_mode=release_id'
@@ -44,7 +42,7 @@ jobs:
     runs-on: ubuntu-26.04
     environment: production
     outputs:
-      deploy: ${{ steps.resolve_release.outputs.deploy }}
+      deploy: ${{ steps.catalogue_changes.outputs.deploy || steps.resolve_release.outputs.deploy }}
       maintenance_mode: ${{ steps.resolve_release.outputs.maintenance_mode }}
       skip: ${{ steps.resolve_release.outputs.skip }}
       build_sha: ${{ steps.resolve_release.outputs.build_sha }}
@@ -80,11 +78,13 @@ jobs:
 
       - name: Read staging bucket
         id: staging
-        if: ${{ github.event.inputs.promotion_mode == '' || github.event.inputs.promotion_mode == 'latest_staging' }}
+        # template:set
+        if: ${{ github.event.inputs.promotion_mode == 'example' }}
+        # template:end
         uses: lx-software-ltd/actions/cfn-stack-outputs@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
         with:
 # template:set
-          stack: evolvesprouts-public-www
+          stack: stack-name
 # template:end
           outputs: PublicWwwStagingBucketName
           region: ${{ vars.AWS_REGION }}
@@ -175,8 +175,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # template:set
-          ref: ${{ needs.prepare.outputs.build_sha || github.sha }}
-          lfs: true
+          example-field: example-value
           # template:end
 
       # template:optional catalogue
@@ -199,6 +198,10 @@ jobs:
       - name: Run pre-build checks
         if: ${{ success() && needs.prepare.outputs.deploy == 'true' }}
         run: bash scripts/deploy/public-www-checks.sh pre-build
+        # template:set
+        env:
+          EXAMPLE_ENV: ${{ vars.EXAMPLE_ENV }}
+        # template:end
 
       - name: Build public website for production
         if: ${{ success() && needs.prepare.outputs.deploy == 'true' }}
@@ -213,6 +216,10 @@ jobs:
       - name: Run post-build checks
         if: ${{ success() && needs.prepare.outputs.deploy == 'true' }}
         run: bash scripts/deploy/public-www-checks.sh post-build
+        # template:set
+        env:
+          EXAMPLE_ENV: ${{ vars.EXAMPLE_ENV }}
+        # template:end
 
       # template:optional indexnow
       - name: Write IndexNow key file
@@ -235,7 +242,7 @@ jobs:
         run: bash scripts/deploy/deploy-public-www.sh
         # template:set
         env:
-          PUBLIC_WWW_STACK_NAME: public-www
+          PUBLIC_WWW_STACK_NAME: stack-name
           PUBLIC_WWW_ENVIRONMENT: production
           PUBLIC_WWW_MAINTENANCE_MODE: ${{ needs.prepare.outputs.maintenance_mode }}
           PUBLIC_WWW_PROMOTE_RELEASE_ID: ${{ needs.prepare.outputs.release_id }}
@@ -249,7 +256,7 @@ jobs:
         uses: lx-software-ltd/actions/cfn-stack-outputs@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
         with:
           # template:set
-          stack: public-www
+          stack: stack-name
           # template:end
           outputs: PublicWwwStagingBucketName
           region: ${{ vars.AWS_REGION }}
@@ -294,8 +301,5 @@ jobs:
       - name: Publish promotion summary
         run: bash scripts/deploy/publish-promotion-summary.sh
         # template:set
-        env:
-          PROMOTION_MODE: ${{ needs.prepare.outputs.promotion_mode }}
-          RELEASE_ID: ${{ needs.prepare.outputs.release_id }}
-          PRODUCTION_SITE_ORIGIN: ${{ needs.prepare.outputs.production_site_origin }}
+          example-field: example-value
         # template:end

@@ -66,10 +66,10 @@ jobs:
 
       - name: Set up Python
         uses: lx-software-ltd/actions/setup-python@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
-        # template:set
         with:
-          requirements: "backend/requirements.txt"
-        # template:end
+          # template:set
+          requirements: "example.txt"
+          # template:end
 
       - name: Set up Node.js
         uses: lx-software-ltd/actions/setup-node@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
@@ -223,7 +223,7 @@ jobs:
         run: |
           set -euo pipefail
           # template:set
-          for dir in apps/admin_web apps/public_www backend/infrastructure; do
+          example-field: example-value
           # template:end
             if [ ! -f "$dir/package.json" ]; then echo "Skipping missing $dir"; continue; fi
             echo "Type-checking $dir"
@@ -244,19 +244,9 @@ jobs:
   lint:
     name: lint
     runs-on: ubuntu-26.04
-    # template:set
     needs:
-      - validate-agent-harness
-      - repo-checks
-      - lint-python
-      - lint-admin-web
-      - lint-public-www
-      - lint-training
-      - lint-dart
-      - lint-cdk
-      - lint-openapi
-      - type-check
-      - workflow-conformance
+      # template:set
+          example-field: example-value
     # template:end
     if: always()
     steps:

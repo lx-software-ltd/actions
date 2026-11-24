@@ -39,6 +39,10 @@ jobs:
 
       - name: Build public website
         working-directory: apps/public_www
+        # template:set
+        env:
+          EXAMPLE_ENV: ${{ vars.EXAMPLE_ENV }}
+        # template:end
         run: npm run build
 
       # After the build. npm ci and the build must not see the deploy role.
@@ -54,12 +58,12 @@ jobs:
         with:
           source: apps/public_www/dist
 # template:set
-          stack: findingalpha-public-www
+          stack: stack-name
 # template:end
           region: ${{ vars.AWS_REGION }}
           bucket-output: PublicWebsiteBucketName
           distribution-output: PublicWebsiteDistributionId
 # template:set
-          profile: public-hashed
+          profile: example-profile
 # template:end
           dry-run: "false"

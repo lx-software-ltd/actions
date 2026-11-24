@@ -8,14 +8,11 @@ on:
   push:
     branches:
 # template:set
-      - main
+          example-field: example-value
 # template:end
     paths:
 # template:set
-      - "apps/public_www/**"
-      - "scripts/deploy/deploy-public-www.sh"
-      - "scripts/deploy/resolve-public-www-build-env.sh"
-      - ".github/workflows/deploy-public-www-staging.yml"
+          example-field: example-value
 # template:end
 
 permissions:
@@ -55,6 +52,9 @@ jobs:
         working-directory: apps/public_www
 
 # template:optional search-fixture
+      - name: Pull Git LFS objects
+        run: git lfs pull
+
       - name: Sync staging search fixture for static hosting
         run: bash scripts/codegen/sync-activity-search-staging-fixture.sh public-www
 # template:end
@@ -63,10 +63,7 @@ jobs:
         run: bash scripts/deploy/public-www-checks.sh pre-build
 # template:set
         env:
-          NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_WWW_API_BASE_URL || vars.NEXT_PUBLIC_API_BASE_URL }}
-          NEXT_PUBLIC_WWW_CRM_API_KEY: ${{ secrets.NEXT_PUBLIC_WWW_CRM_API_KEY }}
-          NEXT_PUBLIC_WWW_PROXY_ALLOWED_HOSTS: ${{ vars.NEXT_PUBLIC_WWW_PROXY_ALLOWED_HOSTS }}
-          NEXT_PUBLIC_SITE_ORIGIN: ${{ steps.resolve_public_site_config.outputs.production_site_origin }}
+          EXAMPLE_ENV: ${{ vars.EXAMPLE_ENV }}
 # template:end
 
       - name: Configure AWS credentials
@@ -124,6 +121,10 @@ jobs:
 
       - name: Run post-build checks
         run: bash scripts/deploy/public-www-checks.sh post-build
+        # template:set
+        env:
+          EXAMPLE_ENV: ${{ vars.EXAMPLE_ENV }}
+        # template:end
 
       - name: Optimize public website images
         run: bash scripts/deploy/deploy-public-www.sh
@@ -135,14 +136,14 @@ jobs:
         with:
           source: apps/public_www/out
 # template:set
-          stack: evolvesprouts-public-www
+          example-field: example-value
 # template:end
           region: ${{ vars.AWS_REGION }}
           bucket-output: PublicWwwStagingBucketName
           distribution-output: ""
           profile: next-site
           # template:set
-          document-cache: public, max-age=300, must-revalidate, stale-while-revalidate=60
+          example-field: example-value
           # template:end
           release-id: ${{ github.sha }}
           release-marker: "true"

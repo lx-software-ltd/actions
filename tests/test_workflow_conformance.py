@@ -742,12 +742,33 @@ class TemplateComparisonTest(unittest.TestCase):
         template = "name: shared\n# template:set\nvalue: one\n# template:end\n"
         product = (
             "name: shared\n# template:set\n"
-            "- name: Skip\ncontinue-on-error: true\nif: false\n"
+            "- name: Skip\ncontinue-on-error: true\ntype: choice\noptions:\nneeds:\n"
             "# template:end\n"
         )
         found = checker.compare_template("lint.yml", template, product)
-        self.assertTrue(any("cannot contain" in item for item in found), found)
-        self.assertGreaterEqual(len(found), 3)
+        for snippet in ("- name:", "continue-on-error:", "type:", "options:", "needs:"):
+            self.assertTrue(any(snippet in item for item in found), found)
+
+    def test_a_value_block_cannot_copy_the_template_sample(self) -> None:
+        template = "name: shared\n# template:set\nstack: stack-name\n# template:end\n"
+        copied = "name: shared\n# template:set\nstack: stack-name\n# template:end\n"
+        found = checker.compare_template("deploy-backend.yml", template, copied)
+        self.assertTrue(any("copies the template sample" in item for item in found), found)
+        own = "name: shared\n# template:set\nstack: evolvesprouts-public-www\n# template:end\n"
+        self.assertEqual(checker.compare_template("deploy-backend.yml", template, own), [])
+        empty = "name: shared\n# template:set\n# template:end\n"
+        blank = "name: shared\n# template:set\n\n# template:end\n"
+        self.assertEqual(checker.compare_template("deploy-backend.yml", empty, blank), [])
+
+    def test_a_joined_product_name_is_unmarked_text(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            templates = root / "templates" / "workflows"
+            templates.mkdir(parents=True)
+            body = "name: Check\njobs:\n  one:\n    steps:\n      - run: echo evolvesprouts-public-www\n"
+            (templates / "lint.yml").write_text(body, encoding="utf-8")
+            found = checker.template_findings(root, templates)
+            self.assertTrue(any("evolvesprouts-public-www" in item for item in found), found)
 
     def test_unclosed_marker_is_a_finding(self) -> None:
         found = checker.compare_template(

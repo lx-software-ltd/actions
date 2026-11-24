@@ -46,9 +46,9 @@ _SET = re.compile(r"^# template:set$")
 _END = re.compile(r"^# template:end$")
 _IF_PRESENT = re.compile(r"^# template:if-present(?:\s+(!)?([a-z0-9-]+))?$")
 _PRODUCT_NAME = re.compile(
-    r"(?<![A-Za-z0-9_-])"
+    r"(?<![A-Za-z0-9])"
     r"(?:evolvesprouts|findingalpha|lxsoftware|lx-software|siutindei)"
-    r"(?![A-Za-z0-9_-])"
+    r"(?![A-Za-z0-9])"
 )
 _VALUE_RUN = re.compile(r"^run:")
 _VALUE_ID = re.compile(r"^id:")
@@ -524,7 +524,7 @@ def _flatten_optional(
 
 
 _SET_STEP = re.compile(r"^-\s+(?:name|uses|run|id):")
-_SET_KEY = re.compile(r"^(?:continue-on-error|if):")
+_SET_KEY = re.compile(r"^(?:continue-on-error|type|options|needs):")
 
 
 def _set_block_violations(text: str) -> list[str]:
@@ -603,6 +603,72 @@ def _skeleton_diff(template: list[str], product: list[str]) -> str | None:
     return None
 
 
+def _aligned_value_bodies(template: str, product: str) -> list[tuple[str, str]]:
+    """Pair value-block interiors, skipping optionals the product omits."""
+    template_lines = template.replace("\r\n", "\n").splitlines()
+    product_lines = product.replace("\r\n", "\n").splitlines()
+    pairs: list[tuple[str, str]] = []
+    template_index = 0
+    product_index = 0
+    while template_index < len(template_lines) and product_index < len(product_lines):
+        if _optional_name(template_lines[template_index]):
+            if (
+                template_lines[template_index].strip()
+                == product_lines[product_index].strip()
+            ):
+                template_index += 1
+                product_index += 1
+                continue
+            _block, template_index = _consume_balanced(template_lines, template_index)
+            continue
+        if _is_set(template_lines[template_index]) and _is_set(
+            product_lines[product_index]
+        ):
+            template_block, template_index = _consume_balanced(
+                template_lines, template_index
+            )
+            product_block, product_index = _consume_balanced(
+                product_lines, product_index
+            )
+            pairs.append(
+                (
+                    "\n".join(template_block[1:-1]).strip(),
+                    "\n".join(product_block[1:-1]).strip(),
+                )
+            )
+            continue
+        template_index += 1
+        product_index += 1
+    return pairs
+
+
+def _anchored_value_bodies(text: str) -> list[tuple[tuple[str, ...], int, str]]:
+    """Value blocks keyed by the optional blocks around them, not by position."""
+    lines = text.replace("\r\n", "\n").splitlines()
+    found: list[tuple[tuple[str, ...], int, str]] = []
+
+    def walk(start: int, end: int, stack: tuple[str, ...]) -> None:
+        index = start
+        local = 0
+        while index < end:
+            if _optional_name(lines[index]):
+                block, index = _consume_balanced(lines, index)
+                name = _optional_name(block[0]) or ""
+                inner_end = index - 1
+                inner_start = inner_end - (len(block) - 2)
+                walk(inner_start, inner_end, stack + (name,))
+                continue
+            if _is_set(lines[index]):
+                block, index = _consume_balanced(lines, index)
+                found.append((stack, local, "\n".join(block[1:-1]).strip()))
+                local += 1
+                continue
+            index += 1
+
+    walk(0, len(lines), ())
+    return found
+
+
 def compare_template(filename: str, template: str, product: str) -> list[str]:
     """Findings when product differs from template outside marked lines."""
     try:
@@ -619,6 +685,12 @@ def compare_template(filename: str, template: str, product: str) -> list[str]:
     if diff:
         notes.append(f".github/workflows/{filename}: {diff}")
     notes.extend(_optional_body_diffs(filename, expected_blocks, actual_blocks))
+    for template_body, product_body in _aligned_value_bodies(template, product):
+        if template_body and template_body == product_body:
+            sample = template_body.splitlines()[0].strip()
+            notes.append(
+                f".github/workflows/{filename}: value block copies the template sample {sample!r}"
+            )
     return notes
 
 

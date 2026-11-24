@@ -10,7 +10,7 @@ on:
       - main
     paths:
 # template:set
-      - "apps/evolvesprouts_app/**"
+          example-field: example-value
 # template:end
       - "scripts/**"
 
@@ -66,7 +66,7 @@ jobs:
         uses: lx-software-ltd/actions/android-signing@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
         with:
 # template:set
-          working-directory: apps/evolvesprouts_app
+          example-field: example-value
 # template:end
           keystore-base64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           keystore-password: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -76,7 +76,7 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 # template:set
-        working-directory: apps/evolvesprouts_app
+          example-field: example-value
 # template:end
 
 # template:optional amplify
@@ -131,7 +131,7 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
           packageName: ${{ vars.ANDROID_PACKAGE_NAME }}
 # template:set
-          releaseFiles: apps/evolvesprouts_app/build/app/outputs/bundle/release/app-release.aab
+          example-field: example-value
 # template:end
           track: ${{ vars.ANDROID_RELEASE_TRACK }}
 

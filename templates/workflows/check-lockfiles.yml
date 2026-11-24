@@ -76,5 +76,5 @@ jobs:
         uses: lx-software-ltd/actions/python-requirements-pins@ACTIONS_PIN # main DATE
         with:
           # template:set
-          files: backend/requirements.txt
+          example-field: example-value
           # template:end

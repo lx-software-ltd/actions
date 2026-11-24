@@ -5,11 +5,11 @@ on:
     inputs:
       page_paths:
         # template:set
-        description: "Comma/newline-separated page paths or full URLs to audit (e.g. /en/, /en/about-us)"
+          example-field: example-value
         # template:end
         required: false
         # template:set
-        default: "/en/,/zh-CN/,/zh-HK/"
+          example-field: example-value
         # template:end
   pull_request:
     paths:
@@ -37,8 +37,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # template:set
-        with:
-          lfs: true
+          example-field: example-value
         # template:end
 
       # template:optional public-build-env
@@ -70,16 +69,7 @@ jobs:
         working-directory: apps/public_www
         # template:set
         env:
-          NEXT_TELEMETRY_DISABLED: "1"
-          NEXT_PUBLIC_SITE_ORIGIN: ${{ steps.resolve_public_site_config.outputs.production_site_origin }}
-          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
-          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
-          NEXT_PUBLIC_FPS_MERCHANT_NAME: ${{ vars.NEXT_PUBLIC_FPS_MERCHANT_NAME }}
-          NEXT_PUBLIC_FPS_MOBILE_NUMBER: ${{ vars.NEXT_PUBLIC_FPS_MOBILE_NUMBER }}
-          NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_WWW_API_BASE_URL || vars.NEXT_PUBLIC_API_BASE_URL }}
-          NEXT_PUBLIC_WWW_PROXY_ALLOWED_HOSTS: ${{ vars.NEXT_PUBLIC_WWW_PROXY_ALLOWED_HOSTS }}
-          NEXT_PUBLIC_EMAIL: ${{ vars.NEXT_PUBLIC_EMAIL }}
-          NEXT_PUBLIC_FOUNDER_NAME: ${{ vars.NEXT_PUBLIC_FOUNDER_NAME }}
+          EXAMPLE_ENV: ${{ vars.EXAMPLE_ENV }}
         # template:end
         run: npm run build
 
@@ -89,7 +79,7 @@ jobs:
           working-directory: apps/public_www
           page-paths: ${{ inputs.page_paths }}
           # template:set
-          default-paths: /en/,/zh-CN/,/zh-HK/
+          example-field: example-value
           # template:end
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
