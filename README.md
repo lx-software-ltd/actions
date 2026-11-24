@@ -85,10 +85,10 @@ A green check means a workflow in that repository calls the action. Fixture jobs
 | `playwright-install` | Install Playwright browsers. | | ✅ | ✅ | | ✅ |
 | `aws-oidc` | Check the account id and region the caller passed, and mask the account id. | | ✅ | ✅ | ✅ | ✅ |
 | `cdk-bootstrap-check` | Read the CDK bootstrap version from SSM. It does not bootstrap. | | ✅ | ✅ | ✅ | ✅ |
-| `cdk-bootstrap` | Run `cdk bootstrap` for the account and region the caller passes. | | ✅ | ✅ | ✅ | |
+| `cdk-bootstrap` | Run `cdk bootstrap` for the account and region the caller passes. | | ✅ | ✅ | ✅ | ✅ |
 | `cdk-diff` | Run `cdk diff` and write the summary. | | ✅ | ✅ | ✅ | ✅ |
 | `cdk-deploy` | Deploy the stacks in a plan JSON from a parameters file. | | ✅ | ✅ | ✅ | ✅ |
-| `cfn-stack-outputs` | Read named CloudFormation outputs. | | ✅ | ✅ | ✅ | |
+| `cfn-stack-outputs` | Read named CloudFormation outputs. | | ✅ | ✅ | ✅ | ✅ |
 | `s3-cloudfront-deploy` | Sync a build to S3 and invalidate CloudFront. | | ✅ | ✅ | ✅ | ✅ |
 | `ios-export-options` | Write `ExportOptions.plist`. | | | | ✅ | ✅ |
 | `appstore-api-key` | Load the App Store Connect API key into the environment. | | | | ✅ | ✅ |

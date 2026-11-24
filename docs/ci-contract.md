@@ -20,7 +20,7 @@ Every product repository has these files and job ids. A repository adds its own 
 | `cdk-bootstrap.yml` | `bootstrap` | Manual only | |
 | `deploy-backend.yml` | `deploy` | `main` only, `environment: production` | |
 
-`findingalpha` has no `cdk-bootstrap.yml` yet. `cdk-diff.yml` runs on pull requests in `findingalpha`. The other three repositories still start that workflow by hand. Both gaps are in `docs/decisions.md`.
+All four repositories run `cdk bootstrap` from a manual `cdk-bootstrap.yml`. `cdk-diff.yml` runs on pull requests in `findingalpha`, `lx-software`, and `evolvesprouts`. A `siutindei` pull request warns and does not call AWS until `AWS_DIFF_ROLE_NAME` names a read-only role. That gap is in `docs/decisions.md`.
 
 `evolvesprouts` names the harness job `validate-agent-rules`. The contract name is `validate-agent-harness`.
 
@@ -97,7 +97,7 @@ The action checks the pin, runner, permission, image-digest, gate, path-filter, 
 
 `profile: product` also requires the `security.yml` job ids in the table above and a `semgrep/ci` job. `profile: producer` is this repository, which does not have those product job ids. `mode: enforce` exits 1 when there is a finding. `mode: warn` prints findings and exits 0. The default mode is `enforce`.
 
-Three product checks follow `alignment`. The default is `warn`: they print `::warning::` and do not fail `enforce`. A caller sets `alignment: enforce` when that repository complies. Other repositories stay on `warn` at the same pin.
+Three product checks follow `alignment`. The default is `warn`: they print `::warning::` and do not fail `enforce`. All four product repositories set `alignment: enforce`.
 
 - A workflow does not call `actions/setup-node` or `actions/setup-python`. A quoted `uses` counts.
 - When both `cdk-diff` and `cdk-deploy` are used, they name the same `plan-file` or the same inline `plan`. The value runs to the end of the line, or through the block body. A `${{ }}` path is the whole value. A step written as `name:`, then `uses:`, then `with:` is read the same way as one that starts at `uses:`.
