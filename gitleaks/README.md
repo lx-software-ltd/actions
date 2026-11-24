@@ -1,6 +1,6 @@
 # Gitleaks
 
-Downloads the pinned Gitleaks release, checks the sha256, and scans. The download is retried. This does not use the licensed Gitleaks GitHub Action.
+Downloads the pinned Gitleaks release, checks the sha256, and scans. The download is retried. This does not use the licensed Gitleaks GitHub Action. Callers do not set `GITLEAKS_LICENSE`. No repository in `lx-software-ltd` keeps that secret.
 
 The calling job needs `contents: read` and a checkout. Full history is the caller's choice (`fetch-depth: 0`).
 
