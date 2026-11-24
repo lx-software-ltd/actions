@@ -2,11 +2,29 @@
 
 Shared composite actions and pre-commit hooks for the `lx-software-ltd` product repositories.
 
-An action cannot read `secrets` or `vars`. Callers pass those as inputs. Payload is `"$GITHUB_ACTION_PATH/..."`. Shared payload is `"$GITHUB_ACTION_PATH/../lib/..."`. An action does not call another action in this repository.
+The four product repositories (`evolvesprouts`, `findingalpha`, `lx-software`, and `siutindei`) follow one CI contract: the same gates, scanners, and deploy steps, and the same rules for pins and permissions. This repository is where that contract is written and where it is implemented once. A check or a deploy step is fixed here, tested here against fixtures, and then pinned by commit in each product.
 
-Decisions that still bind are `docs/decisions.md`. The CI contract is `docs/ci-contract.md`. The zone map is `docs/architecture/zones.md`.
+It is not a product and it deploys nothing. No workflow here calls AWS.
 
-## Pin a commit
+This repository is public. Nothing private goes in it: no secret, account id, internal hostname, or personal data.
+
+## What is here
+
+| Path | What it is |
+| --- | --- |
+| `<name>/` | One composite action: `action.yml`, its payload, and a `README.md`. The [catalogue](#catalogue) lists them. |
+| `lib/` | Payload that more than one action shares. |
+| `hooks/` and `.pre-commit-hooks.yaml` | The pre-commit hooks the product repositories run. |
+| `fixtures/` | Passing and failing input for the action tests. |
+| `scripts/` | The layout check, the personal-data check, and the pin bump. |
+| `tests/` | Unit tests for the payload and the scripts. |
+| `docs/` | The CI contract, the decisions that still bind, and the zone map. |
+
+## Use an action
+
+An action cannot read `secrets` or `vars`. Callers pass those as inputs.
+
+### Pin a commit
 
 ```yaml
 uses: lx-software-ltd/actions/require-jobs@<40-hex> # main <yyyy-mm-dd>
@@ -16,7 +34,7 @@ Pin a commit that is on `main`. `main-protection` blocks a force-push, so that c
 
 `release-tags` blocks update and deletion of `v*` tags. `release-tags-create` blocks creation. Callers pin the commit SHA.
 
-## Move a pin
+### Move a pin
 
 From a product checkout:
 
@@ -26,7 +44,7 @@ python3 /path/to/actions/scripts/bump_pins.py . <40-hex> --date <yyyy-mm-dd>
 
 The script rewrites every `lx-software-ltd/actions` pin, the `# main YYYY-MM-DD` comment, and the pre-commit `rev`. Review the diff and open one pull request. The SHA has to be on `main` before that pull request merges.
 
-## Sync labels
+### Sync labels
 
 `sync-labels/labels.json` is the shared catalogue: the GitHub defaults, plus `dependencies`, `ci`, `infrastructure`, and `mobile`. `mobile` is colour `0e8a16` and description "Flutter app". The action creates a missing label and updates colour, description, and letter case. A label that is not in the catalogue stays on the repository.
 
@@ -37,23 +55,6 @@ SYNC_LABELS_MODE=apply SYNC_LABELS_REPOSITORIES=siblings python3 sync-labels/syn
 ```
 
 `siblings` is this repository plus `evolvesprouts`, `findingalpha`, `lx-software`, and `siutindei`. `check` prints the drift and exits 1.
-
-## Add an action
-
-1. Add `<name>/action.yml` (`runs.using: composite`) and `<name>/README.md`.
-2. Add a passing fixture and a failing fixture under `fixtures/<name>/`.
-3. Add a passing job and a failing job to `.github/workflows/test.yml`, and list both in the `test` gate `needs`. Conformance fails when a job is missing from that list.
-4. Run the three checks below.
-
-## Checks
-
-```sh
-python3 -m unittest discover -s tests -v
-python3 scripts/check_action_layout.py
-python3 scripts/check_pii.py
-```
-
-Python payload uses the standard library and runs on Python 3.12.
 
 ## Catalogue
 
@@ -95,3 +96,43 @@ A green check means a workflow in that repository calls the action. Fixture jobs
 | `android-signing` | Install the upload keystore. | | | | ✅ | ✅ |
 | `play-prerequisites` | Skip the Play upload when a signing or track secret is missing. | | | | ✅ | ✅ |
 | `lighthouse-ci` | Run Lighthouse against the caller's page list. The bypass header is not left in the workspace. | | | ✅ | ✅ | ✅ |
+
+## Working here
+
+Read [`AGENTS.md`](AGENTS.md) before changing anything. The zone map, [`docs/architecture/zones.md`](docs/architecture/zones.md), says which paths need a plan or an approval first.
+
+Payload is `"$GITHUB_ACTION_PATH/..."`. Shared payload is `"$GITHUB_ACTION_PATH/../lib/..."`. An action does not call another action in this repository.
+
+### Add an action
+
+1. Add `<name>/action.yml` (`runs.using: composite`) and `<name>/README.md`.
+2. Add a passing fixture and a failing fixture under `fixtures/<name>/`.
+3. Add a passing job and a failing job to `.github/workflows/test.yml`, and list both in the `test` gate `needs`. Conformance fails when a job is missing from that list.
+4. Run the three checks below.
+
+### Checks
+
+```sh
+python3 -m unittest discover -s tests -v
+python3 scripts/check_action_layout.py
+python3 scripts/check_pii.py
+```
+
+Python payload uses the standard library and runs on Python 3.12.
+
+## Documentation
+
+- [`docs/ci-contract.md`](docs/ci-contract.md): the CI contract that `workflow-conformance` checks.
+- [`docs/decisions.md`](docs/decisions.md): the decisions that still bind.
+- [`docs/architecture/zones.md`](docs/architecture/zones.md): the zone map.
+- [`docs/architecture/cdk-deploy.md`](docs/architecture/cdk-deploy.md): the design of `cdk-deploy` and the plan JSON.
+- [`docs/architecture/public-site-release.md`](docs/architecture/public-site-release.md): the design of the public-site release in `evolvesprouts` and `siutindei`.
+- Each action directory has its own `README.md` with its inputs and an example.
+
+## Security
+
+To report a vulnerability, follow [`SECURITY.md`](SECURITY.md). Do not open a public issue.
+
+## Licence
+
+Licensed under the Apache License, Version 2.0. The full text is in [`LICENSE`](LICENSE).
