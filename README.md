@@ -73,7 +73,7 @@ A green check means a workflow in that repository calls the action. Fixture jobs
 | `semgrep` | `semgrep scan`, then a SARIF upload. | | ✅ | ✅ | ✅ | ✅ |
 | `bandit` | Bandit on the caller's paths. | | ✅ | ✅ | ✅ | ✅ |
 | `pip-audit` | `pip-audit` on requirements files. | | ✅ | ✅ | ✅ | ✅ |
-| `dependency-graph` | Submit pinned requirements and npm lockfiles. Check workflow uses without submitting them. | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `dependency-submission` | Submit pinned requirements and npm lockfiles. Check workflow uses without submitting them. | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `npm-audit` | `npm audit` at the caller's level. | | ✅ | ✅ | ✅ | ✅ |
 | `setup-node` | Node 26, and `npm ci` when a working directory is set. | | ✅ | ✅ | ✅ | ✅ |
 | `setup-python` | Python 3.12, and a pip cache when a requirements file is set. | | ✅ | ✅ | ✅ | ✅ |

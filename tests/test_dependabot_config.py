@@ -12,7 +12,7 @@ FAIL_DIRECTORIES = {
     "pip": {
         "/fixtures/pip-audit/fail",
         "/fixtures/python-requirements/fail",
-        "/fixtures/dependency-graph/fail",
+        "/fixtures/dependency-submission/fail",
     },
     "npm": {
         "/fixtures/npm-audit/fail",

@@ -36,7 +36,7 @@ updates:
     directories:
       - "/fixtures/pip-audit/fail"
       - "/fixtures/python-requirements/fail"
-      - "/fixtures/dependency-graph/fail"
+      - "/fixtures/dependency-submission/fail"
     schedule:
       interval: weekly
       day: monday

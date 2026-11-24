@@ -1,4 +1,4 @@
-# dependency-graph
+# dependency-submission
 
 Build a dependency snapshot from pinned Python requirements and `package-lock.json`, then post it to the dependency submission API.
 

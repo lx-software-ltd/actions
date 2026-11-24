@@ -715,28 +715,28 @@ jobs:
           OUTCOME: ${{ steps.scan.outcome }}
         run: test "$OUTCOME" = "failure"
 
-  dependency-graph-pass:
-    name: dependency-graph pass fixture
+  dependency-submission-pass:
+    name: dependency-submission pass fixture
     runs-on: ubuntu-26.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build a snapshot from pinned manifests
-        uses: ./dependency-graph
+        uses: ./dependency-submission
         with:
           manifests: |
-            fixtures/dependency-graph/pass/requirements.txt
-            fixtures/dependency-graph/pass/package-lock.json
-            fixtures/dependency-graph/pass/workflow.yml
-            fixtures/dependency-graph/pass/action.yml
-          snapshot-path: dependency-graph-snapshot.json
+            fixtures/dependency-submission/pass/requirements.txt
+            fixtures/dependency-submission/pass/package-lock.json
+            fixtures/dependency-submission/pass/workflow.yml
+            fixtures/dependency-submission/pass/action.yml
+          snapshot-path: dependency-submission-snapshot.json
 
       - name: The snapshot lists each ecosystem
         run: |
           python3 - << 'PY'
           import json
-          payload = json.load(open("dependency-graph-snapshot.json", encoding="utf-8"))
+          payload = json.load(open("dependency-submission-snapshot.json", encoding="utf-8"))
           purls = [
               item["package_url"]
               for manifest in payload["manifests"].values()
@@ -758,8 +758,8 @@ jobs:
               raise SystemExit(missing or absolute or workflow_only)
           PY
 
-  dependency-graph-fail:
-    name: dependency-graph fail fixture
+  dependency-submission-fail:
+    name: dependency-submission fail fixture
     runs-on: ubuntu-26.04
     steps:
       - name: Checkout repository
@@ -768,9 +768,9 @@ jobs:
       - name: Refuse an unpinned requirement
         id: scan
         continue-on-error: true
-        uses: ./dependency-graph
+        uses: ./dependency-submission
         with:
-          manifests: fixtures/dependency-graph/fail/requirements.txt
+          manifests: fixtures/dependency-submission/fail/requirements.txt
 
       - name: Expect the action to fail
         env:
@@ -1710,8 +1710,8 @@ jobs:
       - flutter-lockfiles-pass
       - flutter-lockfiles-fail
       - flutter-version-fail
-      - dependency-graph-pass
-      - dependency-graph-fail
+      - dependency-submission-pass
+      - dependency-submission-fail
       - pip-audit-pass
       - pip-audit-fail
       - bandit-pass

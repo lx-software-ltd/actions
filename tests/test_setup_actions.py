@@ -177,8 +177,8 @@ class FixtureWorkflowTest(unittest.TestCase):
             "setup-flutter-fail:",
             "lighthouse-pass:",
             "lighthouse-fail:",
-            "dependency-graph-pass:",
-            "dependency-graph-fail:",
+            "dependency-submission-pass:",
+            "dependency-submission-fail:",
         ):
             self.assertIn(job, text)
         self.assertEqual(text.count("continue-on-error: true"), 34)
