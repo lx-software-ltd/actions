@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -486,6 +487,34 @@ class SyncProfileTest(unittest.TestCase):
         ]
         self.assertIn(s3_sync.NO_STORE, marker[0])
         self.assertIn("text/plain; charset=utf-8", marker[0])
+
+    def test_promote_allows_an_empty_source(self) -> None:
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            if command[1:3] == ["s3api", "list-objects-v2"]:
+                return _ok("1\n")
+            return _ok()
+
+        env = {
+            "SOURCE": "",
+            "BUCKET": "site-bucket",
+            "DISTRIBUTION_ID": "",
+            "STACK": "",
+            "PROFILE": "next-site",
+            "PROMOTE_FROM": "s3://staging-bucket/releases/2026.11.24",
+            "DRY_RUN": "false",
+            "INDEXNOW": "false",
+            "RELEASE_ID": "",
+            "RELEASE_MARKER": "false",
+            "STAGING_ROBOTS": "false",
+        }
+        with mock.patch.dict(os.environ, env, clear=False):
+            self.assertEqual(s3_sync.main(run_aws), 0)
+        env["PROMOTE_FROM"] = ""
+        with mock.patch.dict(os.environ, env, clear=False):
+            with mock.patch("sys.stderr", new_callable=io.StringIO) as printed:
+                status = s3_sync.main(run_aws)
+            self.assertEqual(status, 1)
+            self.assertIn("source is required", printed.getvalue())
 
     def test_a_release_id_with_maintenance_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

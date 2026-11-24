@@ -16,7 +16,7 @@ Checks the caller's workflows.
 
 `mode` is `enforce` or `warn`. Enforce exits 1 when there is a finding. Warn prints the findings and exits 0. The default is `enforce`.
 
-Three product checks print `::warning::` and do not fail `enforce` yet: no direct `actions/setup-node` or `actions/setup-python`, `cdk-diff` and `cdk-deploy` name the same `plan-file` when both are used, and no `describe-stacks` except `.github/workflows/import-legacy-crm.yml`. The pin bump after the workflows comply turns those warnings into failures.
+`alignment` is `warn` or `enforce`. It applies to three product checks: no direct `actions/setup-node` or `actions/setup-python`, quoted or not; `cdk-diff` and `cdk-deploy` name the same `plan-file` or the same inline `plan` when both are used; and no `describe-stacks` except `.github/workflows/import-legacy-crm.yml`. `warn` prints `::warning::` and does not fail. `enforce` makes those findings fail for this caller when `mode` is `enforce`. The default is `warn`, so each repository opts in on its own.
 
 ## Inputs
 
@@ -24,6 +24,7 @@ Three product checks print `::warning::` and do not fail `enforce` yet: no direc
 | --- | --- | --- | --- |
 | `mode` | no | `enforce` | `enforce` or `warn`. |
 | `profile` | no | `product` | `product` or `producer`. |
+| `alignment` | no | `warn` | `warn` or `enforce` for the three product alignment checks. |
 | `root` | no | the workspace | Directory to check. |
 
 ## Permissions

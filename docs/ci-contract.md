@@ -94,8 +94,8 @@ The action checks the pin, runner, permission, image-digest, gate, path-filter, 
 
 `profile: product` also requires the `security.yml` job ids in the table above and a `semgrep/ci` job. `profile: producer` is this repository, which does not have those product job ids. `mode: enforce` exits 1 when there is a finding. `mode: warn` prints findings and exits 0. The default mode is `enforce`.
 
-Three product checks are advisory. They print `::warning::` and do not fail `enforce`. The pin bump that follows, once the product workflows comply, promotes them to failures:
+Three product checks follow `alignment`. The default is `warn`: they print `::warning::` and do not fail `enforce`. A caller sets `alignment: enforce` when that repository complies. Other repositories stay on `warn` at the same pin.
 
-- A workflow does not call `actions/setup-node` or `actions/setup-python`.
-- When both `cdk-diff` and `cdk-deploy` are used, every `plan-file` value is the same.
+- A workflow does not call `actions/setup-node` or `actions/setup-python`. A quoted `uses` counts.
+- When both `cdk-diff` and `cdk-deploy` are used, they name the same `plan-file` or the same inline `plan`. The value runs to the end of the line, or through the block body. A `${{ }}` path is the whole value.
 - A workflow does not call `describe-stacks`. `import-legacy-crm.yml` is the allow-list, because that import stays inline.

@@ -16,6 +16,13 @@ inputs:
     description: product requires the target security jobs and semgrep/ci. producer is this repository.
     required: false
     default: product
+  alignment:
+    description: >-
+      warn or enforce for the product alignment checks. warn prints
+      them and does not fail. enforce makes them findings for this
+      caller. Other repositories stay on warn until they opt in.
+    required: false
+    default: warn
 
 runs:
   using: composite
@@ -26,4 +33,5 @@ runs:
         CONFORMANCE_MODE: ${{ inputs.mode }}
         CONFORMANCE_PROFILE: ${{ inputs.profile }}
         CONFORMANCE_ROOT: ${{ inputs.root }}
+        CONFORMANCE_ALIGNMENT: ${{ inputs.alignment }}
       run: python3 "$GITHUB_ACTION_PATH/check_workflows.py"

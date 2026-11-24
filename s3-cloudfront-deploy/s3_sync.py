@@ -735,7 +735,12 @@ def resolve_destination(
 
 
 def main(run_aws: Runner = _run_aws) -> int:
-    source = Path(os.environ.get("SOURCE", ""))
+    source_text = os.environ.get("SOURCE", "").strip()
+    promote = os.environ.get("PROMOTE_FROM", "").strip()
+    if not source_text and not promote:
+        print("source is required unless promote-from is set", file=sys.stderr)
+        return 1
+    source = Path(source_text) if source_text else Path(".")
     bucket = os.environ.get("BUCKET", "")
     distribution = os.environ.get("DISTRIBUTION_ID", "")
     try:

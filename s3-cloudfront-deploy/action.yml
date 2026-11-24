@@ -5,8 +5,11 @@ description: >-
 
 inputs:
   source:
-    description: Build directory to upload.
-    required: true
+    description: >-
+      Build directory to upload. Empty when promote-from copies an
+      existing release prefix.
+    required: false
+    default: ""
   bucket:
     description: >-
       Destination bucket. Empty when stack is set: the action reads

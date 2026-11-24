@@ -21,7 +21,7 @@ An empty `distribution-id` skips the invalidation. A missing distribution output
 
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
-| `source` | yes | | Build directory. |
+| `source` | except promote | empty | Build directory. Empty when `promote-from` is set. |
 | `bucket` | no | empty | Destination bucket. Empty when `stack` is set. |
 | `stack` | no | empty | Stack whose outputs name the bucket and distribution. |
 | `region` | no | empty | Region for that stack read. |
@@ -43,7 +43,13 @@ An empty `distribution-id` skips the invalidation. A missing distribution output
 | `maintenance-assets` | no | empty | Directory synced before the no-store maintenance upload. |
 | `maintenance-asset-cache` | no | `public, max-age=3600, must-revalidate` | Cache-Control for that directory. |
 
-`release-id` and `promote-from` together fail. `release-id` with `maintenance` fails. A release id is letters, digits, dot, dash, or underscore, at most 128 characters. The caller still builds the maintenance page, optimises images, switches the `/www/*` function, and removes fixtures. The action invalidates `/*`. A caller that keeps the script's path list leaves `distribution-id` empty. siutindei passes `document-cache` `public, max-age=300, must-revalidate, stale-while-revalidate=60`, a no-store marker with `text/plain; charset=utf-8`, and `maintenance-assets: images`. Fixture deletion stays in that script.
+`release-id` and `promote-from` together fail. `release-id` with `maintenance` fails. A release id is letters, digits, dot, dash, or underscore, at most 128 characters. The caller still builds the maintenance page, optimises images, and switches the `/www/*` function.
+
+The action invalidates `/*` at the end of the sync. evolvesprouts switches the `/www/*` function and then invalidates. Leave `distribution-id` empty and invalidate after that switch. An invalidation inside the action runs before the switch, so the previous function can stay cached for a short time.
+
+evolvesprouts passes `sync-exclude: landing-pages-manifest.json` on the site sync and the release copy. The action does not exclude that file.
+
+siutindei passes `document-cache` `public, max-age=300, must-revalidate, stale-while-revalidate=60`, a no-store marker with `text/plain; charset=utf-8`, and `maintenance-assets: images`. Production also passes `sync-exclude: fixtures/*` and deletes `fixtures/` before the action runs. The script deletes fixtures between the asset sync and the document sync. One action call cannot do that in the middle.
 
 ## Example
 

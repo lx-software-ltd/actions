@@ -296,6 +296,88 @@ class WorkflowConformanceTest(unittest.TestCase):
             )
             self.assertEqual(completed.returncode, 0, completed.stderr)
             self.assertIn("::warning::", completed.stderr)
+            enforced = subprocess.run(
+                ["python3", str(_PATH)],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                env={
+                    "CONFORMANCE_MODE": "enforce",
+                    "CONFORMANCE_PROFILE": "product",
+                    "CONFORMANCE_ALIGNMENT": "enforce",
+                    "PATH": "/usr/bin:/bin",
+                },
+                check=False,
+            )
+            self.assertEqual(enforced.returncode, 1, enforced.stderr)
+            self.assertIn("same plan file", enforced.stderr)
+
+    def test_plan_values_keep_expressions_and_inline_json(self) -> None:
+        pin = "a" * 40
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workflows = root / ".github" / "workflows"
+            workflows.mkdir(parents=True)
+            (workflows / "deploy.yml").write_text(
+                "jobs:\n  deploy:\n    steps:\n"
+                f'      - uses: "actions/setup-node@{pin}"\n'
+                f"      - uses: lx-software-ltd/actions/cdk-deploy@{pin}\n"
+                "        with:\n"
+                "          plan-file: ${{ runner.temp }}/cdk-plan.json\n",
+                encoding="utf-8",
+            )
+            (workflows / "diff.yml").write_text(
+                "jobs:\n  diff:\n    steps:\n"
+                f"      - uses: lx-software-ltd/actions/cdk-diff@{pin}\n"
+                "        with:\n"
+                "          plan-file: ${{ runner.temp }}/other.json # kept\n",
+                encoding="utf-8",
+            )
+            advised = checker.advisory_findings(root)
+            self.assertTrue(any("setup-node" in item for item in advised), advised)
+            plan = [item for item in advised if "same plan file" in item]
+            self.assertEqual(len(plan), 1, advised)
+            self.assertIn("${{ runner.temp }}/cdk-plan.json", plan[0])
+            self.assertIn("${{ runner.temp }}/other.json", plan[0])
+            (workflows / "diff.yml").write_text(
+                "jobs:\n  diff:\n    steps:\n"
+                f"      - uses: lx-software-ltd/actions/cdk-diff@{pin}\n"
+                "        with:\n"
+                "          plan-file: ${{ runner.temp }}/cdk-plan.json\n",
+                encoding="utf-8",
+            )
+            matched = checker.advisory_findings(root)
+            self.assertFalse(any("same plan file" in item for item in matched), matched)
+            (workflows / "deploy.yml").write_text(
+                "jobs:\n  deploy:\n    steps:\n"
+                f"      - uses: lx-software-ltd/actions/cdk-deploy@{pin}\n"
+                "        with:\n"
+                "          plan: |\n"
+                '            {"id":"one"}\n',
+                encoding="utf-8",
+            )
+            (workflows / "diff.yml").write_text(
+                "jobs:\n  diff:\n    steps:\n"
+                f"      - uses: lx-software-ltd/actions/cdk-diff@{pin}\n"
+                "        with:\n"
+                "          plan: |\n"
+                '            {"id":"two"}\n',
+                encoding="utf-8",
+            )
+            blocked = checker.advisory_findings(root)
+            body = [item for item in blocked if "same plan file" in item]
+            self.assertEqual(len(body), 1, blocked)
+            self.assertIn('{"id":"one"}', body[0])
+            self.assertIn('{"id":"two"}', body[0])
+            (workflows / "diff.yml").write_text(
+                "jobs:\n  diff:\n    steps:\n"
+                f"      - uses: lx-software-ltd/actions/cdk-diff@{pin}\n"
+                "        with:\n"
+                '          plan: \'{"id":"one"}\'\n',
+                encoding="utf-8",
+            )
+            same = checker.advisory_findings(root)
+            self.assertFalse(any("same plan file" in item for item in same), same)
 
 
 REQUIRE = "1a3cca7c38163f8164c262323601c34a4df5b7a4"
