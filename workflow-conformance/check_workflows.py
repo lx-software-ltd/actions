@@ -7,7 +7,7 @@ Warn prints the findings and exits 0. The default is enforce.
 ``profile`` is ``producer`` or ``product``. The producer is this repository.
 Product repositories also need the target security jobs and ``semgrep/ci``.
 
-``alignment`` defaults to ``enforce``. ``templates`` defaults to ``warn`` and
+``alignment`` defaults to ``enforce``. ``templates`` defaults to ``enforce`` and
 compares product workflows with ``templates/workflows``. The producer skips both.
 """
 
@@ -760,7 +760,7 @@ def main() -> int:
     mode = os.environ.get("CONFORMANCE_MODE", "enforce")
     profile = os.environ.get("CONFORMANCE_PROFILE", "product")
     alignment = os.environ.get("CONFORMANCE_ALIGNMENT", "enforce").strip().lower()
-    templates_mode = os.environ.get("CONFORMANCE_TEMPLATES", "warn").strip().lower()
+    templates_mode = os.environ.get("CONFORMANCE_TEMPLATES", "enforce").strip().lower()
     if mode not in {"warn", "enforce"}:
         print("workflow-conformance: mode must be warn or enforce", file=sys.stderr)
         return 1
