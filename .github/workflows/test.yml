@@ -796,12 +796,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Write the vulnerable requirements pin
+        run: printf '%s\n' 'requests==2.19.1' > "$RUNNER_TEMP/pip-audit-fail-requirements.txt"
+
       - name: Audit a known vulnerable pin
         id: scan
         continue-on-error: true
         uses: ./pip-audit
         with:
-          requirements: fixtures/pip-audit/fail/requirements.txt
+          requirements: ${{ runner.temp }}/pip-audit-fail-requirements.txt
           report-path: ${{ runner.temp }}/pip-audit-fail.txt
 
       - name: Expect PYSEC-2018-28
@@ -874,12 +877,50 @@ jobs:
         with:
           install: "false"
 
+      - name: Write the vulnerable npm pin
+        run: |
+          root="$RUNNER_TEMP/npm-audit-fail"
+          mkdir -p "$root"
+          cat > "$root/package.json" << 'EOF'
+          {
+            "name": "audit-fail",
+            "private": true,
+            "version": "0.0.0",
+            "dependencies": {
+              "ip": "2.0.1"
+            }
+          }
+          EOF
+          cat > "$root/package-lock.json" << 'EOF'
+          {
+            "name": "audit-fail",
+            "version": "0.0.0",
+            "lockfileVersion": 3,
+            "requires": true,
+            "packages": {
+              "": {
+                "name": "audit-fail",
+                "version": "0.0.0",
+                "dependencies": {
+                  "ip": "2.0.1"
+                }
+              },
+              "node_modules/ip": {
+                "version": "2.0.1",
+                "resolved": "https://registry.npmjs.org/ip/-/ip-2.0.1.tgz",
+                "integrity": "sha512-lJUL9imLTNi1ZfXT+DU6rBBdbiKGBuay9B6xGSPVjUeQwaH1RIGqef8RZkUtHioLmSNpPR5M4HVKJGm1j8FWVQ==",
+                "license": "MIT"
+              }
+            }
+          }
+          EOF
+
       - name: Audit a lockfile with a high finding
         id: scan
         continue-on-error: true
         uses: ./npm-audit
         with:
-          directories: fixtures/npm-audit/fail
+          directories: ${{ runner.temp }}/npm-audit-fail
 
       - name: Expect the action to fail
         env:

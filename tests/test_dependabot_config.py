@@ -7,18 +7,25 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / ".github" / "dependabot.yml"
+WORKFLOW = ROOT / ".github" / "workflows" / "test.yml"
 
 FAIL_DIRECTORIES = {
     "pip": {
-        "/fixtures/pip-audit/fail",
         "/fixtures/python-requirements/fail",
         "/fixtures/dependency-submission/fail",
     },
     "npm": {
-        "/fixtures/npm-audit/fail",
         "/fixtures/node-lockfiles/fail",
     },
 }
+
+# These pins stay vulnerable for the fail jobs. They are written under
+# RUNNER_TEMP so the default branch has no manifest for them.
+UNTRACKED_PINS = (
+    "fixtures/pip-audit/fail/requirements.txt",
+    "fixtures/npm-audit/fail/package.json",
+    "fixtures/npm-audit/fail/package-lock.json",
+)
 
 
 def _update_blocks(text: str) -> list[str]:
@@ -47,3 +54,19 @@ class DependabotFailFixturesTest(unittest.TestCase):
             self.assertIn("exclude-patterns:", group)
             self.assertEqual(group.count('- "*"'), 2)
         self.assertEqual(seen, set(FAIL_DIRECTORIES))
+
+    def test_audit_fail_pins_are_not_manifests_on_main(self) -> None:
+        config = CONFIG.read_text(encoding="utf-8")
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertNotIn("/fixtures/pip-audit/fail", config)
+        self.assertNotIn("/fixtures/npm-audit/fail", config)
+        self.assertNotIn("fixtures/pip-audit/fail", workflow)
+        self.assertNotIn("fixtures/npm-audit/fail", workflow)
+        self.assertIn("requests==2.19.1", workflow)
+        self.assertIn('"$RUNNER_TEMP/pip-audit-fail-requirements.txt"', workflow)
+        self.assertIn("${{ runner.temp }}/pip-audit-fail-requirements.txt", workflow)
+        self.assertIn('"$RUNNER_TEMP/npm-audit-fail"', workflow)
+        self.assertIn("${{ runner.temp }}/npm-audit-fail", workflow)
+        self.assertIn('"ip": "2.0.1"', workflow)
+        for relative in UNTRACKED_PINS:
+            self.assertFalse((ROOT / relative).exists(), relative)
