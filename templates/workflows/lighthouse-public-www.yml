@@ -1,0 +1,184 @@
+name: Lighthouse Public Website
+# template:set
+# The logo site build needs no production variables, so one job covers a
+# path-filtered pull request, the Monday run, and a manual run. It is not
+# a required check. main-protection still requires lint, test, and
+# security-summary.
+# template:end
+
+on:
+  workflow_dispatch:
+    inputs:
+      page_paths:
+        # template:set
+        description: 'Comma/newline-separated page paths or full URLs to audit (e.g. /en/, /en/about-us)'
+        # template:end
+        required: false
+        # template:set
+        default: '/en/,/zh-CN/,/zh-HK/'
+        # template:end
+  pull_request:
+    paths:
+      - "apps/public_www/**"
+      - ".github/workflows/lighthouse-public-www.yml"
+  schedule:
+    - cron: "15 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lighthouse-public-www-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lighthouse:
+    permissions:
+      contents: read
+      statuses: write
+    name: Lighthouse audit
+
+    # template:optional production-environment
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name != 'pull_request') }}
+    # The VITE_* build variables live on the production environment, the same
+    # ones Deploy Public Website reads, so the audited bundle matches the live site.
+    # .lighthouserc.json blocks the GTM / GA4 hosts during the audit: the bundle
+    # still carries VITE_GTM_ID, but the runs no longer count as sessions on the
+    # production GA4 property (three runs per page per workflow used to show up
+    # as US "direct" traffic on /privacy, /terms and /wechat).
+    # production allows only main. A pull_request ref is refs/pull/N/merge, so
+    # this job does not run for a pull request. The pull-request job below
+    # audits without that environment.
+    environment: production
+
+    # template:end
+
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        # template:set
+        with:
+          lfs: true
+        # template:end
+
+      # template:optional public-origin
+      - name: Resolve public site build config from infrastructure params
+        # template:set
+        id: resolve_public_site_origin
+        env:
+          REQUIRE_ASSET: "false"
+        # template:end
+        run: bash scripts/deploy/resolve-public-www-build-env.sh
+
+      # template:end
+
+      - name: Set up Node.js
+        uses: lx-software-ltd/actions/setup-node@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          cache: npm
+          working-directory: apps/public_www
+
+      # template:optional next-cache
+      - name: Restore Next.js build cache (public_www)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: apps/public_www/.next/cache
+          # template:set
+          key: ${{ runner.os }}-nextjs-public-www-${{ hashFiles('apps/public_www/package-lock.json') }}-${{ hashFiles('apps/public_www/src/**/*.{js,jsx,ts,tsx}', 'apps/public_www/scripts/**/*.mjs', 'apps/public_www/next.config.*') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-public-www-${{ hashFiles('apps/public_www/package-lock.json') }}-
+          # template:end
+
+      # template:end
+
+      - name: Build public website
+        working-directory: apps/public_www
+        # template:set
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          NEXT_PUBLIC_SITE_ORIGIN: ${{ steps.resolve_public_site_origin.outputs.production_site_origin }}
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+          NEXT_PUBLIC_FPS_MERCHANT_NAME: ${{ vars.NEXT_PUBLIC_FPS_MERCHANT_NAME }}
+          NEXT_PUBLIC_FPS_MOBILE_NUMBER: ${{ vars.NEXT_PUBLIC_FPS_MOBILE_NUMBER }}
+          NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_WWW_API_BASE_URL || vars.NEXT_PUBLIC_API_BASE_URL }}
+          NEXT_PUBLIC_WWW_PROXY_ALLOWED_HOSTS: ${{ vars.NEXT_PUBLIC_WWW_PROXY_ALLOWED_HOSTS }}
+          NEXT_PUBLIC_EMAIL: ${{ vars.NEXT_PUBLIC_EMAIL }}
+          NEXT_PUBLIC_FOUNDER_NAME: ${{ vars.NEXT_PUBLIC_FOUNDER_NAME }}
+        # template:end
+        run: npm run build
+
+      - name: Run Lighthouse CI
+        uses: lx-software-ltd/actions/lighthouse-ci@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          working-directory: apps/public_www
+          page-paths: ${{ inputs.page_paths }}
+          # template:set
+          default-paths: /en/,/zh-CN/,/zh-HK/
+          # template:end
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Lighthouse artifacts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lighthouse-public-www-results
+          path: apps/public_www/.lighthouseci/**
+          if-no-files-found: warn
+          include-hidden-files: true
+# template:optional lighthouse-pull-request
+  lighthouse-pull-request:
+    permissions:
+      contents: read
+      statuses: write
+    name: Lighthouse audit
+    # Dependabot cannot read the production variables. The pull request
+    # author is what matters: a later push to that branch is not made by
+    # the Dependabot actor. This job does not select production: that
+    # environment allows only main, and the pull request ref is rejected
+    # before any step.
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: lx-software-ltd/actions/setup-node@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          cache: npm
+          working-directory: apps/public_www
+
+      - name: Build public website
+        working-directory: apps/public_www
+        env:
+          VITE_MEDIA_BASE_URL: ${{ vars.VITE_MEDIA_BASE_URL }}
+          VITE_CONTACT_TEL: ${{ vars.VITE_CONTACT_TEL }}
+          VITE_CONTACT_WHATSAPP: ${{ vars.VITE_CONTACT_WHATSAPP }}
+          VITE_CONTACT_EMAIL: ${{ vars.VITE_CONTACT_EMAIL }}
+          VITE_CONTACT_WECHAT_ID: ${{ vars.VITE_CONTACT_WECHAT_ID }}
+          VITE_CONTACT_LINKEDIN: ${{ vars.VITE_CONTACT_LINKEDIN }}
+          VITE_GTM_ID: ${{ vars.VITE_GTM_ID }}
+        run: npm run build
+
+      - name: Run Lighthouse CI
+        uses: lx-software-ltd/actions/lighthouse-ci@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          working-directory: apps/public_www
+          page-paths: ${{ inputs.page_paths }}
+          default-paths: /, /fractional-cto-hong-kong, /about, /privacy, /terms, /wechat
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Lighthouse artifacts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lighthouse-public-www-results
+          path: apps/public_www/.lighthouseci/**
+          if-no-files-found: warn
+          include-hidden-files: true
+
+# template:end

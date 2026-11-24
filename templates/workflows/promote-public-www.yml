@@ -1,0 +1,409 @@
+# template:if-present
+name: Promote Public Website Release
+
+on:
+# template:optional nightly-promote
+  # 04:00 Hong Kong time. Rebuilds the live release with the latest catalogue
+  # snapshot; skipped when no activity changed since the last production build.
+  schedule:
+    - cron: '0 20 * * *'
+# template:end
+  repository_dispatch:
+    types: [promote-public-www]
+  workflow_dispatch:
+    inputs:
+      promotion_mode:
+        description: 'Operation mode'
+        required: true
+        default: 'latest_staging'
+        type: choice
+        options:
+# template:set
+          - latest_staging
+          - release_id
+          - maintenance_on
+# template:end
+      release_id:
+        description: 'Required when promotion_mode=release_id'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-public-www
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-26.04
+    environment: production
+    outputs:
+# template:set
+      production_site_origin: ${{ steps.resolve_public_site_domains.outputs.production_site_origin }}
+      asset_share_base_url: ${{ steps.resolve_public_site_domains.outputs.asset_share_base_url }}
+      maintenance_mode: ${{ steps.resolve_release.outputs.maintenance_mode }}
+      release_id: ${{ steps.resolve_release.outputs.release_id }}
+      promotion_mode: ${{ steps.resolve_release.outputs.promotion_mode }}
+# template:end
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+# template:set
+# template:end
+
+      - name: Resolve public site build config from infrastructure params
+# template:set
+        id: resolve_public_site_domains
+# template:end
+# template:set
+        env:
+          PROMOTION_MODE: ${{ github.event.inputs.promotion_mode }}
+# template:end
+        run: bash scripts/deploy/resolve-public-www-build-env.sh
+
+      - name: Validate AWS configuration
+        run: |
+          if [ -z "$AWS_ACCOUNT_ID" ] || [ -z "$AWS_REGION" ]; then
+            echo 'Set AWS_ACCOUNT_ID as a repository secret and AWS_REGION as a variable'
+            exit 1
+          fi
+        env:
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+
+      - name: Configure AWS credentials
+# template:set
+        # After the build. npm ci and the build must not see the deploy role.
+# template:end
+        uses: lx-software-ltd/actions/aws-oidc@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+          region: ${{ vars.AWS_REGION }}
+
+      - name: Choose promotion mode
+        id: promotion_mode
+# template:set
+        env:
+          PROMOTION_MODE: ${{ inputs.promotion_mode }}
+        run: |
+          MODE="${PROMOTION_MODE:-latest_staging}"
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          if [ "$MODE" = "latest_staging" ]; then
+            echo "read_staging=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "read_staging=false" >> "$GITHUB_OUTPUT"
+          fi
+# template:end
+
+      - name: Read staging bucket
+        id: staging
+        if: ${{ steps.promotion_mode.outputs.read_staging == 'true' }}
+        uses: lx-software-ltd/actions/cfn-stack-outputs@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+# template:set
+          stack: evolvesprouts-public-www
+# template:end
+          outputs: PublicWwwStagingBucketName
+          region: ${{ vars.AWS_REGION }}
+
+      - name: Resolve release ID
+        id: resolve_release
+        env:
+          PROMOTION_MODE: ${{ steps.promotion_mode.outputs.mode }}
+          INPUT_RELEASE_ID: ${{ inputs.release_id }}
+          STACK_JSON: ${{ steps.staging.outputs.json }}
+        run: bash scripts/deploy/resolve-release-id.sh
+
+# template:optional catalogue-check
+      # A refresh rebuilds the code that is live, not the tip of the default branch.
+      # The snapshot scripts come from that commit.
+      - name: Check out the live production build
+        if: ${{ success() && steps.resolve_release.outputs.build_sha != '' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.resolve_release.outputs.build_sha }}
+          lfs: true
+
+      - name: Download catalogue snapshot
+        id: catalogue_snapshot
+        if: ${{ success() && steps.resolve_release.outputs.maintenance_mode != 'true' && steps.resolve_release.outputs.skip != 'true' }}
+        env:
+          SNAPSHOT_OUTPUT_PATH: ${{ runner.temp }}/catalogue-snapshot.json
+        run: bash scripts/deploy/fetch-public-www-catalogue-snapshot.sh
+
+      - name: Compare catalogue with the live build
+        id: catalogue_changes
+        if: ${{ success() && steps.resolve_release.outputs.maintenance_mode != 'true' && steps.resolve_release.outputs.skip != 'true' }}
+        env:
+          PROMOTION_MODE: ${{ steps.resolve_release.outputs.promotion_mode }}
+          STAGING_BUCKET: ${{ steps.resolve_release.outputs.staging_bucket }}
+          SNAPSHOT_PATH: ${{ steps.catalogue_snapshot.outputs.path }}
+        run: |
+          CURRENT="$RUNNER_TEMP/catalogue-digests.json"
+          PREVIOUS="$RUNNER_TEMP/previous-catalogue-digests.json"
+          python3 scripts/deploy/catalogue_snapshot_digests.py "$SNAPSHOT_PATH" "$CURRENT"
+          if ! aws s3 cp --only-show-errors "s3://$STAGING_BUCKET/releases/production-catalogue-digests.json" "$PREVIOUS"; then
+            rm -f "$PREVIOUS"
+          fi
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "previous=$PREVIOUS" >> "$GITHUB_OUTPUT"
+          if [ "$PROMOTION_MODE" = "refresh_production" ] && [ -f "$PREVIOUS" ] && cmp -s "$CURRENT" "$PREVIOUS"; then
+            echo '::notice::No activity changed since the live build. Skipping the refresh.'
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pack promotion inputs
+        if: ${{ success() && steps.catalogue_changes.outputs.deploy == 'true' }}
+        env:
+          SNAPSHOT_PATH: ${{ steps.catalogue_snapshot.outputs.path }}
+          CURRENT_DIGESTS: ${{ steps.catalogue_changes.outputs.current }}
+          PREVIOUS_DIGESTS: ${{ steps.catalogue_changes.outputs.previous }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/promote-inputs"
+          cp "$SNAPSHOT_PATH" "$RUNNER_TEMP/promote-inputs/catalogue-snapshot.json"
+          cp "$CURRENT_DIGESTS" "$RUNNER_TEMP/promote-inputs/catalogue-digests.json"
+          if [ -f "$PREVIOUS_DIGESTS" ]; then
+            cp "$PREVIOUS_DIGESTS" "$RUNNER_TEMP/promote-inputs/previous-catalogue-digests.json"
+          fi
+
+      - name: Upload promotion inputs
+        if: ${{ success() && steps.catalogue_changes.outputs.deploy == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: promote-public-www-inputs
+          path: ${{ runner.temp }}/promote-inputs
+          if-no-files-found: error
+          retention-days: 1
+# template:end
+
+  promote:
+    permissions:
+      contents: read
+      id-token: write
+    needs: prepare
+    if: ${{ github.ref == 'refs/heads/main' && (needs.prepare.result == 'success') }}
+    runs-on: ubuntu-26.04
+    environment: production
+    steps:
+# template:optional promote-direct
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        if: ${{ success() && github.event.inputs.promotion_mode != 'maintenance_on' }}
+        uses: lx-software-ltd/actions/setup-node@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          cache: npm
+          working-directory: apps/public_www
+
+      - name: Build public website for production
+        if: ${{ success() && github.event.inputs.promotion_mode != 'maintenance_on' }}
+        run: npm run build
+        working-directory: apps/public_www
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          NEXT_PUBLIC_SITE_ORIGIN: ${{ needs.prepare.outputs.production_site_origin }}
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+          NEXT_PUBLIC_FPS_MERCHANT_NAME: ${{ vars.NEXT_PUBLIC_FPS_MERCHANT_NAME }}
+          NEXT_PUBLIC_FPS_MOBILE_NUMBER: ${{ vars.NEXT_PUBLIC_FPS_MOBILE_NUMBER }}
+          NEXT_PUBLIC_BANK_NAME: ${{ vars.NEXT_PUBLIC_BANK_NAME }}
+          NEXT_PUBLIC_BANK_ACCOUNT_HOLDER: ${{ vars.NEXT_PUBLIC_BANK_ACCOUNT_HOLDER }}
+          NEXT_PUBLIC_BANK_ACCOUNT_NUMBER: ${{ vars.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER }}
+          NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_WWW_API_BASE_URL || vars.NEXT_PUBLIC_API_BASE_URL }}
+          NEXT_PUBLIC_WWW_PROXY_ALLOWED_HOSTS: ${{ vars.NEXT_PUBLIC_WWW_PROXY_ALLOWED_HOSTS }}
+          NEXT_PUBLIC_WWW_CRM_API_KEY: ${{ secrets.NEXT_PUBLIC_WWW_CRM_API_KEY }}
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_ASSET_SHARE_BASE_URL: ${{ needs.prepare.outputs.asset_share_base_url }}
+          NEXT_PUBLIC_GTM_ID: ${{ vars.NEXT_PUBLIC_GTM_ID }}
+          NEXT_PUBLIC_META_PIXEL_ID: ${{ vars.NEXT_PUBLIC_META_PIXEL_ID }}
+          NEXT_PUBLIC_EMAIL: ${{ vars.NEXT_PUBLIC_EMAIL }}
+          NEXT_PUBLIC_WHATSAPP_URL: ${{ vars.NEXT_PUBLIC_WHATSAPP_URL }}
+          NEXT_PUBLIC_INSTAGRAM_URL: ${{ vars.NEXT_PUBLIC_INSTAGRAM_URL }}
+          NEXT_PUBLIC_LINKEDIN_URL: ${{ vars.NEXT_PUBLIC_LINKEDIN_URL }}
+          NEXT_PUBLIC_BUSINESS_ADDRESS: ${{ vars.NEXT_PUBLIC_BUSINESS_ADDRESS }}
+          NEXT_PUBLIC_BUSINESS_PHONE_NUMBER: ${{ vars.NEXT_PUBLIC_BUSINESS_PHONE_NUMBER }}
+          NEXT_PUBLIC_FOUNDER_NAME: ${{ vars.NEXT_PUBLIC_FOUNDER_NAME }}
+
+      - name: Configure AWS credentials
+        uses: lx-software-ltd/actions/aws-oidc@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+          region: ${{ vars.AWS_REGION }}
+
+      - name: Promote release or enable maintenance mode
+        run: bash scripts/deploy/deploy-public-www.sh
+        env:
+          PUBLIC_WWW_STACK_NAME: evolvesprouts-public-www
+          PUBLIC_WWW_ENVIRONMENT: production
+          PUBLIC_WWW_MAINTENANCE_MODE: ${{ needs.prepare.outputs.maintenance_mode }}
+          PUBLIC_WWW_PROMOTE_RELEASE_ID: ${{ needs.prepare.outputs.release_id }}
+          PUBLIC_WWW_PROMOTION_BUILD_DIR: ${{ needs.prepare.outputs.maintenance_mode != 'true' && format('{0}/apps/public_www/out', github.workspace) || '' }}
+          NEXT_PUBLIC_EMAIL: ${{ vars.NEXT_PUBLIC_EMAIL }}
+          NEXT_PUBLIC_WHATSAPP_URL: ${{ vars.NEXT_PUBLIC_WHATSAPP_URL }}
+          NEXT_PUBLIC_INSTAGRAM_URL: ${{ vars.NEXT_PUBLIC_INSTAGRAM_URL }}
+
+      - name: Publish promotion summary
+        run: bash scripts/deploy/publish-promotion-summary.sh
+        env:
+          PROMOTION_MODE: ${{ needs.prepare.outputs.promotion_mode }}
+          RELEASE_ID: ${{ needs.prepare.outputs.release_id }}
+          PRODUCTION_SITE_ORIGIN: ${{ needs.prepare.outputs.production_site_origin }}
+# template:end
+# template:optional promote-refresh
+      - name: Checkout repository
+        if: ${{ needs.prepare.outputs.deploy == 'true' || needs.prepare.outputs.maintenance_mode == 'true' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.build_sha || github.sha }}
+          lfs: true
+
+      - name: Download promotion inputs
+        if: ${{ success() && needs.prepare.outputs.deploy == 'true' }}
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: promote-public-www-inputs
+          path: ${{ runner.temp }}/promote-inputs
+
+      - name: Set up Node.js
+        if: ${{ success() && needs.prepare.outputs.deploy == 'true' }}
+        uses: lx-software-ltd/actions/setup-node@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          cache: npm
+          working-directory: apps/public_www
+
+      - name: Validate search area scope
+        if: ${{ success() && needs.prepare.outputs.deploy == 'true' }}
+        env:
+          SEARCH_AREA_SCOPE: ${{ vars.SEARCH_AREA_SCOPE }}
+        run: python3 scripts/deploy/validate_search_area_scope.py
+
+      - name: Verify public website build env contract
+        if: ${{ success() && needs.prepare.outputs.deploy == 'true' }}
+        run: npm run assert:build-env-contract
+        working-directory: apps/public_www
+        env:
+          NEXT_PUBLIC_SITE_ORIGIN: ${{ needs.prepare.outputs.production_site_origin }}
+          NEXT_PUBLIC_SITE_NAME: ${{ vars.NEXT_PUBLIC_SITE_NAME || needs.prepare.outputs.site_name }}
+          NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED: 'false'
+          NEXT_PUBLIC_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_SEARCH_API_KEY }}
+          NEXT_PUBLIC_DEVICE_ATTESTATION_TOKEN: ${{ secrets.CDK_PARAM_PUBLIC_WWW_ATTESTATION_TOKEN }}
+          NEXT_PUBLIC_GTM_ID: ${{ vars.NEXT_PUBLIC_GTM_ID }}
+          NEXT_PUBLIC_GTM_ALLOWED_HOSTS: ${{ vars.NEXT_PUBLIC_GTM_ALLOWED_HOSTS }}
+          NEXT_PUBLIC_SEARCH_AREA_SCOPE: ${{ vars.SEARCH_AREA_SCOPE }}
+
+      - name: Build public website for production
+        if: ${{ success() && needs.prepare.outputs.deploy == 'true' }}
+        run: npm run build
+        working-directory: apps/public_www
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          NEXT_PUBLIC_SITE_ORIGIN: ${{ needs.prepare.outputs.production_site_origin }}
+          NEXT_PUBLIC_SITE_NAME: ${{ vars.NEXT_PUBLIC_SITE_NAME || needs.prepare.outputs.site_name }}
+          NEXT_PUBLIC_SITE_TAGLINE: ${{ vars.NEXT_PUBLIC_SITE_TAGLINE || needs.prepare.outputs.site_tagline }}
+          NEXT_PUBLIC_EMAIL: ${{ vars.NEXT_PUBLIC_EMAIL || needs.prepare.outputs.contact_email }}
+          NEXT_PUBLIC_WHATSAPP_URL: ${{ vars.NEXT_PUBLIC_WHATSAPP_URL }}
+          NEXT_PUBLIC_INSTAGRAM_URL: ${{ vars.NEXT_PUBLIC_INSTAGRAM_URL }}
+          NEXT_PUBLIC_FACEBOOK_URL: ${{ vars.NEXT_PUBLIC_FACEBOOK_URL }}
+          NEXT_PUBLIC_BUILD_YEAR: ${{ vars.NEXT_PUBLIC_BUILD_YEAR }}
+          NEXT_PUBLIC_STAGING_BADGE_ENABLED: 'false'
+          NEXT_PUBLIC_STAGING_SEARCH_DATA_ENABLED: 'false'
+          NEXT_PUBLIC_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_SEARCH_API_KEY }}
+          NEXT_PUBLIC_DEVICE_ATTESTATION_TOKEN: ${{ secrets.CDK_PARAM_PUBLIC_WWW_ATTESTATION_TOKEN }}
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ vars.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          NEXT_PUBLIC_GTM_ID: ${{ vars.NEXT_PUBLIC_GTM_ID }}
+          NEXT_PUBLIC_GTM_ALLOWED_HOSTS: ${{ vars.NEXT_PUBLIC_GTM_ALLOWED_HOSTS }}
+          NEXT_PUBLIC_SEARCH_AREA_SCOPE: ${{ vars.SEARCH_AREA_SCOPE }}
+          PUBLIC_WWW_CATALOGUE_SNAPSHOT_PATH: ${{ runner.temp }}/promote-inputs/catalogue-snapshot.json
+          PUBLIC_WWW_CATALOGUE_SNAPSHOT_REQUIRED: 'true'
+
+      - name: Write IndexNow key file
+        if: ${{ success() && needs.prepare.outputs.deploy == 'true' }}
+        env:
+          INDEXNOW_KEY: ${{ vars.INDEXNOW_KEY }}
+        run: python3 scripts/deploy/indexnow.py write-key apps/public_www/out
+
+      - name: Configure AWS credentials
+        # After the build. npm ci and the build must not see the deploy role.
+        if: ${{ success() && (needs.prepare.outputs.maintenance_mode == 'true' || needs.prepare.outputs.deploy == 'true') }}
+        uses: lx-software-ltd/actions/aws-oidc@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+          region: ${{ vars.AWS_REGION }}
+
+      - name: Promote release or enable maintenance mode
+        if: ${{ success() && (needs.prepare.outputs.maintenance_mode == 'true' || needs.prepare.outputs.deploy == 'true') }}
+        run: bash 'scripts/deploy/deploy-public-www.sh'
+        env:
+          PUBLIC_WWW_STACK_NAME: lxsoftware-siutindei-public-www
+          PUBLIC_WWW_ENVIRONMENT: production
+          PUBLIC_WWW_MAINTENANCE_MODE: ${{ needs.prepare.outputs.maintenance_mode }}
+          PUBLIC_WWW_PROMOTE_RELEASE_ID: ${{ needs.prepare.outputs.release_id }}
+          PUBLIC_WWW_PROMOTION_BUILD_DIR: ${{ needs.prepare.outputs.maintenance_mode != 'true' && format('{0}/apps/public_www/out', github.workspace) || '' }}
+          NEXT_PUBLIC_EMAIL: ${{ vars.NEXT_PUBLIC_EMAIL || needs.prepare.outputs.contact_email }}
+          NEXT_PUBLIC_WHATSAPP_URL: ${{ vars.NEXT_PUBLIC_WHATSAPP_URL }}
+          NEXT_PUBLIC_INSTAGRAM_URL: ${{ vars.NEXT_PUBLIC_INSTAGRAM_URL }}
+          NEXT_PUBLIC_FACEBOOK_URL: ${{ vars.NEXT_PUBLIC_FACEBOOK_URL }}
+          NEXT_PUBLIC_LX_SOFTWARE_URL: ${{ vars.NEXT_PUBLIC_LX_SOFTWARE_URL }}
+          NEXT_PUBLIC_BUILD_YEAR: ${{ vars.NEXT_PUBLIC_BUILD_YEAR }}
+
+      # The daily refresh rebuilds this commit and compares against these digests.
+      # The bucket name includes the account id, so it is read here instead of
+      # from a prepare job output.
+      - name: Read the production staging bucket
+        id: production_staging
+        if: ${{ success() && needs.prepare.outputs.deploy == 'true' }}
+        uses: lx-software-ltd/actions/cfn-stack-outputs@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          stack: lxsoftware-siutindei-public-www
+          outputs: PublicWwwStagingBucketName
+          region: ${{ vars.AWS_REGION }}
+
+      - name: Record the live production build
+        if: ${{ success() && needs.prepare.outputs.deploy == 'true' }}
+        env:
+          RELEASE_ID: ${{ needs.prepare.outputs.release_id }}
+          CURRENT_DIGESTS: ${{ runner.temp }}/promote-inputs/catalogue-digests.json
+          STACK_JSON: ${{ steps.production_staging.outputs.json }}
+        run: |
+          STAGING_BUCKET="$(python3 -c 'import json,os; print(json.loads(os.environ["STACK_JSON"])["PublicWwwStagingBucketName"])')"
+          if [ -z "$STAGING_BUCKET" ]; then
+            echo 'Staging bucket output not found on Public Website stack'
+            exit 1
+          fi
+          printf '%s\n' "$RELEASE_ID" | aws s3 cp --only-show-errors - "s3://$STAGING_BUCKET/releases/production-release-id.txt"
+          git rev-parse HEAD | aws s3 cp --only-show-errors - "s3://$STAGING_BUCKET/releases/production-build-sha.txt"
+          aws s3 cp --only-show-errors "$CURRENT_DIGESTS" "s3://$STAGING_BUCKET/releases/production-catalogue-digests.json"
+
+      - name: Notify IndexNow
+        if: ${{ success() && needs.prepare.outputs.deploy == 'true' }}
+        continue-on-error: true
+        env:
+          INDEXNOW_KEY: ${{ vars.INDEXNOW_KEY }}
+          NEXT_PUBLIC_SITE_ORIGIN: ${{ needs.prepare.outputs.production_site_origin }}
+          PROMOTION_MODE: ${{ needs.prepare.outputs.promotion_mode }}
+          PREVIOUS_DIGESTS: ${{ runner.temp }}/promote-inputs/previous-catalogue-digests.json
+          CURRENT_DIGESTS: ${{ runner.temp }}/promote-inputs/catalogue-digests.json
+        run: |
+          # A refresh changes catalogue pages only; a promotion can change every page.
+          if [ "$PROMOTION_MODE" = "refresh_production" ]; then
+            python3 scripts/deploy/indexnow.py ping apps/public_www/out --previous "$PREVIOUS_DIGESTS" --current "$CURRENT_DIGESTS"
+          else
+            python3 scripts/deploy/indexnow.py ping apps/public_www/out
+          fi
+
+      - name: Publish promotion summary
+        env:
+          PROMOTION_MODE: ${{ needs.prepare.outputs.promotion_mode }}
+          RELEASE_ID: ${{ needs.prepare.outputs.release_id }}
+          SKIPPED: ${{ needs.prepare.outputs.skip == 'true' || needs.prepare.outputs.deploy == 'false' }}
+          PRODUCTION_SITE_ORIGIN: ${{ needs.prepare.outputs.production_site_origin }}
+        run: bash scripts/deploy/publish-promotion-summary.sh
+# template:end

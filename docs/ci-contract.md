@@ -10,7 +10,7 @@ Every product repository has these files. Top-level keys run `name`, `on`, `perm
 
 ### In place
 
-These five check workflows match `templates/workflows/`. The comparison ignores marked lines.
+These check and deploy workflows match `templates/workflows/`. The comparison ignores marked lines. A template whose first line is `# template:if-present` applies only in the repositories that have that file.
 
 | File | Jobs | Triggers |
 | --- | --- | --- |
@@ -20,36 +20,29 @@ These five check workflows match `templates/workflows/`. The comparison ignores 
 | `dependency-submission.yml` | `check`, `submit` | `pull_request`, `push` to `main`, `workflow_dispatch` |
 | `cdk-bootstrap.yml` | `bootstrap` | `workflow_dispatch` only |
 | `security.yml` | `checkov`, `codeql`, `pii-denylist`, `secrets-scan`, `dependency-audit`, `bandit`, `npm-audit`, `security-summary` | `push` to `main`, `pull_request` with no path filter, Monday 08:00 UTC, `workflow_dispatch` |
+| `lint.yml` | `validate-agent-harness`, `repo-checks`, `lint-python`, one `lint-<app>` per Node app, `lint-cdk`, `type-check`, `workflow-conformance`, gate `lint`. Mobile repositories also `lint-openapi` and `lint-dart` | `pull_request` and `push` to `main`, neither with a path filter, plus `workflow_dispatch` |
+| `test.yml` | `test-python`, one `test-<app>` per Node app, `test-infrastructure`, gate `test`. Playwright repositories also `e2e-<app>`. Mobile repositories also `test-flutter` and `build-android` | `pull_request` and `push` to `main`, neither with a path filter, plus `workflow_dispatch` |
+| `cdk-diff.yml` | `diff`. siutindei also `pull-request` | Pull requests that touch infrastructure, `repository_dispatch`, `workflow_dispatch` |
+| `deploy-backend.yml` | `deploy` | `main` only, `environment: production` |
+| `deploy-admin-web.yml` | `deploy` | `main` only, `environment: production`. The web pair also runs after Deploy Backend |
+| `lighthouse-public-www.yml` | `lighthouse`. lx-software also `lighthouse-pull-request` | Pull requests that touch the public site, Monday 06:15 UTC, `workflow_dispatch` |
+| `manage-api-keys.yml` | `manage` | `workflow_dispatch`. Present on the web pair |
+| `deploy-public-www.yml` | `build-and-deploy` | `main` only, `environment: production`. Present on the direct pair |
+| `deploy-public-www-staging.yml` | `build-and-deploy` | evolvesprouts pushes `main`. siutindei pushes `staging`. `environment: staging`. No main-branch guard |
+| `smoke-public-www-staging.yml` | `smoke` | `workflow_dispatch`, `environment: staging` |
+| `promote-public-www.yml` | `prepare`, `promote` | `main` only, `environment: production`. siutindei also runs at 04:00 Hong Kong time |
+| `deploy-ios.yml` | `build-and-deploy` | `main` only, `macos-26`, `environment: production` |
+| `deploy-mobile.yml` | `build-and-deploy` | `main` only, `environment: production` |
 
-`templates/workflows/` holds that canonical text. `lint.yml`, `test.yml`, and the deploy workflows are not templated yet.
+`templates/workflows/` holds that canonical text. `scripts/ci/` and `scripts/deploy/` are the per-repository seam. Gate jobs call `scripts/ci/`. Deploy jobs call `scripts/deploy/`. `lint-python` runs `scripts/ci/mypy.sh` after pre-commit. findingalpha and lx-software type-check each Lambda directory, `scripts`, and `.cursor/hooks` with mypy 1.8.0. evolvesprouts and siutindei run mypy 1.8.0 on the directories that pass and list the rest in a `# mypy pending:` comment.
 
 Bandit has no skip list. Tests that sit next to the scanned code are passed in `exclude`. An assert that remains in application code carries `# nosec`. CodeQL uses the matrix languages `python` and `javascript-typescript`, and the category is `/language:` plus that language. Checkov synthesizes with `npm run synth:ci`. The public-site certificate stays a CloudFormation parameter. Deploy reads it from `secrets.CDK_PARAM_PUBLIC_WEBSITE_CERTIFICATE_ARN`.
 
 All four repositories run `cdk bootstrap` from a manual `cdk-bootstrap.yml`. `cdk-diff.yml` runs on pull requests in `findingalpha`, `lx-software`, and `evolvesprouts`. A `siutindei` pull request warns and does not call AWS until `AWS_DIFF_ROLE_NAME` names a read-only role. That gap is in `docs/decisions.md`.
 
-Web deploy is S3 and CloudFront. Public-site release is two profiles, staged (`evolvesprouts`, `siutindei`) and direct (`findingalpha`, `lx-software`). Both profiles still use the filename `deploy-public-www.yml`.
+Web deploy is S3 and CloudFront. Public-site release is two profiles. The staged pair (`evolvesprouts`, `siutindei`) uses `deploy-public-www-staging.yml`, `smoke-public-www-staging.yml`, and `promote-public-www.yml`. The direct pair (`findingalpha`, `lx-software`) uses `deploy-public-www.yml`. Production deploy jobs set `if: github.ref == 'refs/heads/main'` and `environment: production`. Staging jobs do not add a main-branch guard, because siutindei deploys staging from the staging branch. Admin SPA settings come from stack outputs on the web pair and from repository variables on the mobile pair.
 
-A workflow that runs on pull requests or writes to AWS has a concurrency group. Semgrep uploads with category `semgrep`. `repository_dispatch` has been removed from the check workflows above. It remains on the CDK diff, deploy, and promote workflows that already declared it.
-
-### Phase 2 target: gate workflows
-
-These rows are the target. They are not the files in the product repositories today. `evolvesprouts` still calls the harness job `validate-agent-rules`. `findingalpha` and `lx-software` still call `build-cdk`. `findingalpha` and `lx-software` still run Ruff and mypy directly, and `evolvesprouts` and `siutindei` do not run mypy in `lint.yml`.
-
-| File | Jobs | Triggers |
-| --- | --- | --- |
-| `lint.yml` | `validate-agent-harness`, `workflow-conformance`, `lint-python`, one `lint-<app>` per Node app, `lint-cdk`, `type-check`, `repo-checks`, gate `lint`. Mobile repositories also `lint-openapi` and `lint-dart` | `pull_request` and `push` to `main`, neither with a path filter, plus `workflow_dispatch` |
-| `test.yml` | `test-python`, one `test-<app>` per Node app, `test-infrastructure`, gate `test`. Playwright repositories also `e2e-<app>`. Mobile repositories also `test-flutter` and `build-android` | `pull_request` and `push` to `main`, neither with a path filter, plus `workflow_dispatch` |
-
-### Phase 3 target: deploy workflows
-
-These rows are the target. They are not the files in the product repositories today. Only `findingalpha` sets `if: github.ref == 'refs/heads/main'` on its production deploy jobs. The staged public-site file is still named `deploy-public-www.yml`.
-
-| File | Jobs | Triggers |
-| --- | --- | --- |
-| `cdk-diff.yml` | `diff`, and `pull-request` where the read-only role is the only way to pass deploy parameters | Pull requests that touch infrastructure, and a manual run |
-| `deploy-backend.yml` | `deploy` | `main` only, `environment: production` |
-
-The target adds `if: github.ref == 'refs/heads/main'` on every production deploy job, as well as the environment. The target renames the staged public-site file to `deploy-public-www-staging.yml`. `repository_dispatch` is accepted on `cdk-diff.yml`, `deploy-*.yml`, and `promote-public-www.yml`, with the file stem as the event type.
+A workflow that runs on pull requests or writes to AWS has a concurrency group. Semgrep uploads with category `semgrep`. `repository_dispatch` has been removed from the check workflows above. It remains on `cdk-diff.yml`, `deploy-*.yml`, and `promote-public-www.yml`, with the file stem as the event type.
 
 ## Gates
 
@@ -83,13 +76,15 @@ A difference that is not in this list is not a shared workflow. Templates ignore
 | Kind | What | Where |
 | --- | --- | --- |
 | Marked lines | App directories, stack and output names, requirement files, dated audit ignores, coverage floor, build environment blocks, deploy path filters, Lighthouse page list | All four |
+| Repository seam | `scripts/ci/` holds the checks `lint.yml` and `test.yml` call. `scripts/deploy/` holds the deploy commands. The workflow text stays shared | All four |
 | Stack: mobile | `flutter-lockfiles`, `ios-lockfiles`, `lint-dart`, `test-flutter`, `build-android`, `deploy-ios.yml`, `deploy-mobile.yml` | `evolvesprouts`, `siutindei` |
 | Stack: database | Postgres service in `test-python`. Seed and migration inputs on `deploy-backend.yml` | `evolvesprouts`, `siutindei` |
 | Stack: OpenAPI | `lint-openapi` | `evolvesprouts`, `siutindei` |
 | Stack: Docker arm64 bundling | QEMU step in `cdk-diff.yml` and `deploy-backend.yml` | `findingalpha`, `lx-software` |
-| Stack: Playwright | `e2e-<app>` jobs | `findingalpha`, `lx-software`, `siutindei` |
+| Stack: Playwright | `e2e-<app>` jobs. `evolvesprouts` runs `e2e-public-www`. The web pair runs `e2e-admin-web`. `siutindei` runs both from `test.yml`. The standalone `e2e-admin-web.yml` file is gone | `findingalpha`, `lx-software`, `siutindei`, `evolvesprouts` |
 | Stack: LFS and search fixture | `lfs: true` checkouts, the fixture sync before synth, the sqlite and Amplify steps | `siutindei` |
-| Release profile | Staged (staging deploy, smoke, promote) or direct (`deploy-public-www.yml`). Phase 3 renames the staged file to `deploy-public-www-staging.yml` | Mobile pair, web pair |
+| Release profile | Staged (`deploy-public-www-staging.yml`, smoke, promote) or direct (`deploy-public-www.yml`) | Mobile pair, web pair |
+| Admin build settings | Stack outputs on the web pair. Repository variables on the mobile pair | Web pair, mobile pair |
 | Parameter source | `params/production.json` with `CDK_PARAM_*`, or `P_*` variables. Same step order | Mobile pair, web pair |
 | Product workflows | `deploy-training.yml`, `figma-refresh-token.yml`, `figma-token-studio-sync.yml` | `evolvesprouts` |
 | Product workflows | `mint-openrouter-keys.yml` | `lx-software` |
@@ -143,6 +138,6 @@ Three product checks follow `alignment`. The default is `enforce`. `warn` prints
 - When both `cdk-diff` and `cdk-deploy` are used, they name the same `plan-file` or the same inline `plan`. The value runs to the end of the line, or through the block body. A `${{ }}` path is the whole value. A step written as `name:`, then `uses:`, then `with:` is read the same way as one that starts at `uses:`.
 - A workflow does not call `describe-stacks`.
 
-`templates` compares each file in `templates/workflows/` with the product workflow of the same name. The default is `warn`. `enforce` makes a mismatch a finding when `mode` is `enforce`. `off` skips the comparison. `profile: producer` skips it.
+`templates` compares each file in `templates/workflows/` with the product workflow of the same name. A template whose first line is `# template:if-present` produces no finding when that product file is absent. When the file is present, the marker is ignored and the rest must match. The default is `warn`. `enforce` makes a mismatch a finding when `mode` is `enforce`. `off` skips the comparison. `profile: producer` skips it.
 
-A `# template:set` line opens a block and `# template:end` closes it. The lines between the markers may differ, including how many there are. The marker lines stay. A marker counts at any indent, so it can sit inside a YAML block. A `# template:optional <id>` block may be absent. The blank line that separates it from the next job sits inside the block, so omitting the block does not leave that blank behind. A blank line between two steps that stay when the block is omitted sits after `# template:end`. When the block is present, its unmarked lines match the template. Nested `# template:set` blocks inside it follow the same rule. The comparison treats every `lx-software-ltd/actions/<name>@<sha> # main YYYY-MM-DD` as the same pin. The pin check above still requires one real SHA and a real date.
+A `# template:set` line opens a block and `# template:end` closes it. The lines between the markers may differ, including how many there are. They hold values such as `env:` and `with:` entries, directory lists, and command text. A marked block cannot contain a step (`- name:`, `- uses:`, `- run:`, or `- id:`), `continue-on-error:`, or `if:`. A step that only some repositories run is a `# template:optional` block. The marker lines stay. A marker counts at any indent, so it can sit inside a YAML block. A `# template:optional <id>` block may be absent. The blank line that separates it from the next job sits inside the block, so omitting the block does not leave that blank behind. A blank line between two steps that stay when the block is omitted sits after `# template:end`. When the block is present, its unmarked lines match the template. Nested `# template:set` blocks inside it follow the same rule. The comparison treats every `lx-software-ltd/actions/<name>@<sha> # main YYYY-MM-DD` as the same pin. The pin check above still requires one real SHA and a real date.

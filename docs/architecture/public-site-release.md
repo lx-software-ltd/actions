@@ -1,6 +1,6 @@
 # Public-site release
 
-`evolvesprouts` `scripts/deploy/deploy-public-www.sh` (742 lines) and `siutindei` `scripts/deploy/deploy-public-www.sh` (632 lines) are the release. `deploy-public-www.yml` and `promote-public-www.yml` run them. This note is the design. It does not move the scripts.
+`evolvesprouts` `scripts/deploy/deploy-public-www.sh` and `siutindei` `scripts/deploy/deploy-public-www.sh` are the release. The staged workflows and `promote-public-www.yml` run them. The direct pair deploys from `deploy-public-www.yml` without that script. This note is the design. It does not move the scripts.
 
 ## What the scripts do
 

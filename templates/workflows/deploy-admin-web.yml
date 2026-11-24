@@ -1,0 +1,121 @@
+name: Deploy Admin Web
+
+on:
+  repository_dispatch:
+    types: [deploy-admin-web]
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    # template:set
+    paths:
+      - "apps/admin_web/**"
+      - "contracts/roadmap.json"
+      - ".github/workflows/deploy-admin-web.yml"
+    # template:end
+
+  # template:optional workflow-run
+  # template:set
+  # A backend deploy can replace the Cognito client or the HTTP API. Rebuild
+  # the SPA from current main so it picks up those outputs. Only a successful
+  # Deploy Backend on main qualifies. The SPA is added in M03; until then the
+  # job skips the build.
+  # template:end
+  workflow_run:
+    workflows: ["Deploy Backend"]
+    types: [completed]
+
+  # template:end
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-admin-web
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')) }}
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-26.04
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: lx-software-ltd/actions/setup-node@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          cache: npm
+          working-directory: apps/admin_web
+
+      # template:optional next-cache
+      - name: Restore Next.js build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: apps/admin_web/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('apps/admin_web/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-nextjs-
+
+      # template:end
+
+      - name: Configure AWS credentials
+        # template:set
+        id: aws
+        # template:end
+        uses: lx-software-ltd/actions/aws-oidc@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+          region: ${{ vars.AWS_REGION }}
+
+      # template:optional admin-settings
+      - name: Read admin SPA settings
+        id: stack_outputs
+        uses: lx-software-ltd/actions/cfn-stack-outputs@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          # template:set
+          stack: findingalpha
+          # template:end
+          outputs: UserPoolClientId CognitoDomain AdminApiBaseUrl
+          region: ${{ vars.AWS_REGION }}
+
+      - name: Check admin SPA settings
+        id: admin_spa
+        env:
+          JSON: ${{ steps.stack_outputs.outputs.json }}
+          # template:set
+          STACK_NAME: findingalpha
+          # template:end
+        run: bash scripts/deploy/check-admin-spa-settings.sh
+
+      # template:end
+
+      - name: Build admin web
+        run: npm run build
+        working-directory: apps/admin_web
+        # template:set
+        env:
+          VITE_COGNITO_CLIENT_ID: ${{ steps.admin_spa.outputs.client_id }}
+          VITE_COGNITO_DOMAIN: ${{ steps.admin_spa.outputs.domain }}
+          VITE_COGNITO_REDIRECT_URI: https://${{ vars.ADMIN_WEB_DOMAIN_NAME }}/auth/callback
+          VITE_COGNITO_LOGOUT_URI: https://${{ vars.ADMIN_WEB_DOMAIN_NAME }}/
+          VITE_API_BASE_URL: ${{ steps.admin_spa.outputs.api_url }}
+        # template:end
+
+      - name: Deploy admin web
+        uses: lx-software-ltd/actions/s3-cloudfront-deploy@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          # template:set
+          source: apps/admin_web/dist
+          stack: findingalpha-admin-web
+          # template:end
+          region: ${{ vars.AWS_REGION }}
+          bucket-output: AdminWebBucketName
+          distribution-output: AdminWebDistributionId
+          # template:set
+          profile: admin-hashed
+          # template:end
+          dry-run: "false"

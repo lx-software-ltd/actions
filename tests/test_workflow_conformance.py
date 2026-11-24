@@ -650,6 +650,51 @@ class TemplateComparisonTest(unittest.TestCase):
             self.assertEqual(enforced.returncode, 1, enforced.stderr)
             self.assertIn("extra.yml", enforced.stderr)
 
+    def test_if_present_allows_a_missing_file(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _repo(
+                root,
+                textwrap.dedent(
+                    """\
+                    name: Lint
+                    on:
+                      pull_request:
+                    permissions:
+                      contents: read
+                    jobs:
+                      lint:
+                        runs-on: ubuntu-26.04
+                        steps:
+                          - run: "true"
+                    """
+                ),
+            )
+            templates = root / "templates"
+            templates.mkdir()
+            (templates / "deploy-ios.yml").write_text(
+                "# template:if-present\nname: Deploy iOS\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                checker.template_findings(root, templates),
+                [],
+            )
+            present = root / ".github" / "workflows" / "deploy-ios.yml"
+            present.write_text("name: Something else\n", encoding="utf-8")
+            found = checker.template_findings(root, templates)
+            self.assertTrue(any("deploy-ios.yml" in item for item in found))
+            (templates / "required.yml").write_text(
+                "name: Required\n", encoding="utf-8"
+            )
+            found = checker.template_findings(root, templates)
+            self.assertTrue(
+                any(
+                    "required.yml: missing the shared workflow" in item
+                    for item in found
+                )
+            )
+
     def test_an_indented_marker_is_a_marker(self) -> None:
         template = (
             "jobs:\n  step:\n    with:\n"
@@ -663,6 +708,29 @@ class TemplateComparisonTest(unittest.TestCase):
         moved = product.replace("    with:\n", "    env:\n")
         found = checker.compare_template("extra.yml", template, moved)
         self.assertTrue(any("outside marked lines" in item for item in found), found)
+
+    def test_a_nested_optional_block_can_be_omitted(self) -> None:
+        template = (
+            "# template:optional outer\n"
+            "outer\n"
+            "# template:optional inner\n"
+            "inner\n"
+            "# template:end\n"
+            "# template:end\n"
+        )
+        product = "# template:optional outer\nouter\n# template:end\n"
+        self.assertEqual(checker.compare_template("test.yml", template, product), [])
+
+    def test_a_marked_block_cannot_hold_a_step_or_a_skip(self) -> None:
+        template = "name: shared\n# template:set\nvalue: one\n# template:end\n"
+        product = (
+            "name: shared\n# template:set\n"
+            "- name: Skip\ncontinue-on-error: true\nif: false\n"
+            "# template:end\n"
+        )
+        found = checker.compare_template("lint.yml", template, product)
+        self.assertTrue(any("cannot contain" in item for item in found), found)
+        self.assertGreaterEqual(len(found), 3)
 
     def test_unclosed_marker_is_a_finding(self) -> None:
         found = checker.compare_template(
