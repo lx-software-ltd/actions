@@ -172,6 +172,17 @@ class WorkflowConformanceTest(unittest.TestCase):
             found = checker.findings(root, "producer")
             self.assertTrue(any("require-jobs" in item for item in found), found)
 
+    def test_a_gate_reads_needs_around_a_value_block_marker(self) -> None:
+        body = (
+            "    needs:\n"
+            "      # template:set\n"
+            "      - lint-python\n"
+            "      - repo-checks\n"
+            "    # template:end\n"
+            "    if: always()\n"
+        )
+        self.assertEqual(checker._needs(body), ["lint-python", "repo-checks"])
+
     def test_pre_commit_rev_stays_inside_the_actions_block(self) -> None:
         text = textwrap.dedent(
             """\

@@ -171,6 +171,9 @@ def _needs(body: str) -> list[str]:
             continue
         if not in_needs:
             continue
+        # The job list is a value block, so the marker comments sit in the list.
+        if not line.strip() or line.strip().startswith("#"):
+            continue
         item = re.match(r"^      - (\S+)\s*$", line)
         if item:
             names.append(item.group(1).strip("'\""))
