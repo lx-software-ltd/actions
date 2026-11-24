@@ -222,3 +222,9 @@ Most of each product pull request is red-zone. Approving this plan is the explic
 | siutindei | also promote-*.yml, board-*.yml, verify-rulesets.yml, scripts/deploy/**, scripts/ci/**, .pre-commit-config.yaml, backend/infrastructure/** |
 | lx-software | also manage-api-keys.yml, mint-openrouter-keys.yml, verify-rulesets.yml |
 | evolvesprouts | also verify-rulesets.yml |
+
+## 14. Maven Central 429 retry
+
+The Evolve Sprouts Test workflow failed in Build Android because `repo.maven.apache.org` returned HTTP 429 while Gradle resolved the Flutter plugin, and Gradle's default retry is about three seconds. The same jobs are shared.
+
+`build-android` in `templates/workflows/test.yml` and `build-and-deploy` in `templates/workflows/deploy-mobile.yml` set `GRADLE_OPTS` to five attempts with a 5 second starting backoff. The value is unmarked, so both mobile products get it. It is not an app `gradle.properties` entry.

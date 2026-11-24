@@ -341,6 +341,10 @@ jobs:
   build-android:
     name: Build Android
     runs-on: ubuntu-26.04
+    env:
+      # Maven Central returns 429 from shared CI egress. Gradle retries that
+      # status and doubles this delay between attempts (5s, 10s, 20s, 40s).
+      GRADLE_OPTS: -Dorg.gradle.internal.repository.max.tentatives=5 -Dorg.gradle.internal.repository.initial.backoff=5000
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
