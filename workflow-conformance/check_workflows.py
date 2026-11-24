@@ -13,8 +13,10 @@ compares product workflows with ``templates/workflows``. The producer skips both
 
 from __future__ import annotations
 
+import json
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -42,6 +44,15 @@ PRODUCT_SECURITY_JOBS = (
 _OPTIONAL = re.compile(r"^# template:optional ([a-z0-9-]+)$")
 _SET = re.compile(r"^# template:set$")
 _END = re.compile(r"^# template:end$")
+_IF_PRESENT = re.compile(r"^# template:if-present(?:\s+(!)?([a-z0-9-]+))?$")
+_PRODUCT_NAME = re.compile(
+    r"(?<![A-Za-z0-9_-])"
+    r"(?:evolvesprouts|findingalpha|lxsoftware|lx-software|siutindei)"
+    r"(?![A-Za-z0-9_-])"
+)
+_VALUE_RUN = re.compile(r"^run:")
+_VALUE_ID = re.compile(r"^id:")
+_SINGLE_QUOTED = re.compile(r"^(?:-\s+|[^:#\n]+:\s+)'")
 
 
 def _is_set(line: str) -> bool:
@@ -448,10 +459,16 @@ def _strip_sets(lines: list[str]) -> list[str]:
     return out
 
 
-def _extract_optional(lines: list[str]) -> tuple[list[str], dict[str, list[str]]]:
-    """Replace each optional block with its opening marker."""
+def _extract_optional(
+    lines: list[str],
+) -> tuple[list[str], list[tuple[str, list[str]]]]:
+    """Replace each optional block with its opening marker.
+
+    The same id may occur more than once in a file. Each occurrence is its
+    own block.
+    """
     skeleton: list[str] = []
-    blocks: dict[str, list[str]] = {}
+    blocks: list[tuple[str, list[str]]] = []
     index = 0
     while index < len(lines):
         if _is_set(lines[index]):
@@ -465,8 +482,6 @@ def _extract_optional(lines: list[str]) -> tuple[list[str], dict[str, list[str]]
             skeleton.append(_marker(lines[index]))
             index += 1
             continue
-        if name in blocks:
-            raise _TemplateSyntax(f"repeated # template:optional {name}")
         skeleton.append(_marker(lines[index]))
         index += 1
         depth = 1
@@ -486,33 +501,25 @@ def _extract_optional(lines: list[str]) -> tuple[list[str], dict[str, list[str]]
             index += 1
         else:
             raise _TemplateSyntax(f"unclosed # template:optional {name}")
-        blocks[name] = inner
+        blocks.append((name, inner))
     return skeleton, blocks
 
 
-def _prepare(text: str) -> tuple[list[str], dict[str, list[str]]]:
+def _prepare(text: str) -> tuple[list[str], list[tuple[str, list[str]]]]:
     normalized = _normalize_pins(text.replace("\r\n", "\n"))
     return _flatten_optional(normalized.splitlines())
 
 
 def _flatten_optional(
     lines: list[str],
-) -> tuple[list[str], dict[str, list[str]]]:
+) -> tuple[list[str], list[tuple[str, list[str]]]]:
     """Optional blocks may nest. A nested block can be omitted on its own."""
     skeleton, blocks = _extract_optional(lines)
-    flat: dict[str, list[str]] = {}
-    prepared: dict[str, list[str]] = {}
-    for name, body in blocks.items():
+    flat: list[tuple[str, list[str]]] = []
+    for name, body in blocks:
         body_skeleton, nested = _flatten_optional(body)
-        overlap = set(nested) & set(prepared)
-        if overlap:
-            raise _TemplateSyntax(f"repeated # template:optional {sorted(overlap)[0]}")
-        prepared[name] = _strip_sets(body_skeleton)
-        flat.update(nested)
-    overlap = set(flat) & set(prepared)
-    if overlap:
-        raise _TemplateSyntax(f"repeated # template:optional {sorted(overlap)[0]}")
-    flat.update(prepared)
+        flat.extend(nested)
+        flat.append((name, _strip_sets(body_skeleton)))
     return _strip_sets(skeleton), flat
 
 
@@ -534,9 +541,35 @@ def _set_block_violations(text: str) -> list[str]:
             if _is_set(line) or _is_end(line) or _optional_name(line):
                 continue
             stripped = line.strip()
-            if _SET_STEP.match(stripped) or _SET_KEY.match(stripped):
+            if _value_line_forbidden(stripped):
                 notes.append(stripped)
     return notes
+
+
+def _value_line_forbidden(stripped: str) -> bool:
+    """A value block holds values, not commands, ids, comments, or single quotes."""
+    if not stripped:
+        return False
+    if _SET_STEP.match(stripped) or _SET_KEY.match(stripped):
+        return True
+    if _VALUE_RUN.match(stripped) or _VALUE_ID.match(stripped):
+        return True
+    if stripped.startswith("#"):
+        return True
+    return _SINGLE_QUOTED.match(stripped) is not None
+
+
+def _value_block_command(stripped: str) -> bool:
+    """A drift count: run, id, or a comment. Single quotes are a separate rule."""
+    if not stripped or stripped.startswith("# template:"):
+        return False
+    if _SET_STEP.match(stripped) and (
+        stripped.startswith("- run:") or stripped.startswith("- id:")
+    ):
+        return True
+    if _VALUE_RUN.match(stripped) or _VALUE_ID.match(stripped):
+        return True
+    return stripped.startswith("#")
 
 
 def _skeleton_diff(template: list[str], product: list[str]) -> str | None:
@@ -585,23 +618,63 @@ def compare_template(filename: str, template: str, product: str) -> list[str]:
     diff = _skeleton_diff(expected, actual)
     if diff:
         notes.append(f".github/workflows/{filename}: {diff}")
-    for name in sorted(set(actual_blocks) - set(expected_blocks)):
+    notes.extend(_optional_body_diffs(filename, expected_blocks, actual_blocks))
+    return notes
+
+
+def _optional_body_diffs(
+    filename: str,
+    expected: list[tuple[str, list[str]]],
+    actual: list[tuple[str, list[str]]],
+) -> list[str]:
+    """Compare optional bodies in order. The same id may occur more than once."""
+    expected_groups: dict[str, list[list[str]]] = {}
+    actual_groups: dict[str, list[list[str]]] = {}
+    for name, body in expected:
+        expected_groups.setdefault(name, []).append(body)
+    for name, body in actual:
+        actual_groups.setdefault(name, []).append(body)
+    notes: list[str] = []
+    for name in sorted(set(actual_groups) - set(expected_groups)):
         notes.append(
             f".github/workflows/{filename}: unknown # template:optional {name}"
         )
-    for name, body in expected_blocks.items():
-        if name not in actual_blocks:
-            continue
-        block_diff = _skeleton_diff(body, actual_blocks[name])
-        if block_diff:
-            notes.append(f".github/workflows/{filename} optional {name}: {block_diff}")
+    for name in sorted(expected_groups):
+        got = actual_groups.get(name, [])
+        wanted = expected_groups[name]
+        extra = len(got) - len(wanted)
+        if extra > 0:
+            notes.append(
+                f".github/workflows/{filename}: unknown # template:optional {name}"
+            )
+        for index, actual_body in enumerate(got[: len(wanted)]):
+            block_diff = _skeleton_diff(wanted[index], actual_body)
+            if not block_diff:
+                continue
+            label = name if len(wanted) == 1 else f"{name} #{index + 1}"
+            notes.append(f".github/workflows/{filename} optional {label}: {block_diff}")
     return notes
+
+
+def _if_present(template_text: str) -> tuple[bool, str | None, bool]:
+    """A template may start with an if-present marker.
+
+    The return is (marked, capability, negated). A bare marker has no
+    capability and only allows the file to be absent.
+    """
+    lines = template_text.splitlines()
+    if not lines:
+        return False, None, False
+    match = _IF_PRESENT.match(lines[0].strip())
+    if match is None:
+        return False, None, False
+    return True, match.group(2), match.group(1) == "!"
 
 
 def _marked_if_present(template_text: str) -> bool:
     """A template may start with the if-present marker."""
-    lines = template_text.splitlines()
-    return bool(lines) and lines[0].strip() == "# template:if-present"
+    marked, _, _ = _if_present(template_text)
+    return marked
 
 
 def _without_if_present(template_text: str) -> str:
@@ -620,6 +693,277 @@ def template_directory() -> Path:
     return Path(__file__).resolve().parents[1] / "templates" / "workflows"
 
 
+def _repository_name(root: Path) -> str:
+    override = os.environ.get("CONFORMANCE_REPOSITORY", "").strip()
+    if override:
+        return override.split("/")[-1]
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "remote", "get-url", "origin"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return root.name
+    if result.returncode != 0:
+        return root.name
+    name = result.stdout.strip().rstrip("/").split("/")[-1]
+    if name.endswith(".git"):
+        name = name[: -len(".git")]
+    return name or root.name
+
+
+def _capabilities_path(template_dir: Path) -> Path | None:
+    override = os.environ.get("CONFORMANCE_CAPABILITIES", "").strip()
+    if override:
+        path = Path(override)
+        return path if path.is_file() else None
+    candidate = template_dir.parent / "capabilities.json"
+    if template_dir.name == "workflows" and candidate.is_file():
+        return candidate
+    return None
+
+
+def _load_capabilities(path: Path | None) -> dict[str, str]:
+    if path is None:
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        return {}
+    return {str(key): str(value) for key, value in payload.items()}
+
+
+def _probe_matches(root: Path, pattern: str) -> bool:
+    if any(char in pattern for char in "*?["):
+        return any(root.glob(pattern))
+    return (root / pattern).exists()
+
+
+def _optional_counts(text: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for line in text.splitlines():
+        name = _optional_name(line)
+        if name is None:
+            continue
+        counts[name] = counts.get(name, 0) + 1
+    return counts
+
+
+def _unmarked_lines(text: str) -> list[str]:
+    """Lines outside value blocks. Marker lines themselves are not text."""
+    lines = text.replace("\r\n", "\n").splitlines()
+    kept: list[str] = []
+    index = 0
+    while index < len(lines):
+        if _is_set(lines[index]):
+            _, index = _consume_balanced(lines, index)
+            continue
+        stripped = lines[index].strip()
+        if _optional_name(lines[index]) or _is_end(lines[index]) or _IF_PRESENT.match(stripped):
+            index += 1
+            continue
+        kept.append(lines[index])
+        index += 1
+    return kept
+
+
+def _product_name_findings(template_dir: Path) -> list[str]:
+    notes: list[str] = []
+    for template in sorted(template_dir.glob("*.yml")):
+        try:
+            lines = _unmarked_lines(template.read_text(encoding="utf-8"))
+        except _TemplateSyntax as exc:
+            notes.append(f"templates/workflows/{template.name}: {exc}")
+            continue
+        for line in lines:
+            # lx-software-ltd is the actions org, not a product name.
+            if _PRODUCT_NAME.search(line.replace("lx-software-ltd", "ORG")) is None:
+                continue
+            notes.append(
+                f"templates/workflows/{template.name}: product name in unmarked text: {line.strip()}"
+            )
+    return notes
+
+
+def _capability_block_findings(
+    root: Path,
+    template_dir: Path,
+    capabilities: dict[str, str],
+) -> list[str]:
+    if not capabilities:
+        return []
+    notes: list[str] = []
+    workflow_dir = root / ".github" / "workflows"
+    for template in sorted(template_dir.glob("*.yml")):
+        template_text = template.read_text(encoding="utf-8")
+        expected = _optional_counts(template_text)
+        for name in sorted(expected):
+            if name not in capabilities:
+                notes.append(
+                    f"templates/workflows/{template.name}: "
+                    f"# template:optional {name} is not a capability"
+                )
+        product = workflow_dir / template.name
+        if not product.is_file():
+            continue
+        actual = _optional_counts(product.read_text(encoding="utf-8"))
+        for name in sorted(set(actual) - set(expected)):
+            if name not in capabilities:
+                notes.append(
+                    f".github/workflows/{template.name}: "
+                    f"# template:optional {name} is not a capability"
+                )
+        names = set(expected) | set(actual)
+        for name in sorted(names):
+            if name not in capabilities:
+                continue
+            present = _probe_matches(root, capabilities[name])
+            have = actual.get(name, 0)
+            want = expected.get(name, 0)
+            if present and have != want:
+                notes.append(
+                    f".github/workflows/{template.name}: capability {name} "
+                    f"probe {capabilities[name]} is present and the block count is {have}"
+                )
+            if not present and have != 0:
+                notes.append(
+                    f".github/workflows/{template.name}: capability {name} "
+                    f"block is present and probe {capabilities[name]} is absent"
+                )
+    return notes
+
+
+def _file_presence_finding(
+    root: Path,
+    filename: str,
+    capability: str,
+    negated: bool,
+    present: bool,
+    capabilities: dict[str, str],
+) -> str | None:
+    if capability not in capabilities:
+        return (
+            f"templates/workflows/{filename}: "
+            f"# template:if-present names unknown capability {capability}"
+        )
+    matched = _probe_matches(root, capabilities[capability])
+    should_exist = (not matched) if negated else matched
+    if should_exist and not present:
+        return (
+            f".github/workflows/{filename}: capability {capability} "
+            "requires this workflow"
+        )
+    if not should_exist and present:
+        return (
+            f".github/workflows/{filename}: capability {capability} "
+            "excludes this workflow"
+        )
+    return None
+
+
+def _untemplated_path(template_dir: Path) -> Path | None:
+    override = os.environ.get("CONFORMANCE_UNTEMPLATED", "").strip()
+    if override:
+        path = Path(override)
+        return path if path.is_file() else None
+    candidate = template_dir.parent / "untemplated-workflows.txt"
+    if template_dir.name == "workflows" and candidate.is_file():
+        return candidate
+    return None
+
+
+def _untemplated_allow(path: Path) -> dict[str, set[str]]:
+    allowed: dict[str, set[str]] = {}
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        repo, _, filename = line.partition(" ")
+        if not filename:
+            continue
+        allowed.setdefault(repo, set()).add(filename.strip())
+    return allowed
+
+
+def _untemplated_findings(root: Path, template_dir: Path, allow_path: Path | None) -> list[str]:
+    if allow_path is None:
+        return []
+    allowed = _untemplated_allow(allow_path)
+    repo = _repository_name(root)
+    known = {path.name for path in template_dir.glob("*.yml")}
+    notes: list[str] = []
+    workflow_dir = root / ".github" / "workflows"
+    if not workflow_dir.is_dir():
+        return notes
+    listed = allowed.get(repo, set())
+    for path in sorted(workflow_dir.glob("*.yml")) + sorted(workflow_dir.glob("*.yaml")):
+        if path.name in known:
+            continue
+        if path.name in listed:
+            continue
+        notes.append(
+            f".github/workflows/{path.name}: no template and not in "
+            "templates/untemplated-workflows.txt"
+        )
+    return notes
+
+
+def _literal_prefix(entry: str) -> str:
+    cut = len(entry)
+    for index, char in enumerate(entry):
+        if char in "*?[":
+            cut = index
+            break
+    return entry[:cut].rstrip("/")
+
+
+def _on_path_entries(text: str) -> list[str]:
+    """Literal items under on.*.paths. paths-ignore is a separate key."""
+    entries: list[str] = []
+    in_on = False
+    in_paths = False
+    paths_indent = 0
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        if line.startswith("on:"):
+            in_on = True
+            in_paths = False
+            continue
+        if in_on and line and not line[0].isspace():
+            in_on = False
+            in_paths = False
+        if not in_on:
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        if in_paths:
+            if stripped.startswith("- ") and indent > paths_indent:
+                value = stripped[2:].strip()
+                if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+                    value = value[1:-1]
+                entries.append(value)
+                continue
+            in_paths = False
+        if stripped == "paths:":
+            in_paths = True
+            paths_indent = indent
+    return entries
+
+
+def _path_filter_findings(root: Path, rel: str, text: str) -> list[str]:
+    notes: list[str] = []
+    for entry in _on_path_entries(text):
+        prefix = _literal_prefix(entry)
+        if not prefix:
+            continue
+        if (root / prefix).exists():
+            continue
+        notes.append(f"{rel}: path filter {entry} does not exist ({prefix})")
+    return notes
+
+
 def template_findings(root: Path, template_dir: Path | None = None) -> list[str]:
     """Compare product workflows with the templates that exist for them."""
     directory = template_directory() if template_dir is None else template_dir
@@ -627,25 +971,54 @@ def template_findings(root: Path, template_dir: Path | None = None) -> list[str]
         return [f"workflow templates are missing at {directory}"]
     workflow_dir = root / ".github" / "workflows"
     notes: list[str] = []
+    capabilities = _load_capabilities(_capabilities_path(directory))
+    notes.extend(_product_name_findings(directory))
     for template in sorted(directory.glob("*.yml")):
         template_text = template.read_text(encoding="utf-8")
+        marked, capability, negated = _if_present(template_text)
         product = workflow_dir / template.name
+        if marked and capability and capabilities:
+            finding = _file_presence_finding(
+                root,
+                template.name,
+                capability,
+                negated,
+                product.is_file(),
+                capabilities,
+            )
+            if finding:
+                notes.append(finding)
         if not product.is_file():
-            if _marked_if_present(template_text):
+            if marked and not (capability and capabilities):
+                continue
+            if marked and capability and capabilities:
                 continue
             notes.append(
                 f".github/workflows/{template.name}: missing the shared workflow"
             )
             continue
-        if _marked_if_present(template_text):
-            template_text = _without_if_present(template_text)
+        if (
+            marked
+            and capability
+            and capabilities
+            and capability in capabilities
+        ):
+            matched = _probe_matches(root, capabilities[capability])
+            should_exist = (not matched) if negated else matched
+            if not should_exist:
+                continue
+        compared = _without_if_present(template_text) if marked else template_text
         notes.extend(
             compare_template(
                 template.name,
-                template_text,
+                compared,
                 product.read_text(encoding="utf-8"),
             )
         )
+    notes.extend(_capability_block_findings(root, directory, capabilities))
+    notes.extend(
+        _untemplated_findings(root, directory, _untemplated_path(directory))
+    )
     return notes
 
 
@@ -700,6 +1073,7 @@ def findings(root: Path, profile: str = "product") -> list[str]:
                 )
         if path.name in PATH_FILTERED and _pull_request_has_path_filter(text):
             errors.append(f"{rel}: pull_request has a path filter")
+        errors.extend(_path_filter_findings(root, rel, text))
     for filename, job in GATED.items():
         path = workflow_dir / filename
         if not path.is_file():

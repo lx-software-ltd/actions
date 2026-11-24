@@ -40,8 +40,8 @@ while IFS= read -r dir; do
     continue
   fi
   if [ ! -f "$dir/package.json" ]; then
-    echo "Skipping npm audit for $dir"
-    continue
+    echo "npm-audit: $dir has no package.json" >&2
+    exit 1
   fi
   run_npm_audit "$dir"
 done << EOF

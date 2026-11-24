@@ -14,13 +14,7 @@ on:
       - ".github/workflows/deploy-admin-web.yml"
     # template:end
 
-  # template:optional workflow-run
-  # template:set
-  # A backend deploy can replace the Cognito client or the HTTP API. Rebuild
-  # the SPA from current main so it picks up those outputs. Only a successful
-  # Deploy Backend on main qualifies. The SPA is added in M03; until then the
-  # job skips the build.
-  # template:end
+  # template:optional admin-stack-settings
   workflow_run:
     workflows: ["Deploy Backend"]
     types: [completed]
@@ -52,7 +46,7 @@ jobs:
           cache: npm
           working-directory: apps/admin_web
 
-      # template:optional next-cache
+      # template:optional next-admin
       - name: Restore Next.js build cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -63,15 +57,13 @@ jobs:
       # template:end
 
       - name: Configure AWS credentials
-        # template:set
         id: aws
-        # template:end
         uses: lx-software-ltd/actions/aws-oidc@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
         with:
           account-id: ${{ secrets.AWS_ACCOUNT_ID }}
           region: ${{ vars.AWS_REGION }}
 
-      # template:optional admin-settings
+      # template:optional admin-stack-settings
       - name: Read admin SPA settings
         id: stack_outputs
         uses: lx-software-ltd/actions/cfn-stack-outputs@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24

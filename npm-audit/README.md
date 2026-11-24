@@ -1,6 +1,6 @@
 # npm audit
 
-Runs `npm audit` in each directory. The default level is `high` and the default omit is `dev`. A registry 503 is retried up to four times. Any other failure, including a finding, stops at once.
+Runs `npm audit` in each directory. The default level is `high` and the default omit is `dev`. A registry 503 is retried up to four times. Any other failure, including a finding, stops at once. A listed directory with no `package.json` fails.
 
 The caller installs dependencies first.
 

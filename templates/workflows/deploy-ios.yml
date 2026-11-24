@@ -1,4 +1,4 @@
-# template:if-present
+# template:if-present mobile
 name: Deploy iOS
 
 on:
@@ -18,7 +18,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     permissions:
       contents: read
-# template:optional oidc
+# template:optional amplify
       id-token: write
 # template:end
     runs-on: macos-26
@@ -33,8 +33,6 @@ jobs:
         uses: lx-software-ltd/actions/setup-flutter@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
         with:
           channel: "stable"
-# template:set
-# template:end
           flutter-version: "3.50.1"
           cache: "true"
 
@@ -93,32 +91,29 @@ jobs:
           region: ${{ vars.AWS_REGION }}
 
       - name: Build Amplify configuration from the API stack
-# template:set
-        run: |
-          python3 scripts/deploy/build_amplify_config.py \
-            --params "${CDK_PARAM_FILE:-backend/infrastructure/params/production.json}" \
-            --region "$AWS_REGION" \
-            --output apps/evolvesprouts_app/build/amplify-defines.json
-# template:end
+        run: python3 scripts/deploy/build_amplify_config.py --params "${CDK_PARAM_FILE:-backend/infrastructure/params/production.json}" --region "$AWS_REGION" --output "$APP_DIRECTORY/build/amplify-defines.json"
         env:
           CDK_PARAM_FILE: ${{ vars.CDK_PARAM_FILE }}
           AWS_REGION: ${{ vars.AWS_REGION }}
+          # template:set
+          APP_DIRECTORY: apps/example_app
+          # template:end
 # template:end
 
       - name: Build release IPA
-# template:set
-        run: |
-          flutter build ipa --release --export-options-plist=ios/ExportOptions.plist \
-            --dart-define=AMPLIFY_API_KEY=${{ secrets.AMPLIFY_API_KEY }} \
-            --dart-define=FIREBASE_API_KEY=${{ vars.FIREBASE_API_KEY }} \
-            --dart-define=FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }} \
-            --dart-define=FIREBASE_MESSAGING_SENDER_ID=${{ vars.FIREBASE_MESSAGING_SENDER_ID }} \
-            --dart-define=FIREBASE_IOS_APP_ID=${{ vars.FIREBASE_IOS_APP_ID }} \
-            --dart-define=FIREBASE_IOS_BUNDLE_ID=${{ vars.IOS_BUNDLE_ID }} \
-            --dart-define=FIREBASE_STORAGE_BUCKET=${{ vars.FIREBASE_STORAGE_BUCKET }} \
-            --dart-define=FIREBASE_APP_CHECK_DEBUG=${{ vars.FIREBASE_APP_CHECK_DEBUG }}
-        working-directory: apps/evolvesprouts_app
-# template:end
+        run: bash scripts/deploy/build-mobile-release.sh ipa
+        env:
+          AMPLIFY_API_KEY: ${{ secrets.AMPLIFY_API_KEY }}
+          FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_MESSAGING_SENDER_ID: ${{ vars.FIREBASE_MESSAGING_SENDER_ID }}
+          FIREBASE_IOS_APP_ID: ${{ vars.FIREBASE_IOS_APP_ID }}
+          FIREBASE_IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
+          FIREBASE_STORAGE_BUCKET: ${{ vars.FIREBASE_STORAGE_BUCKET }}
+          FIREBASE_APP_CHECK_DEBUG: ${{ vars.FIREBASE_APP_CHECK_DEBUG }}
+          # template:set
+          APP_DIRECTORY: apps/example_app
+          # template:end
 
       - name: Load App Store Connect API key
         uses: lx-software-ltd/actions/appstore-api-key@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24

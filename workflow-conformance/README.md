@@ -18,7 +18,7 @@ Checks the caller's workflows.
 
 `alignment` is `warn` or `enforce`. It applies to three product checks: no direct `actions/setup-node` or `actions/setup-python`, quoted or not; `cdk-diff` and `cdk-deploy` name the same `plan-file` or the same inline `plan` when both are used, including a step that puts `name:` before `uses:`; and no `describe-stacks`. `warn` prints `::warning::` and does not fail. `enforce` makes those findings fail for this caller when `mode` is `enforce`. The default is `enforce`.
 
-`templates` is `off`, `warn`, or `enforce`. For `profile: product`, `warn` and `enforce` compare each file in `templates/workflows/` with `.github/workflows/` of the same name. A template whose first line is `# template:if-present` produces no finding when that product file is absent. When the file is present, the marker is ignored and the rest must match. A `# template:set` block may differ. It cannot contain a step, `continue-on-error:`, or `if:`. A marker counts at any indent. A `# template:optional <id>` block may be omitted; when it is present, its unmarked lines must match. The blank line that separates an optional block from the next job sits inside the block. A blank line between two steps that stay when the block is omitted sits after `# template:end`. An `lx-software-ltd/actions` pin and its `# main YYYY-MM-DD` comment are not compared. `warn` prints `::warning::` and does not fail. `enforce` makes a mismatch a finding. The default is `enforce`. `profile: producer` skips the comparison.
+`templates` is `off`, `warn`, or `enforce`. For `profile: product`, `warn` and `enforce` compare each file in `templates/workflows/` with `.github/workflows/` of the same name. A template whose first line is `# template:if-present` allows that file to be absent. `# template:if-present <capability>` and `# template:if-present !<capability>` follow the probe in `templates/capabilities.json` in both directions. When the file is present, the marker is ignored and the rest must match. A `# template:set` block may differ. It cannot contain a step, `run:`, `id:`, a comment, a single-quoted scalar, `continue-on-error:`, or `if:`. A marker counts at any indent. A `# template:optional <id>` id is a capability name and may repeat. The block is present when the probe matches and absent when it does not. When it is present, its unmarked lines must match. The blank line that separates an optional block from the next job sits inside the block. A blank line between two steps that stay when the block is omitted sits after `# template:end`. An `lx-software-ltd/actions` pin and its `# main YYYY-MM-DD` comment are not compared. Product names stay out of unmarked template text. A workflow with no template must be listed in `templates/untemplated-workflows.txt`. An `on.*.paths` entry whose literal prefix does not exist is a finding. `warn` prints `::warning::` and does not fail. `enforce` makes a mismatch a finding. The default is `enforce`. `profile: producer` skips the comparison.
 
 ## Inputs
 
@@ -27,7 +27,7 @@ Checks the caller's workflows.
 | `mode` | no | `enforce` | `enforce` or `warn`. |
 | `profile` | no | `product` | `product` or `producer`. |
 | `alignment` | no | `enforce` | `warn` or `enforce` for the three product alignment checks. |
-| `templates` | no | `warn` | `off`, `warn`, or `enforce` for the workflow templates. |
+| `templates` | no | `enforce` | `off`, `warn`, or `enforce` for the workflow templates. |
 | `root` | no | the workspace | Directory to check. |
 
 ## Permissions

@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # template:optional flutter-lockfiles
+  # template:optional mobile
   flutter-lockfiles:
     name: Check Flutter lockfiles
     runs-on: ubuntu-26.04
@@ -49,7 +49,7 @@ jobs:
             apps/admin_web
           # template:end
 
-  # template:optional ios-lockfiles
+  # template:optional ios-pods
   ios-lockfiles:
     name: Check iOS lockfiles
     runs-on: macos-26

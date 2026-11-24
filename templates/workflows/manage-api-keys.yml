@@ -1,7 +1,5 @@
-# template:if-present
+# template:if-present public-api-keys
 name: Manage Public API Keys
-# template:set
-# template:end
 
 on:
   workflow_dispatch:
