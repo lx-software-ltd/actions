@@ -709,6 +709,29 @@ class TemplateComparisonTest(unittest.TestCase):
         found = checker.compare_template("extra.yml", template, moved)
         self.assertTrue(any("outside marked lines" in item for item in found), found)
 
+    def test_a_nested_optional_block_can_be_omitted(self) -> None:
+        template = (
+            "# template:optional outer\n"
+            "outer\n"
+            "# template:optional inner\n"
+            "inner\n"
+            "# template:end\n"
+            "# template:end\n"
+        )
+        product = "# template:optional outer\nouter\n# template:end\n"
+        self.assertEqual(checker.compare_template("test.yml", template, product), [])
+
+    def test_a_marked_block_cannot_hold_a_step_or_a_skip(self) -> None:
+        template = "name: shared\n# template:set\nvalue: one\n# template:end\n"
+        product = (
+            "name: shared\n# template:set\n"
+            "- name: Skip\ncontinue-on-error: true\nif: false\n"
+            "# template:end\n"
+        )
+        found = checker.compare_template("lint.yml", template, product)
+        self.assertTrue(any("cannot contain" in item for item in found), found)
+        self.assertGreaterEqual(len(found), 3)
+
     def test_unclosed_marker_is_a_finding(self) -> None:
         found = checker.compare_template(
             "check-lockfiles.yml",

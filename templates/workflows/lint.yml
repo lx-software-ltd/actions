@@ -73,16 +73,22 @@ jobs:
         with:
           install: "false"
 
-      # template:set
+      # template:optional hook-deps
       - name: Install hook dependencies
+        # template:set
         run: npm ci --prefix backend/infrastructure
-      # template:end
+        # template:end
 
+      # template:end
       - name: Install pre-commit
         run: python -m pip install pre-commit
 
       - name: Run pre-commit checks
         run: pre-commit run --all-files --show-diff-on-failure
+
+      - name: Run mypy
+        run: bash scripts/ci/mypy.sh
+
   lint-admin-web:
     name: Lint Admin Web
     runs-on: ubuntu-26.04
@@ -136,48 +142,6 @@ jobs:
         working-directory: apps/training
 
   # template:end
-  # template:optional react-ui
-  lint-react-ui:
-    name: Lint React UI
-    runs-on: ubuntu-26.04
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Node.js
-        if: hashFiles('packages/react_ui/package.json') != ''
-        uses: lx-software-ltd/actions/setup-node@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
-        with:
-          cache: npm
-          working-directory: packages/react_ui
-
-      - name: Run lint
-        if: hashFiles('packages/react_ui/package.json') != ''
-        run: npm run lint --if-present
-        working-directory: packages/react_ui
-
-  # template:end
-  # template:optional api-client-ts
-  lint-api-client-ts:
-    name: Lint API Client
-    runs-on: ubuntu-26.04
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Node.js
-        if: hashFiles('packages/api_client_ts/package.json') != ''
-        uses: lx-software-ltd/actions/setup-node@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
-        with:
-          cache: npm
-          working-directory: packages/api_client_ts
-
-      - name: Run lint
-        if: hashFiles('packages/api_client_ts/package.json') != ''
-        run: npm run lint --if-present
-        working-directory: packages/api_client_ts
-
-  # template:end
   # template:optional mobile
   lint-dart:
     name: Lint Dart
@@ -193,7 +157,7 @@ jobs:
         run: |
           set -euo pipefail
           # template:set
-          for dir in apps/siutindei_app packages/flutter_ui packages/api_client_dart; do
+          for dir in apps/siutindei_app; do
           # template:end
             if [ ! -d "$dir" ]; then echo "Skipping missing $dir"; continue; fi
             echo "Linting Dart in $dir"
@@ -262,14 +226,12 @@ jobs:
         run: |
           set -euo pipefail
           # template:set
-          for dir in apps/admin_web apps/public_www packages/react_ui packages/api_client_ts backend/infrastructure; do
+          for dir in apps/admin_web apps/public_www backend/infrastructure; do
           # template:end
             if [ ! -f "$dir/package.json" ]; then echo "Skipping missing $dir"; continue; fi
             echo "Type-checking $dir"
             npm ci --prefix "$dir"
-            # template:set
             npm run typecheck --if-present --prefix "$dir"
-            # template:end
           done
 
   workflow-conformance:
@@ -293,8 +255,6 @@ jobs:
       - lint-admin-web
       - lint-public-www
       - lint-training
-      - lint-react-ui
-      - lint-api-client-ts
       - lint-dart
       - lint-cdk
       - lint-openapi

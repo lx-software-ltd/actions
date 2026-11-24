@@ -492,10 +492,51 @@ def _extract_optional(lines: list[str]) -> tuple[list[str], dict[str, list[str]]
 
 def _prepare(text: str) -> tuple[list[str], dict[str, list[str]]]:
     normalized = _normalize_pins(text.replace("\r\n", "\n"))
-    skeleton, blocks = _extract_optional(normalized.splitlines())
-    return _strip_sets(skeleton), {
-        name: _strip_sets(body) for name, body in blocks.items()
-    }
+    return _flatten_optional(normalized.splitlines())
+
+
+def _flatten_optional(
+    lines: list[str],
+) -> tuple[list[str], dict[str, list[str]]]:
+    """Optional blocks may nest. A nested block can be omitted on its own."""
+    skeleton, blocks = _extract_optional(lines)
+    flat: dict[str, list[str]] = {}
+    prepared: dict[str, list[str]] = {}
+    for name, body in blocks.items():
+        body_skeleton, nested = _flatten_optional(body)
+        overlap = set(nested) & set(prepared)
+        if overlap:
+            raise _TemplateSyntax(f"repeated # template:optional {sorted(overlap)[0]}")
+        prepared[name] = _strip_sets(body_skeleton)
+        flat.update(nested)
+    overlap = set(flat) & set(prepared)
+    if overlap:
+        raise _TemplateSyntax(f"repeated # template:optional {sorted(overlap)[0]}")
+    flat.update(prepared)
+    return _strip_sets(skeleton), flat
+
+
+_SET_STEP = re.compile(r"^-\s+(?:name|uses|run|id):")
+_SET_KEY = re.compile(r"^(?:continue-on-error|if):")
+
+
+def _set_block_violations(text: str) -> list[str]:
+    """A marked block holds values, not a new step or a way to skip one."""
+    lines = text.replace("\r\n", "\n").splitlines()
+    notes: list[str] = []
+    index = 0
+    while index < len(lines):
+        if not _is_set(lines[index]):
+            index += 1
+            continue
+        block, index = _consume_balanced(lines, index)
+        for line in block[1:-1]:
+            if _is_set(line) or _is_end(line) or _optional_name(line):
+                continue
+            stripped = line.strip()
+            if _SET_STEP.match(stripped) or _SET_KEY.match(stripped):
+                notes.append(stripped)
+    return notes
 
 
 def _skeleton_diff(template: list[str], product: list[str]) -> str | None:
@@ -537,6 +578,10 @@ def compare_template(filename: str, template: str, product: str) -> list[str]:
     except _TemplateSyntax as exc:
         return [f".github/workflows/{filename}: {exc}"]
     notes: list[str] = []
+    for line in _set_block_violations(template) + _set_block_violations(product):
+        notes.append(
+            f".github/workflows/{filename}: # template:set cannot contain {line!r}"
+        )
     diff = _skeleton_diff(expected, actual)
     if diff:
         notes.append(f".github/workflows/{filename}: {diff}")
