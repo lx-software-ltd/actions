@@ -92,8 +92,12 @@ runs:
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
       run: |
         set +e
-        npx --yes "@lhci/cli@${LHCI_VERSION}" autorun --config="$CONFIG_PATH"
+        python3 "$GITHUB_ACTION_PATH/install.py"
         status=$?
+        if [ "$status" -eq 0 ]; then
+          "$RUNNER_TEMP/lhci/node_modules/.bin/lhci" autorun --config="$CONFIG_PATH"
+          status=$?
+        fi
         set -e
         python3 "$GITHUB_ACTION_PATH/prepare.py" scrub
         exit "$status"
