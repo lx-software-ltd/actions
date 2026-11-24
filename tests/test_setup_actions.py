@@ -104,6 +104,18 @@ class SetupNodeContractTest(unittest.TestCase):
         self.assertFalse((directory / "package-lock.json").exists())
 
 
+class FlutterLockfilesContractTest(unittest.TestCase):
+    def test_flutter_version_defaults_to_the_shared_sdk(self) -> None:
+        inputs = _inputs(_text("flutter-lockfiles/action.yml"))
+        self.assertEqual(inputs["flutter-version"]["required"], "false")
+        self.assertEqual(inputs["flutter-version"]["default"], '"3.50.1"')
+        steps = _steps(_text("flutter-lockfiles/action.yml"))
+        rejected = next(
+            step for step in steps if "flutter-version ==" in step.get("if", "")
+        )
+        self.assertIn("exit 1", rejected["raw"])
+
+
 class SetupPythonContractTest(unittest.TestCase):
     def test_requirements_gate_the_cache(self) -> None:
         inputs = _inputs(_text("setup-python/action.yml"))

@@ -6,6 +6,9 @@ Warn prints the findings and exits 0. The default is enforce.
 
 ``profile`` is ``producer`` or ``product``. The producer is this repository.
 Product repositories also need the target security jobs and ``semgrep/ci``.
+
+``alignment`` defaults to ``enforce``. ``templates`` defaults to ``warn`` and
+compares product workflows with ``templates/workflows``. The producer skips both.
 """
 
 from __future__ import annotations
@@ -27,9 +30,7 @@ DESCRIBE_STACKS_ALLOW = {
     ".github/workflows/import-legacy-crm.yml",
 }
 SETUP_ACTION = re.compile(r"""uses:\s+['"]?actions/setup-(?:node|python)@""")
-CDK_ACTION = re.compile(
-    r"""uses:\s+['"]?lx-software-ltd/actions/cdk-(deploy|diff)@"""
-)
+CDK_ACTION = re.compile(r"""uses:\s+['"]?lx-software-ltd/actions/cdk-(deploy|diff)@""")
 _BLOCK = {"|", ">", "|-", ">-", "|+", ">+"}
 PRODUCT_SECURITY_JOBS = (
     "checkov",
@@ -41,6 +42,18 @@ PRODUCT_SECURITY_JOBS = (
     "npm-audit",
     "security-summary",
 )
+_OPTIONAL = re.compile(r"^# template:optional ([a-z0-9-]+)$")
+_SET = re.compile(r"^# template:set$")
+_END = re.compile(r"^# template:end$")
+_ACTION_PIN = re.compile(
+    r"lx-software-ltd/actions/(?P<name>[A-Za-z0-9_.-]+)@"
+    r"(?:[0-9a-f]{40}|ACTIONS_PIN)"
+    r"(?:[ \t]+# main (?:[0-9]{4}-[0-9]{2}-[0-9]{2}|DATE))?"
+)
+
+
+class _TemplateSyntax(Exception):
+    """A template marker is opened and not closed, or closed without an open."""
 
 
 def _uses(line: str) -> str | None:
@@ -81,7 +94,14 @@ def _pull_request_has_path_filter(text: str) -> bool:
 
 def _jobs(text: str) -> dict[str, str]:
     lines = text.splitlines()
-    start = next((index + 1 for index, line in enumerate(lines) if line == "jobs:" or line.startswith("jobs:")), None)
+    start = next(
+        (
+            index + 1
+            for index, line in enumerate(lines)
+            if line == "jobs:" or line.startswith("jobs:")
+        ),
+        None,
+    )
     if start is None:
         return {}
     jobs: dict[str, str] = {}
@@ -107,7 +127,11 @@ def _jobs(text: str) -> dict[str, str]:
 def _needs(body: str) -> list[str]:
     inline = re.search(r"(?m)^    needs:\s*\[([^\]]*)\]\s*$", body)
     if inline:
-        return [item.strip().strip("'\"") for item in inline.group(1).split(",") if item.strip()]
+        return [
+            item.strip().strip("'\"")
+            for item in inline.group(1).split(",")
+            if item.strip()
+        ]
     names: list[str] = []
     in_needs = False
     for line in body.splitlines():
@@ -151,7 +175,9 @@ def _gate_findings(rel: str, job: str, jobs: dict[str, str]) -> list[str]:
         errors.append(f"{rel}: missing the {job} job")
         return errors
     body = jobs[job]
-    if not re.search(r"(?m)^    if:\s*(?:always\(\)|\$\{\{\s*always\(\)\s*\}\})\s*$", body):
+    if not re.search(
+        r"(?m)^    if:\s*(?:always\(\)|\$\{\{\s*always\(\)\s*\}\})\s*$", body
+    ):
         errors.append(f"{rel}: {job} is missing if: always()")
     needed = _needs(body)
     missing = [name for name in jobs if name != job and name not in needed]
@@ -162,7 +188,9 @@ def _gate_findings(rel: str, job: str, jobs: dict[str, str]) -> list[str]:
             f"the other jobs are {', '.join(name for name in jobs if name != job) or 'none'}"
         )
     if not REQUIRE_JOBS.search(body):
-        errors.append(f"{rel}: {job} does not pin lx-software-ltd/actions/require-jobs by commit SHA")
+        errors.append(
+            f"{rel}: {job} does not pin lx-software-ltd/actions/require-jobs by commit SHA"
+        )
     return errors
 
 
@@ -182,7 +210,11 @@ def _pre_commit_actions_revs(text: str) -> tuple[bool, list[str]]:
 def _permission_findings(rel: str, text: str) -> list[str]:
     """Top-level permissions are contents: read. A job sets anything more."""
     for index, line in enumerate(text.splitlines()):
-        if line.startswith(" ") or line.startswith("#") or not line.startswith("permissions:"):
+        if (
+            line.startswith(" ")
+            or line.startswith("#")
+            or not line.startswith("permissions:")
+        ):
             continue
         rest = line.split(":", 1)[1].strip()
         if rest:
@@ -329,11 +361,15 @@ def _alignment_findings(root: Path) -> list[str]:
                     "or setup-python"
                 )
             if "describe-stacks" in line and rel not in DESCRIBE_STACKS_ALLOW:
-                notes.append(f"{rel}:{line_number}: describe-stacks stays out of workflows")
+                notes.append(
+                    f"{rel}:{line_number}: describe-stacks stays out of workflows"
+                )
             action = CDK_ACTION.search(line)
             if action is None:
                 continue
-            plans = _with_plans(lines, line_number, _step_bound(lines, line_number - 1)) or {""}
+            plans = _with_plans(
+                lines, line_number, _step_bound(lines, line_number - 1)
+            ) or {""}
             if action.group(1) == "deploy":
                 saw_deploy = True
                 deploy_plans |= plans
@@ -349,8 +385,188 @@ def _alignment_findings(root: Path) -> list[str]:
     return notes
 
 
+def _normalize_pins(text: str) -> str:
+    """Ignore the shared actions SHA and its date comment."""
+    return _ACTION_PIN.sub(
+        lambda match: (
+            f"lx-software-ltd/actions/{match.group('name')}@ACTIONS_PIN # main DATE"
+        ),
+        text,
+    )
+
+
+def _consume_balanced(lines: list[str], index: int) -> tuple[list[str], int]:
+    """Copy a marker block starting at index, including the matching end."""
+    copied: list[str] = []
+    depth = 0
+    while index < len(lines):
+        copied.append(lines[index])
+        if _SET.match(lines[index]) or _OPTIONAL.match(lines[index]):
+            depth += 1
+        elif _END.match(lines[index]):
+            depth -= 1
+            if depth == 0:
+                return copied, index + 1
+        index += 1
+    raise _TemplateSyntax("unclosed # template:set")
+
+
+def _strip_sets(lines: list[str]) -> list[str]:
+    """Drop the lines a repository may set. The marker lines stay."""
+    out: list[str] = []
+    index = 0
+    while index < len(lines):
+        if _SET.match(lines[index]):
+            block, index = _consume_balanced(lines, index)
+            out.append(block[0])
+            out.append(block[-1])
+            continue
+        if _END.match(lines[index]):
+            raise _TemplateSyntax("# template:end without a start")
+        out.append(lines[index])
+        index += 1
+    return out
+
+
+def _extract_optional(lines: list[str]) -> tuple[list[str], dict[str, list[str]]]:
+    """Replace each optional block with its opening marker."""
+    skeleton: list[str] = []
+    blocks: dict[str, list[str]] = {}
+    index = 0
+    while index < len(lines):
+        if _SET.match(lines[index]):
+            block, index = _consume_balanced(lines, index)
+            skeleton.extend(block)
+            continue
+        match = _OPTIONAL.match(lines[index])
+        if match is None:
+            if _END.match(lines[index]):
+                raise _TemplateSyntax("# template:end without a start")
+            skeleton.append(lines[index])
+            index += 1
+            continue
+        name = match.group(1)
+        if name in blocks:
+            raise _TemplateSyntax(f"repeated # template:optional {name}")
+        skeleton.append(lines[index])
+        index += 1
+        depth = 1
+        inner: list[str] = []
+        while index < len(lines) and depth:
+            if _OPTIONAL.match(lines[index]) or _SET.match(lines[index]):
+                depth += 1
+                inner.append(lines[index])
+            elif _END.match(lines[index]):
+                depth -= 1
+                if depth == 0:
+                    index += 1
+                    break
+                inner.append(lines[index])
+            else:
+                inner.append(lines[index])
+            index += 1
+        else:
+            raise _TemplateSyntax(f"unclosed # template:optional {name}")
+        blocks[name] = inner
+    return skeleton, blocks
+
+
+def _prepare(text: str) -> tuple[list[str], dict[str, list[str]]]:
+    normalized = _normalize_pins(text.replace("\r\n", "\n"))
+    skeleton, blocks = _extract_optional(normalized.splitlines())
+    return _strip_sets(skeleton), {
+        name: _strip_sets(body) for name, body in blocks.items()
+    }
+
+
+def _skeleton_diff(template: list[str], product: list[str]) -> str | None:
+    """Return the first unmarked line that differs. An optional block may be absent."""
+    template_index = 0
+    product_index = 0
+    while template_index < len(template) or product_index < len(product):
+        if template_index < len(template) and _OPTIONAL.match(template[template_index]):
+            if (
+                product_index < len(product)
+                and product[product_index] == template[template_index]
+            ):
+                template_index += 1
+                product_index += 1
+                continue
+            template_index += 1
+            continue
+        template_line = (
+            template[template_index] if template_index < len(template) else "<end>"
+        )
+        product_line = (
+            product[product_index] if product_index < len(product) else "<end>"
+        )
+        if template_line != product_line:
+            return (
+                f"outside marked lines, template {template_line!r} "
+                f"product {product_line!r}"
+            )
+        template_index += 1
+        product_index += 1
+    return None
+
+
+def compare_template(filename: str, template: str, product: str) -> list[str]:
+    """Findings when product differs from template outside marked lines."""
+    try:
+        expected, expected_blocks = _prepare(template)
+        actual, actual_blocks = _prepare(product)
+    except _TemplateSyntax as exc:
+        return [f".github/workflows/{filename}: {exc}"]
+    notes: list[str] = []
+    diff = _skeleton_diff(expected, actual)
+    if diff:
+        notes.append(f".github/workflows/{filename}: {diff}")
+    for name in sorted(set(actual_blocks) - set(expected_blocks)):
+        notes.append(
+            f".github/workflows/{filename}: unknown # template:optional {name}"
+        )
+    for name, body in expected_blocks.items():
+        if name not in actual_blocks:
+            continue
+        block_diff = _skeleton_diff(body, actual_blocks[name])
+        if block_diff:
+            notes.append(f".github/workflows/{filename} optional {name}: {block_diff}")
+    return notes
+
+
+def template_directory() -> Path:
+    override = os.environ.get("CONFORMANCE_TEMPLATE_DIR", "").strip()
+    if override:
+        return Path(override)
+    return Path(__file__).resolve().parents[1] / "templates" / "workflows"
+
+
+def template_findings(root: Path, template_dir: Path | None = None) -> list[str]:
+    """Compare product workflows with the templates that exist for them."""
+    directory = template_directory() if template_dir is None else template_dir
+    if not directory.is_dir():
+        return [f"workflow templates are missing at {directory}"]
+    workflow_dir = root / ".github" / "workflows"
+    notes: list[str] = []
+    for template in sorted(directory.glob("*.yml")):
+        product = workflow_dir / template.name
+        if not product.is_file():
+            notes.append(
+                f".github/workflows/{template.name}: missing the shared workflow"
+            )
+            continue
+        notes.extend(
+            compare_template(
+                template.name,
+                template.read_text(encoding="utf-8"),
+                product.read_text(encoding="utf-8"),
+            )
+        )
+    return notes
+
+
 def advisory_findings(root: Path, profile: str = "product") -> list[str]:
-    """Alignment findings. Callers warn by default and enforce per repository."""
+    """Alignment findings. The producer profile does not run them."""
     if profile != "product":
         return []
     return _alignment_findings(root)
@@ -375,13 +591,17 @@ def findings(root: Path, profile: str = "product") -> list[str]:
             if stripped.startswith("runs-on:"):
                 label = stripped.split(":", 1)[1].strip().strip("'\"")
                 if label not in RUNNERS:
-                    errors.append(f"{rel}:{line_number}: runner {label} is not ubuntu-26.04 or macos-26")
+                    errors.append(
+                        f"{rel}:{line_number}: runner {label} is not ubuntu-26.04 or macos-26"
+                    )
             uses = _uses(line)
             if uses is None or uses.startswith("./"):
                 continue
             ref = uses.rsplit("@", 1)[-1] if "@" in uses else ""
             if not SHA.fullmatch(ref):
-                errors.append(f"{rel}:{line_number}: {uses} is not pinned by commit SHA")
+                errors.append(
+                    f"{rel}:{line_number}: {uses} is not pinned by commit SHA"
+                )
                 continue
             if uses.startswith("lx-software-ltd/actions/"):
                 pins.append(ref)
@@ -391,7 +611,9 @@ def findings(root: Path, profile: str = "product") -> list[str]:
                     )
         for line_number, image in _images(text):
             if not DIGEST.search(image):
-                errors.append(f"{rel}:{line_number}: image {image} is not pinned by digest")
+                errors.append(
+                    f"{rel}:{line_number}: image {image} is not pinned by digest"
+                )
         if path.name in PATH_FILTERED and _pull_request_has_path_filter(text):
             errors.append(f"{rel}: pull_request has a path filter")
     for filename, job in GATED.items():
@@ -399,7 +621,13 @@ def findings(root: Path, profile: str = "product") -> list[str]:
         if not path.is_file():
             errors.append(f".github/workflows/{filename}: missing the {job} gate")
             continue
-        errors.extend(_gate_findings(f".github/workflows/{filename}", job, _jobs(path.read_text(encoding="utf-8"))))
+        errors.extend(
+            _gate_findings(
+                f".github/workflows/{filename}",
+                job,
+                _jobs(path.read_text(encoding="utf-8")),
+            )
+        )
     security = workflow_dir / "security.yml"
     if security.is_file():
         security_jobs = _jobs(security.read_text(encoding="utf-8"))
@@ -415,20 +643,28 @@ def findings(root: Path, profile: str = "product") -> list[str]:
             semgrep_jobs = _jobs(semgrep.read_text(encoding="utf-8"))
             names = {_job_name(job_id, body) for job_id, body in semgrep_jobs.items()}
             if "semgrep/ci" not in semgrep_jobs and "semgrep/ci" not in names:
-                errors.append(".github/workflows/semgrep.yml: missing the semgrep/ci job")
+                errors.append(
+                    ".github/workflows/semgrep.yml: missing the semgrep/ci job"
+                )
     unique = sorted(set(pins))
     if len(unique) > 1:
-        errors.append("more than one lx-software-ltd/actions commit: " + ", ".join(unique))
+        errors.append(
+            "more than one lx-software-ltd/actions commit: " + ", ".join(unique)
+        )
     pre_commit = root / ".pre-commit-config.yaml"
     if pre_commit.is_file():
         found, revs = _pre_commit_actions_revs(pre_commit.read_text(encoding="utf-8"))
         if found:
             for rev in revs:
                 if rev == "":
-                    errors.append(".pre-commit-config.yaml names actions but has no rev")
+                    errors.append(
+                        ".pre-commit-config.yaml names actions but has no rev"
+                    )
                     continue
                 if not SHA.fullmatch(rev):
-                    errors.append(f".pre-commit-config.yaml rev {rev} is not a commit SHA")
+                    errors.append(
+                        f".pre-commit-config.yaml rev {rev} is not a commit SHA"
+                    )
                 elif unique and rev not in unique:
                     errors.append(
                         f".pre-commit-config.yaml rev {rev} is not the actions commit {unique[0]}"
@@ -439,15 +675,26 @@ def findings(root: Path, profile: str = "product") -> list[str]:
 def main() -> int:
     mode = os.environ.get("CONFORMANCE_MODE", "enforce")
     profile = os.environ.get("CONFORMANCE_PROFILE", "product")
-    alignment = os.environ.get("CONFORMANCE_ALIGNMENT", "warn").strip().lower()
+    alignment = os.environ.get("CONFORMANCE_ALIGNMENT", "enforce").strip().lower()
+    templates_mode = os.environ.get("CONFORMANCE_TEMPLATES", "warn").strip().lower()
     if mode not in {"warn", "enforce"}:
         print("workflow-conformance: mode must be warn or enforce", file=sys.stderr)
         return 1
     if profile not in {"product", "producer"}:
-        print("workflow-conformance: profile must be product or producer", file=sys.stderr)
+        print(
+            "workflow-conformance: profile must be product or producer", file=sys.stderr
+        )
         return 1
     if alignment not in {"warn", "enforce"}:
-        print("workflow-conformance: alignment must be warn or enforce", file=sys.stderr)
+        print(
+            "workflow-conformance: alignment must be warn or enforce", file=sys.stderr
+        )
+        return 1
+    if templates_mode not in {"off", "warn", "enforce"}:
+        print(
+            "workflow-conformance: templates must be off, warn, or enforce",
+            file=sys.stderr,
+        )
         return 1
     root_text = os.environ.get("CONFORMANCE_ROOT", "").strip()
     root = Path(root_text).resolve() if root_text else Path.cwd().resolve()
@@ -456,9 +703,17 @@ def main() -> int:
     advised = aligned if alignment == "warn" else []
     if alignment == "enforce":
         found.extend(aligned)
+    templated: list[str] = []
+    if profile == "product" and templates_mode != "off":
+        templated = template_findings(root)
+    if templates_mode == "enforce":
+        found.extend(templated)
+        templated = []
     for item in advised:
         print(f"::warning::{item}", file=sys.stderr)
-    if not found and not advised:
+    for item in templated:
+        print(f"::warning::{item}", file=sys.stderr)
+    if not found and not advised and not templated:
         print("Workflow conformance passed.")
         return 0
     if found:
@@ -468,6 +723,11 @@ def main() -> int:
     if advised:
         print(
             f"Workflow conformance found {len(advised)} advisory issue(s).",
+            file=sys.stderr,
+        )
+    if templated:
+        print(
+            f"Workflow conformance found {len(templated)} template advisory issue(s).",
             file=sys.stderr,
         )
     if mode == "warn" or not found:
