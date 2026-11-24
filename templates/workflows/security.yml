@@ -75,7 +75,9 @@ jobs:
         with:
           language: ${{ matrix.language }}
           queries: security-extended
+          # template:set
           config-file: .github/codeql/codeql-config.yml
+          # template:end
           category: "/language:${{ matrix.language }}"
 
   pii-denylist:
