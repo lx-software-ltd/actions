@@ -1,0 +1,73 @@
+# template:if-present
+name: Deploy Public Website
+
+on:
+  repository_dispatch:
+    types: [deploy-public-www]
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/public_www/**"
+      - ".github/workflows/deploy-public-www.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-public-www
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+# template:set
+    # The production environment should also limit branches to main.
+    # This job refuses every other ref even if that setting is open.
+# template:end
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-26.04
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: lx-software-ltd/actions/setup-node@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          cache: npm
+          working-directory: apps/public_www
+
+# template:set
+# template:end
+      - name: Build public website
+        working-directory: apps/public_www
+# template:set
+# template:end
+        run: npm run build
+
+      # After the build. npm ci and the build must not see the deploy role.
+      - name: Configure AWS credentials
+        id: aws
+        uses: lx-software-ltd/actions/aws-oidc@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+          region: ${{ vars.AWS_REGION }}
+
+      - name: Deploy public website
+        uses: lx-software-ltd/actions/s3-cloudfront-deploy@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
+        with:
+          source: apps/public_www/dist
+# template:set
+          stack: findingalpha-public-www
+# template:end
+          region: ${{ vars.AWS_REGION }}
+          bucket-output: PublicWebsiteBucketName
+          distribution-output: PublicWebsiteDistributionId
+# template:set
+          profile: public-hashed
+# template:end
+          dry-run: "false"
