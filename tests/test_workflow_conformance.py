@@ -315,8 +315,12 @@ class WorkflowConformanceTest(unittest.TestCase):
             advised = checker.advisory_findings(root)
             self.assertTrue(any("setup-node" in item for item in advised), advised)
             self.assertTrue(any("describe-stacks" in item for item in advised), advised)
-            self.assertFalse(
-                any("import-legacy-crm" in item for item in advised), advised
+            self.assertTrue(
+                any(
+                    "import-legacy-crm" in item and "describe-stacks" in item
+                    for item in advised
+                ),
+                advised,
             )
             self.assertTrue(any("same plan file" in item for item in advised), advised)
             completed = subprocess.run(
@@ -645,6 +649,20 @@ class TemplateComparisonTest(unittest.TestCase):
             )
             self.assertEqual(enforced.returncode, 1, enforced.stderr)
             self.assertIn("extra.yml", enforced.stderr)
+
+    def test_an_indented_marker_is_a_marker(self) -> None:
+        template = (
+            "jobs:\n  step:\n    with:\n"
+            "      # template:set\n      value: one\n      # template:end\n"
+        )
+        product = (
+            "jobs:\n  step:\n    with:\n"
+            "# template:set\n      value: two\n# template:end\n"
+        )
+        self.assertEqual(checker.compare_template("extra.yml", template, product), [])
+        moved = product.replace("    with:\n", "    env:\n")
+        found = checker.compare_template("extra.yml", template, moved)
+        self.assertTrue(any("outside marked lines" in item for item in found), found)
 
     def test_unclosed_marker_is_a_finding(self) -> None:
         found = checker.compare_template(

@@ -8,26 +8,48 @@ The `actions` repository is the producer. It is not a product caller. Which of t
 
 Every product repository has these files. Top-level keys run `name`, `on`, `permissions`, `concurrency`, `jobs`, and strings use double quotes. A repository adds the stack jobs named in [Differences that stay](#differences-that-stay).
 
+### In place
+
+These five check workflows match `templates/workflows/`. The comparison ignores marked lines.
+
 | File | Jobs | Triggers |
 | --- | --- | --- |
-| `lint.yml` | `validate-agent-harness`, `workflow-conformance`, `lint-python`, one `lint-<app>` per Node app, `lint-cdk`, `type-check`, `repo-checks`, gate `lint`. Mobile repositories also `lint-openapi` and `lint-dart` | `pull_request` and `push` to `main`, neither with a path filter, plus `workflow_dispatch` |
-| `test.yml` | `test-python`, one `test-<app>` per Node app, `test-infrastructure`, gate `test`. Playwright repositories also `e2e-<app>`. Mobile repositories also `test-flutter` and `build-android` | `pull_request` and `push` to `main`, neither with a path filter, plus `workflow_dispatch` |
-| `security.yml` | `checkov`, `codeql`, `pii-denylist`, `secrets-scan`, `dependency-audit`, `bandit`, `npm-audit`, `security-summary` | `push` to `main`, `pull_request` with no path filter, weekly, `workflow_dispatch` |
 | `semgrep.yml` | `semgrep` named `semgrep/ci` | `push` to `main`, `pull_request`, Monday 08:00 UTC, `workflow_dispatch`. Skips Dependabot |
 | `check-lockfiles.yml` | `node-lockfiles`, `python-requirements`. Mobile repositories also `flutter-lockfiles` and `ios-lockfiles` | `pull_request`, `push` to `main`, `workflow_dispatch` |
 | `verify-rulesets.yml` | `verify-branch-protection` | Monday 09:00 UTC, `workflow_dispatch` |
 | `dependency-submission.yml` | `check`, `submit` | `pull_request`, `push` to `main`, `workflow_dispatch` |
 | `cdk-bootstrap.yml` | `bootstrap` | `workflow_dispatch` only |
-| `cdk-diff.yml` | `diff`, and `pull-request` where the read-only role is the only way to pass deploy parameters | Pull requests that touch infrastructure, and a manual run |
-| `deploy-backend.yml` | `deploy` | `main` only, `environment: production` |
 
-`templates/workflows/` holds the canonical text for the five check workflows: `verify-rulesets.yml`, `dependency-submission.yml`, `semgrep.yml`, `cdk-bootstrap.yml`, and `check-lockfiles.yml`. The gate and deploy workflows are not templated yet. `evolvesprouts` still calls the harness job `validate-agent-rules` until `lint.yml` converges. The contract id is `validate-agent-harness`.
+`templates/workflows/` holds that canonical text. The gate and deploy workflows are not templated yet.
 
 All four repositories run `cdk bootstrap` from a manual `cdk-bootstrap.yml`. `cdk-diff.yml` runs on pull requests in `findingalpha`, `lx-software`, and `evolvesprouts`. A `siutindei` pull request warns and does not call AWS until `AWS_DIFF_ROLE_NAME` names a read-only role. That gap is in `docs/decisions.md`.
 
-Web deploy is S3 and CloudFront. Public-site release is two profiles, staged (`evolvesprouts`, `siutindei`) and direct (`findingalpha`, `lx-software`). The staged workflow file is `deploy-public-www-staging.yml`.
+Web deploy is S3 and CloudFront. Public-site release is two profiles, staged (`evolvesprouts`, `siutindei`) and direct (`findingalpha`, `lx-software`). Both profiles still use the filename `deploy-public-www.yml`.
 
-A workflow that runs on pull requests or writes to AWS has a concurrency group. `repository_dispatch` is accepted on `cdk-diff.yml`, `deploy-*.yml`, and `promote-public-www.yml`, with the file stem as the event type. A production deploy job has `if: github.ref == 'refs/heads/main'` as well as the environment. Semgrep uploads with category `semgrep`. CodeQL's JavaScript category is `/language:javascript-typescript`. Bandit has no skip list. A reviewed line carries `# nosec`.
+A workflow that runs on pull requests or writes to AWS has a concurrency group. Semgrep uploads with category `semgrep`. `repository_dispatch` has been removed from the check workflows above. It remains on the CDK diff, deploy, and promote workflows that already declared it.
+
+### Phase 2 target: gate workflows
+
+These rows are the target. They are not the files in the product repositories today. `evolvesprouts` still calls the harness job `validate-agent-rules`. `findingalpha` and `lx-software` still call `build-cdk`. Bandit still has a skip list in `findingalpha` (`B101,B311`) and `lx-software` (`B101`). CodeQL's JavaScript category is still `/language:javascript` in the web repositories.
+
+| File | Jobs | Triggers |
+| --- | --- | --- |
+| `lint.yml` | `validate-agent-harness`, `workflow-conformance`, `lint-python`, one `lint-<app>` per Node app, `lint-cdk`, `type-check`, `repo-checks`, gate `lint`. Mobile repositories also `lint-openapi` and `lint-dart` | `pull_request` and `push` to `main`, neither with a path filter, plus `workflow_dispatch` |
+| `test.yml` | `test-python`, one `test-<app>` per Node app, `test-infrastructure`, gate `test`. Playwright repositories also `e2e-<app>`. Mobile repositories also `test-flutter` and `build-android` | `pull_request` and `push` to `main`, neither with a path filter, plus `workflow_dispatch` |
+| `security.yml` | `checkov`, `codeql`, `pii-denylist`, `secrets-scan`, `dependency-audit`, `bandit`, `npm-audit`, `security-summary` | `push` to `main`, `pull_request` with no path filter, weekly, `workflow_dispatch` |
+
+The target for Bandit is no skip list. A reviewed line carries `# nosec`. The target for CodeQL's JavaScript category is `/language:javascript-typescript`.
+
+### Phase 3 target: deploy workflows
+
+These rows are the target. They are not the files in the product repositories today. Only `findingalpha` sets `if: github.ref == 'refs/heads/main'` on its production deploy jobs. The staged public-site file is still named `deploy-public-www.yml`.
+
+| File | Jobs | Triggers |
+| --- | --- | --- |
+| `cdk-diff.yml` | `diff`, and `pull-request` where the read-only role is the only way to pass deploy parameters | Pull requests that touch infrastructure, and a manual run |
+| `deploy-backend.yml` | `deploy` | `main` only, `environment: production` |
+
+The target adds `if: github.ref == 'refs/heads/main'` on every production deploy job, as well as the environment. The target renames the staged public-site file to `deploy-public-www-staging.yml`. `repository_dispatch` is accepted on `cdk-diff.yml`, `deploy-*.yml`, and `promote-public-www.yml`, with the file stem as the event type.
 
 ## Gates
 
@@ -67,9 +89,9 @@ A difference that is not in this list is not a shared workflow. Templates ignore
 | Stack: Docker arm64 bundling | QEMU step in `cdk-diff.yml` and `deploy-backend.yml` | `findingalpha`, `lx-software` |
 | Stack: Playwright | `e2e-<app>` jobs | `findingalpha`, `lx-software`, `siutindei` |
 | Stack: LFS and search fixture | `lfs: true` checkouts, the fixture sync before synth, the sqlite and Amplify steps | `siutindei` |
-| Release profile | Staged (`deploy-public-www-staging.yml`, smoke, promote) or direct (`deploy-public-www.yml`) | Mobile pair, web pair |
+| Release profile | Staged (staging deploy, smoke, promote) or direct (`deploy-public-www.yml`). Phase 3 renames the staged file to `deploy-public-www-staging.yml` | Mobile pair, web pair |
 | Parameter source | `params/production.json` with `CDK_PARAM_*`, or `P_*` variables. Same step order | Mobile pair, web pair |
-| Product workflows | `deploy-training.yml`, `figma-refresh-token.yml`, `figma-token-studio-sync.yml`, `import-legacy-crm.yml` | `evolvesprouts` |
+| Product workflows | `deploy-training.yml`, `figma-refresh-token.yml`, `figma-token-studio-sync.yml` | `evolvesprouts` |
 | Product workflows | `mint-openrouter-keys.yml` | `lx-software` |
 | Product workflows | `board-agent.yml`, `board-merge-staging.yml`, `board-promote.yml`, `close-note-tag-issues.yml`. These names stay, because `lx-software` dispatches them by filename | `siutindei` |
 
@@ -119,8 +141,8 @@ Three product checks follow `alignment`. The default is `enforce`. `warn` prints
 
 - A workflow does not call `actions/setup-node` or `actions/setup-python`. A quoted `uses` counts.
 - When both `cdk-diff` and `cdk-deploy` are used, they name the same `plan-file` or the same inline `plan`. The value runs to the end of the line, or through the block body. A `${{ }}` path is the whole value. A step written as `name:`, then `uses:`, then `with:` is read the same way as one that starts at `uses:`.
-- A workflow does not call `describe-stacks`. `import-legacy-crm.yml` is the allow-list, because that import stays inline.
+- A workflow does not call `describe-stacks`.
 
 `templates` compares each file in `templates/workflows/` with the product workflow of the same name. The default is `warn`. `enforce` makes a mismatch a finding when `mode` is `enforce`. `off` skips the comparison. `profile: producer` skips it.
 
-A `# template:set` line opens a block and `# template:end` closes it. The lines between the markers may differ, including how many there are. The marker lines stay. A `# template:optional <id>` block may be absent. When it is present, its unmarked lines match the template. Nested `# template:set` blocks inside it follow the same rule. The comparison treats every `lx-software-ltd/actions/<name>@<sha> # main YYYY-MM-DD` as the same pin. The pin check above still requires one real SHA and a real date.
+A `# template:set` line opens a block and `# template:end` closes it. The lines between the markers may differ, including how many there are. The marker lines stay. A marker counts at any indent, so it can sit inside a YAML block. A `# template:optional <id>` block may be absent. The blank line that separates it from the next job sits inside the block, so omitting the block does not leave that blank behind. When the block is present, its unmarked lines match the template. Nested `# template:set` blocks inside it follow the same rule. The comparison treats every `lx-software-ltd/actions/<name>@<sha> # main YYYY-MM-DD` as the same pin. The pin check above still requires one real SHA and a real date.
