@@ -51,9 +51,6 @@ jobs:
         working-directory: backend/infrastructure
         env:
           CDK_DISABLE_CONTEXT_LOOKUPS: "1"
-          # template:optional certificate-arn
-          CDK_PARAM_PUBLIC_WEBSITE_CERTIFICATE_ARN: ${{ secrets.CDK_PARAM_PUBLIC_WEBSITE_CERTIFICATE_ARN }}
-          # template:end
         run: npm run synth:ci
 
       - name: Run Checkov
