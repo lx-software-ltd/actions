@@ -27,9 +27,7 @@ REQUIRE_JOBS = re.compile(
     r"uses:\s+lx-software-ltd/actions/require-jobs@[0-9a-f]{40}\b"
 )
 SETUP_ACTION = re.compile(r"""uses:\s+['"]?actions/setup-(?:node|python)@""")
-CDK_ACTION = re.compile(
-    r"""uses:\s+['"]?lx-software-ltd/actions/cdk-(deploy|diff)@"""
-)
+CDK_ACTION = re.compile(r"""uses:\s+['"]?lx-software-ltd/actions/cdk-(deploy|diff)@""")
 _BLOCK = {"|", ">", "|-", ">-", "|+", ">+"}
 PRODUCT_SECURITY_JOBS = (
     "checkov",
@@ -116,7 +114,14 @@ def _pull_request_has_path_filter(text: str) -> bool:
 
 def _jobs(text: str) -> dict[str, str]:
     lines = text.splitlines()
-    start = next((index + 1 for index, line in enumerate(lines) if line == "jobs:" or line.startswith("jobs:")), None)
+    start = next(
+        (
+            index + 1
+            for index, line in enumerate(lines)
+            if line == "jobs:" or line.startswith("jobs:")
+        ),
+        None,
+    )
     if start is None:
         return {}
     jobs: dict[str, str] = {}
@@ -142,7 +147,11 @@ def _jobs(text: str) -> dict[str, str]:
 def _needs(body: str) -> list[str]:
     inline = re.search(r"(?m)^    needs:\s*\[([^\]]*)\]\s*$", body)
     if inline:
-        return [item.strip().strip("'\"") for item in inline.group(1).split(",") if item.strip()]
+        return [
+            item.strip().strip("'\"")
+            for item in inline.group(1).split(",")
+            if item.strip()
+        ]
     names: list[str] = []
     in_needs = False
     for line in body.splitlines():
@@ -186,7 +195,9 @@ def _gate_findings(rel: str, job: str, jobs: dict[str, str]) -> list[str]:
         errors.append(f"{rel}: missing the {job} job")
         return errors
     body = jobs[job]
-    if not re.search(r"(?m)^    if:\s*(?:always\(\)|\$\{\{\s*always\(\)\s*\}\})\s*$", body):
+    if not re.search(
+        r"(?m)^    if:\s*(?:always\(\)|\$\{\{\s*always\(\)\s*\}\})\s*$", body
+    ):
         errors.append(f"{rel}: {job} is missing if: always()")
     needed = _needs(body)
     missing = [name for name in jobs if name != job and name not in needed]
@@ -197,7 +208,9 @@ def _gate_findings(rel: str, job: str, jobs: dict[str, str]) -> list[str]:
             f"the other jobs are {', '.join(name for name in jobs if name != job) or 'none'}"
         )
     if not REQUIRE_JOBS.search(body):
-        errors.append(f"{rel}: {job} does not pin lx-software-ltd/actions/require-jobs by commit SHA")
+        errors.append(
+            f"{rel}: {job} does not pin lx-software-ltd/actions/require-jobs by commit SHA"
+        )
     return errors
 
 
@@ -217,7 +230,11 @@ def _pre_commit_actions_revs(text: str) -> tuple[bool, list[str]]:
 def _permission_findings(rel: str, text: str) -> list[str]:
     """Top-level permissions are contents: read. A job sets anything more."""
     for index, line in enumerate(text.splitlines()):
-        if line.startswith(" ") or line.startswith("#") or not line.startswith("permissions:"):
+        if (
+            line.startswith(" ")
+            or line.startswith("#")
+            or not line.startswith("permissions:")
+        ):
             continue
         rest = line.split(":", 1)[1].strip()
         if rest:
@@ -364,11 +381,15 @@ def _alignment_findings(root: Path) -> list[str]:
                     "or setup-python"
                 )
             if "describe-stacks" in line:
-                notes.append(f"{rel}:{line_number}: describe-stacks stays out of workflows")
+                notes.append(
+                    f"{rel}:{line_number}: describe-stacks stays out of workflows"
+                )
             action = CDK_ACTION.search(line)
             if action is None:
                 continue
-            plans = _with_plans(lines, line_number, _step_bound(lines, line_number - 1)) or {""}
+            plans = _with_plans(
+                lines, line_number, _step_bound(lines, line_number - 1)
+            ) or {""}
             if action.group(1) == "deploy":
                 saw_deploy = True
                 deploy_plans |= plans
@@ -532,6 +553,21 @@ def compare_template(filename: str, template: str, product: str) -> list[str]:
     return notes
 
 
+def _marked_if_present(template_text: str) -> bool:
+    """A template may start with the if-present marker."""
+    lines = template_text.splitlines()
+    return bool(lines) and lines[0].strip() == "# template:if-present"
+
+
+def _without_if_present(template_text: str) -> str:
+    """Drop the leading if-present marker before comparing a present file."""
+    lines = template_text.splitlines()
+    body = "\n".join(lines[1:])
+    if template_text.endswith("\n"):
+        body += "\n"
+    return body
+
+
 def template_directory() -> Path:
     override = os.environ.get("CONFORMANCE_TEMPLATE_DIR", "").strip()
     if override:
@@ -547,16 +583,21 @@ def template_findings(root: Path, template_dir: Path | None = None) -> list[str]
     workflow_dir = root / ".github" / "workflows"
     notes: list[str] = []
     for template in sorted(directory.glob("*.yml")):
+        template_text = template.read_text(encoding="utf-8")
         product = workflow_dir / template.name
         if not product.is_file():
+            if _marked_if_present(template_text):
+                continue
             notes.append(
                 f".github/workflows/{template.name}: missing the shared workflow"
             )
             continue
+        if _marked_if_present(template_text):
+            template_text = _without_if_present(template_text)
         notes.extend(
             compare_template(
                 template.name,
-                template.read_text(encoding="utf-8"),
+                template_text,
                 product.read_text(encoding="utf-8"),
             )
         )
@@ -589,13 +630,17 @@ def findings(root: Path, profile: str = "product") -> list[str]:
             if stripped.startswith("runs-on:"):
                 label = stripped.split(":", 1)[1].strip().strip("'\"")
                 if label not in RUNNERS:
-                    errors.append(f"{rel}:{line_number}: runner {label} is not ubuntu-26.04 or macos-26")
+                    errors.append(
+                        f"{rel}:{line_number}: runner {label} is not ubuntu-26.04 or macos-26"
+                    )
             uses = _uses(line)
             if uses is None or uses.startswith("./"):
                 continue
             ref = uses.rsplit("@", 1)[-1] if "@" in uses else ""
             if not SHA.fullmatch(ref):
-                errors.append(f"{rel}:{line_number}: {uses} is not pinned by commit SHA")
+                errors.append(
+                    f"{rel}:{line_number}: {uses} is not pinned by commit SHA"
+                )
                 continue
             if uses.startswith("lx-software-ltd/actions/"):
                 pins.append(ref)
@@ -605,7 +650,9 @@ def findings(root: Path, profile: str = "product") -> list[str]:
                     )
         for line_number, image in _images(text):
             if not DIGEST.search(image):
-                errors.append(f"{rel}:{line_number}: image {image} is not pinned by digest")
+                errors.append(
+                    f"{rel}:{line_number}: image {image} is not pinned by digest"
+                )
         if path.name in PATH_FILTERED and _pull_request_has_path_filter(text):
             errors.append(f"{rel}: pull_request has a path filter")
     for filename, job in GATED.items():
@@ -613,7 +660,13 @@ def findings(root: Path, profile: str = "product") -> list[str]:
         if not path.is_file():
             errors.append(f".github/workflows/{filename}: missing the {job} gate")
             continue
-        errors.extend(_gate_findings(f".github/workflows/{filename}", job, _jobs(path.read_text(encoding="utf-8"))))
+        errors.extend(
+            _gate_findings(
+                f".github/workflows/{filename}",
+                job,
+                _jobs(path.read_text(encoding="utf-8")),
+            )
+        )
     security = workflow_dir / "security.yml"
     if security.is_file():
         security_jobs = _jobs(security.read_text(encoding="utf-8"))
@@ -629,20 +682,28 @@ def findings(root: Path, profile: str = "product") -> list[str]:
             semgrep_jobs = _jobs(semgrep.read_text(encoding="utf-8"))
             names = {_job_name(job_id, body) for job_id, body in semgrep_jobs.items()}
             if "semgrep/ci" not in semgrep_jobs and "semgrep/ci" not in names:
-                errors.append(".github/workflows/semgrep.yml: missing the semgrep/ci job")
+                errors.append(
+                    ".github/workflows/semgrep.yml: missing the semgrep/ci job"
+                )
     unique = sorted(set(pins))
     if len(unique) > 1:
-        errors.append("more than one lx-software-ltd/actions commit: " + ", ".join(unique))
+        errors.append(
+            "more than one lx-software-ltd/actions commit: " + ", ".join(unique)
+        )
     pre_commit = root / ".pre-commit-config.yaml"
     if pre_commit.is_file():
         found, revs = _pre_commit_actions_revs(pre_commit.read_text(encoding="utf-8"))
         if found:
             for rev in revs:
                 if rev == "":
-                    errors.append(".pre-commit-config.yaml names actions but has no rev")
+                    errors.append(
+                        ".pre-commit-config.yaml names actions but has no rev"
+                    )
                     continue
                 if not SHA.fullmatch(rev):
-                    errors.append(f".pre-commit-config.yaml rev {rev} is not a commit SHA")
+                    errors.append(
+                        f".pre-commit-config.yaml rev {rev} is not a commit SHA"
+                    )
                 elif unique and rev not in unique:
                     errors.append(
                         f".pre-commit-config.yaml rev {rev} is not the actions commit {unique[0]}"
@@ -659,7 +720,9 @@ def main() -> int:
         print("workflow-conformance: mode must be warn or enforce", file=sys.stderr)
         return 1
     if profile not in {"product", "producer"}:
-        print("workflow-conformance: profile must be product or producer", file=sys.stderr)
+        print(
+            "workflow-conformance: profile must be product or producer", file=sys.stderr
+        )
         return 1
     if alignment not in {"warn", "enforce"}:
         print(
