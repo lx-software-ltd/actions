@@ -649,6 +649,22 @@ class TemplateComparisonTest(unittest.TestCase):
             )
             self.assertEqual(enforced.returncode, 1, enforced.stderr)
             self.assertIn("extra.yml", enforced.stderr)
+            defaulted = subprocess.run(
+                ["python3", str(_PATH)],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                env={
+                    "CONFORMANCE_MODE": "enforce",
+                    "CONFORMANCE_PROFILE": "product",
+                    "CONFORMANCE_ALIGNMENT": "warn",
+                    "CONFORMANCE_TEMPLATE_DIR": str(templates),
+                    "PATH": "/usr/bin:/bin",
+                },
+                check=False,
+            )
+            self.assertEqual(defaulted.returncode, 1, defaulted.stderr)
+            self.assertIn("extra.yml", defaulted.stderr)
 
     def test_if_present_allows_a_missing_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

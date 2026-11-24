@@ -26,7 +26,7 @@ Three organisation rulesets apply here and in the four product repositories.
 
 Gate jobs stay in the caller. The job ids are `lint`, `test`, and `security-summary`. A gate has `if: always()`, lists every other job in that file under `needs`, and fails unless those jobs succeeded. A skipped job is a failure. `require-jobs` has no skip allowance.
 
-`workflow-conformance` defaults to `mode: enforce` and `alignment: enforce`. `templates` defaults to `warn`. `profile: producer` skips alignment and the template comparison.
+`workflow-conformance` defaults to `mode: enforce`, `alignment: enforce`, and `templates: enforce`. `profile: producer` skips alignment and the template comparison.
 
 ## Versions and credentials
 

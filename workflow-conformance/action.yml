@@ -29,7 +29,7 @@ inputs:
       templates/workflows and does not fail. enforce makes a mismatch
       a finding. off skips the comparison. The producer profile skips it.
     required: false
-    default: warn
+    default: enforce
 
 runs:
   using: composite

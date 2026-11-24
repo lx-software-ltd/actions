@@ -5,18 +5,18 @@
 
 ## Goal
 
-Give the five shared check workflows one canonical text, and teach `workflow-conformance` to compare a product workflow with that text outside marked lines. The check warns. It does not fail a pull request yet.
+Give the five shared check workflows one canonical text, and teach `workflow-conformance` to compare a product workflow with that text outside marked lines. The template check defaults to `enforce`.
 
 ## Non-goals
 
-Gate workflows (`lint.yml`, `test.yml`, `security.yml`) and deploy workflows. Those stay on their current text. `templates: enforce` waits until every shared file matches.
+Gate workflows (`lint.yml`, `test.yml`, `security.yml`) and deploy workflows. Those stay on their current text. The template default is `enforce`.
 
 ## Files
 
 - `docs/ci-contract.md` — target workflow table, the exact list of differences that stay, and the template rules.
 - `docs/decisions.md` — alignment default, and the templates item that is still open.
 - `templates/workflows/` — one template for each of the five check workflows.
-- `workflow-conformance/` — `templates` input, default `warn`.
+- `workflow-conformance/` — `templates` input, default `enforce`.
 - `flutter-lockfiles/action.yml` — Flutter `3.50.1` when the caller omits the version.
 
 ## Invariants this change preserves
