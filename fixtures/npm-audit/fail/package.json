@@ -1,9 +1,0 @@
-{
-  "name": "audit-fail",
-  "private": true,
-  "version": "0.0.0",
-  "dependencies": {
-    "ip": "2.0.1",
-    "lodash": "4.18.1"
-  }
-}
