@@ -67,3 +67,17 @@ Before a retry, a stack in `UPDATE_ROLLBACK_FAILED` gets `continue-update-rollba
 | `destroy` | false | false | false | the workflow input |
 
 Stack names, the parameter-to-stack sets, and the extra `--parameters` flags stay caller inputs. The action does not hard-code a repository name.
+
+## Aliases
+
+A plan may set `aliases`. Each value is a list of stack names. `cdk-deploy` and `cdk-diff` both resolve the `stacks` input through `resolve_selection`. The whole string is one alias when it matches, so `all stacks` is not split into two names. Otherwise each comma-separated token is an alias or a list of stack names. Every resulting name must be a stack in `groups`. `all stack`, or `admin web` when the plan has no such alias, fails the command. It does not deploy nothing and succeed. Empty `stacks` still means every stack in `groups`.
+
+That is how a label can name a subset. `all stacks` on siutindei lists the three application stacks and leaves the WAF stack out, even though the WAF stack is in `groups`. Passing an empty string would include it.
+
+## Omitted parameters on diff
+
+`aws-cdk` 2.1148.1 defaults `cdk diff` to `--method=auto`, which builds a change set. The change set uses `supplyAll`: an omitted parameter is not sent, and `UsePreviousValue` is not set. CloudFormation then applies the template default instead of the deployed value. A parameter with no default makes that change set fail. `auto` then falls back to a template diff, which compares templates and does not compare parameter values. `--method=change-set` fails the diff instead of falling back. `--method=template` rejects `--parameters`.
+
+Deploy still passes `usePreviousParameters`, so an omitted parameter keeps the value already on the stack. A diff that omits a parameter the deploy sends, or that sends a different value, is a spurious change. Both commands take the same plan and the same parameter file.
+
+The fixture in `fixtures/cdk-omitted-parameter` records `aws-cdk` 2.1148.1 only. The products depend on `^2.1148.1`, so their CLI can move ahead of the fixture. The conclusion above is for that exact version. The fixture lockfile is not in Dependabot's coverage. The pin is intentional.

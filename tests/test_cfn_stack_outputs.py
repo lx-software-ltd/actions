@@ -170,3 +170,104 @@ class StackOutputsTest(unittest.TestCase):
         )
         self.assertNotIn("client", printed)
         self.assertNotIn("https://", printed)
+        self.assertIn("present=true\n", text)
+
+    def test_an_optional_key_is_empty_when_missing(self) -> None:
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            return _completed(0, DOCUMENT)
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "github-output"
+            env = {
+                "STACK": "findingalpha",
+                "AWS_REGION": "ap-southeast-1",
+                "OUTPUTS": "UserPoolClientId",
+                "OPTIONAL": "AdminApiBaseUrl",
+                "ALLOW_MISSING": "false",
+                "GITHUB_OUTPUT": str(output),
+            }
+            with mock.patch.dict("os.environ", env, clear=False):
+                code = read_outputs.main(run_aws)
+            text = output.read_text(encoding="utf-8")
+        self.assertEqual(code, 0)
+        body = text.split("\n", 1)[1].rsplit("\nCFN_OUTPUTS_JSON\n", 1)[0]
+        self.assertEqual(
+            json.loads(body),
+            {"UserPoolClientId": "client", "AdminApiBaseUrl": ""},
+        )
+        self.assertIn("present=true\n", text)
+
+    def test_a_missing_stack_is_present_false(self) -> None:
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            return _completed(
+                254,
+                stderr="Stack with id findingalpha does not exist",
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "github-output"
+            env = {
+                "STACK": "findingalpha",
+                "AWS_REGION": "ap-southeast-1",
+                "OUTPUTS": "",
+                "OPTIONAL": "",
+                "ALLOW_MISSING": "true",
+                "GITHUB_OUTPUT": str(output),
+            }
+            with mock.patch.dict("os.environ", env, clear=False):
+                with mock.patch("sys.stdout") as stdout:
+                    code = read_outputs.main(run_aws)
+            printed = "".join(call.args[0] for call in stdout.write.call_args_list)
+            text = output.read_text(encoding="utf-8")
+        self.assertEqual(code, 0)
+        self.assertIn("present=false\n", text)
+        body = text.split("\n", 1)[1].rsplit("\nCFN_OUTPUTS_JSON\n", 1)[0]
+        self.assertEqual(json.loads(body), {})
+        self.assertIn("does not exist", printed)
+
+    def test_access_denied_still_fails_when_missing_is_allowed(self) -> None:
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            return _completed(
+                254,
+                stderr=(
+                    "An error occurred (AccessDenied) when calling the "
+                    "DescribeStacks operation: User: arn:aws:sts::123456789012:assumed-role/"
+                    "GitHubActionsRole/session is not authorized"
+                ),
+            )
+
+        env = {
+            "STACK": "findingalpha",
+            "AWS_REGION": "ap-southeast-1",
+            "OUTPUTS": "",
+            "ALLOW_MISSING": "true",
+            "GITHUB_OUTPUT": "",
+        }
+        with mock.patch.dict("os.environ", env, clear=False):
+            with mock.patch("sys.stderr") as stderr:
+                code = read_outputs.main(run_aws)
+        printed = "".join(call.args[0] for call in stderr.write.call_args_list)
+        self.assertEqual(code, 1)
+        self.assertIn("AccessDenied", printed)
+        self.assertNotIn("123456789012", printed)
+
+    def test_a_key_in_both_lists_does_not_call_aws(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            return _completed(0, DOCUMENT)
+
+        env = {
+            "STACK": "findingalpha",
+            "AWS_REGION": "ap-southeast-1",
+            "OUTPUTS": "UserPoolClientId",
+            "OPTIONAL": "UserPoolClientId",
+        }
+        with mock.patch.dict("os.environ", env, clear=False):
+            with mock.patch("sys.stderr") as stderr:
+                code = read_outputs.main(run_aws)
+        printed = "".join(call.args[0] for call in stderr.write.call_args_list)
+        self.assertEqual(code, 1)
+        self.assertEqual(calls, [])
+        self.assertIn("both outputs and optional", printed)

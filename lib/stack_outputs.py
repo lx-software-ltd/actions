@@ -33,11 +33,27 @@ def redact(text: str) -> str:
     return ACCOUNT_RE.sub("***", text)
 
 
-def decide(stack: str, region: str, outputs: str) -> tuple[str, str, list[str]]:
-    """Validate the inputs. Return the stack, region, and keys."""
+def _checked_keys(keys: list[str]) -> None:
+    rejected = [key for key in keys if KEY_RE.fullmatch(key) is None]
+    if rejected:
+        raise ReadError(
+            "Output keys must be letters and digits. Got: " + ", ".join(rejected)
+        )
+
+
+def prepare(
+    stack: str,
+    region: str,
+    outputs: str,
+    optional: str = "",
+    allow_missing: str = "false",
+) -> tuple[str, str, list[str], list[str], bool]:
+    """Validate a read. Return stack, region, required keys, optional keys, and allow-missing."""
     chosen_stack = stack.strip()
     chosen_region = region.strip()
-    keys = split_keys(outputs)
+    required = split_keys(outputs)
+    chosen_optional = split_keys(optional)
+    missing_ok = allow_missing.strip().lower() == "true"
     if not chosen_stack:
         raise ReadError("Set the stack name.")
     if STACK_RE.fullmatch(chosen_stack) is None:
@@ -46,14 +62,23 @@ def decide(stack: str, region: str, outputs: str) -> tuple[str, str, list[str]]:
         raise ReadError("Set the region before reading stack outputs.")
     if REGION_RE.fullmatch(chosen_region) is None:
         raise ReadError(f"Region is not an AWS region name. Got: {chosen_region}")
-    if not keys:
-        raise ReadError("Set outputs to the CloudFormation output keys to read.")
-    rejected = [key for key in keys if KEY_RE.fullmatch(key) is None]
-    if rejected:
+    overlap = [key for key in chosen_optional if key in required]
+    if overlap:
         raise ReadError(
-            "Output keys must be letters and digits. Got: " + ", ".join(rejected)
+            "A key is in both outputs and optional: " + ", ".join(overlap)
         )
-    return chosen_stack, chosen_region, keys
+    _checked_keys([*required, *chosen_optional])
+    if not required and not chosen_optional and not missing_ok:
+        raise ReadError("Set outputs to the CloudFormation output keys to read.")
+    return chosen_stack, chosen_region, required, chosen_optional, missing_ok
+
+
+def decide(stack: str, region: str, outputs: str) -> tuple[str, str, list[str]]:
+    """Validate a required read. Return the stack, region, and keys."""
+    chosen_stack, chosen_region, required, _optional, _missing_ok = prepare(
+        stack, region, outputs
+    )
+    return chosen_stack, chosen_region, required
 
 
 def command(stack: str, region: str) -> list[str]:
@@ -70,8 +95,13 @@ def command(stack: str, region: str) -> list[str]:
     ]
 
 
-def select(document: str, keys: list[str]) -> dict[str, str]:
-    """Return the requested keys. An empty or missing value is an error."""
+def select(
+    document: str, keys: list[str], optional: list[str] | None = None
+) -> dict[str, str]:
+    """Return the requested keys. An empty or missing required value is an error.
+
+    An optional key that is missing or empty becomes an empty string.
+    """
     try:
         payload = json.loads(document)
     except json.JSONDecodeError as exc:
@@ -93,5 +123,8 @@ def select(document: str, keys: list[str]) -> dict[str, str]:
     missing = [key for key in keys if key not in found]
     if missing:
         raise ReadError("Stack is missing " + ", ".join(missing) + ".")
-    return {key: found[key] for key in keys}
+    chosen = {key: found[key] for key in keys}
+    for key in optional or []:
+        chosen[key] = found.get(key, "")
+    return chosen
 

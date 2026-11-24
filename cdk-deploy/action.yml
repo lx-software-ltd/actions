@@ -37,8 +37,12 @@ inputs:
     default: prefixed-json
   stacks:
     description: >-
-      Space or comma separated subset. Empty deploys every stack named
-      in the plan.
+      A plan alias, or stack names separated by spaces or commas. The
+      whole value is one alias when it matches, so a label with spaces
+      is kept together. Otherwise each comma-separated token is an
+      alias or a list of stack names. Every name must be a stack in
+      the plan, so a typo fails instead of deploying nothing. Empty
+      deploys every stack named in the plan.
     required: false
     default: ""
   attempts:

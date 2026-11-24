@@ -9,9 +9,23 @@ inputs:
     required: true
   outputs:
     description: >-
-      Output keys to read, separated by spaces or commas. Every key
-      must have a non-empty value.
-    required: true
+      Required output keys, separated by spaces or commas. Every key
+      must have a non-empty value. Empty is allowed when optional is
+      set or allow-missing is true.
+    required: false
+    default: ""
+  optional:
+    description: >-
+      Keys that may be missing. A missing or empty value becomes an
+      empty string. A key cannot be in both lists.
+    required: false
+    default: ""
+  allow-missing:
+    description: >-
+      When true, a stack that does not exist sets present to false and
+      json to {}. Access denied still fails. Default false.
+    required: false
+    default: "false"
   region:
     description: AWS region. The caller passes vars.AWS_REGION.
     required: true
@@ -20,8 +34,12 @@ outputs:
   json:
     description: >-
       JSON object of the requested keys. The caller checks values
-      that have a format of their own, such as an https URL.
+      that have a format of their own, such as an https URL. {} when
+      the stack does not exist and allow-missing is true.
     value: ${{ steps.read.outputs.json }}
+  present:
+    description: true when the stack exists, false when it does not.
+    value: ${{ steps.read.outputs.present }}
 
 runs:
   using: composite
@@ -32,5 +50,7 @@ runs:
       env:
         STACK: ${{ inputs.stack }}
         OUTPUTS: ${{ inputs.outputs }}
+        OPTIONAL: ${{ inputs.optional }}
+        ALLOW_MISSING: ${{ inputs.allow-missing }}
         AWS_REGION: ${{ inputs.region }}
       run: python3 "$GITHUB_ACTION_PATH/read_outputs.py"
