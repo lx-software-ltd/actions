@@ -46,9 +46,7 @@ jobs:
         id: resolve_public_site_config
         run: bash scripts/deploy/resolve-public-www-build-env.sh
         env:
-          # template:set
           REQUIRE_ASSET: "false"
-          # template:end
 
       # template:end
 

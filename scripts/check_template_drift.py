@@ -82,7 +82,12 @@ def measure(checkouts: list[Path]) -> dict[str, int]:
     commands = 0
     names = 0
     for checkout in checkouts:
+        templates = {
+            path.name for path in (ROOT / "templates" / "workflows").glob("*.yml")
+        }
         for filename, text in _workflows(checkout).items():
+            if filename not in templates:
+                continue
             by_file[filename][checkout.name] = text
             unbound += _unbound_optional(text, capabilities)
             commands += _command_blocks(text)

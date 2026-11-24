@@ -38,9 +38,7 @@ jobs:
         id: resolve_public_site_config
         run: bash scripts/deploy/resolve-public-www-build-env.sh
         env:
-          # template:set
           REQUIRE_ASSET: "false"
-          # template:end
 
       - name: Set up Node.js
         uses: lx-software-ltd/actions/setup-node@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
@@ -67,8 +65,6 @@ jobs:
         if: always()
         run: bash scripts/deploy/publish-staging-summary.sh smoke
         env:
-          # template:set
           SUMMARY_TARGET_URL: ${{ steps.resolve_public_site_config.outputs.staging_site_origin }}
           SUMMARY_SCOPE: ${{ github.event.inputs.scope || 'all' }}
           SUMMARY_MAX_PAGES: ${{ github.event.inputs.max_pages || '' }}
-          # template:end

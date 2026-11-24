@@ -60,9 +60,7 @@ jobs:
         id: resolve_public_site_config
         run: bash scripts/deploy/resolve-public-www-build-env.sh
         env:
-          # template:set
           PROMOTION_MODE: ${{ github.event.inputs.promotion_mode }}
-          # template:end
 
       - name: Validate AWS configuration
         run: |

@@ -143,9 +143,7 @@ jobs:
           profile: next-site
           release-id: ${{ github.sha }}
           release-marker: "true"
-# template:set
           sync-exclude: landing-pages-manifest.json
-# template:end
           staging-robots: "true"
           dry-run: "false"
 
