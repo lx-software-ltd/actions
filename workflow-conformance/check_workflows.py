@@ -203,6 +203,31 @@ def _images(text: str) -> list[tuple[int, str]]:
     return found
 
 
+def _null_mapping_findings(rel: str, text: str) -> list[str]:
+    """A with: or env: whose body is only a marker is null, and GitHub rejects it."""
+    lines = text.splitlines()
+    notes: list[str] = []
+    for index, line in enumerate(lines):
+        match = re.match(r"^(\s*)(with|env):\s*$", line)
+        if not match:
+            continue
+        indent = len(match.group(1))
+        key = match.group(2)
+        has_value = False
+        for later in lines[index + 1 :]:
+            if not later.strip() or later.strip().startswith("#"):
+                continue
+            if len(later) - len(later.lstrip(" ")) <= indent:
+                break
+            has_value = True
+            break
+        if not has_value:
+            notes.append(
+                f"{rel}:{index + 1}: {key}: has no value; an empty value block is null"
+            )
+    return notes
+
+
 def _gate_findings(rel: str, job: str, jobs: dict[str, str]) -> list[str]:
     errors: list[str] = []
     if job not in jobs:
@@ -527,7 +552,7 @@ def _flatten_optional(
 
 
 _SET_STEP = re.compile(r"^-\s+(?:name|uses|run|id):")
-_SET_KEY = re.compile(r"^(?:continue-on-error|type|options|needs):")
+_SET_KEY = re.compile(r"^(?:continue-on-error|type|options|needs|if):")
 
 
 def _set_block_violations(text: str) -> list[str]:
@@ -1116,6 +1141,7 @@ def findings(root: Path, profile: str = "product") -> list[str]:
         rel = path.relative_to(root).as_posix()
         text = path.read_text(encoding="utf-8")
         errors.extend(_permission_findings(rel, text))
+        errors.extend(_null_mapping_findings(rel, text))
         for line_number, line in enumerate(text.splitlines(), start=1):
             stripped = line.strip()
             if stripped.startswith("#"):

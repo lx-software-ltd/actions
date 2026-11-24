@@ -246,7 +246,7 @@ jobs:
     runs-on: ubuntu-26.04
     needs:
       # template:set
-          example-field: example-value
+      - example-job
     # template:end
     if: always()
     steps:

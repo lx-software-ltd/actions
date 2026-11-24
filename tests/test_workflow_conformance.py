@@ -173,15 +173,43 @@ class WorkflowConformanceTest(unittest.TestCase):
             self.assertTrue(any("require-jobs" in item for item in found), found)
 
     def test_a_gate_reads_needs_around_a_value_block_marker(self) -> None:
-        body = (
-            "    needs:\n"
-            "      # template:set\n"
-            "      - lint-python\n"
-            "      - repo-checks\n"
-            "    # template:end\n"
-            "    if: always()\n"
-        )
-        self.assertEqual(checker._needs(body), ["lint-python", "repo-checks"])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _valid(root)
+            found = checker.findings(root, "producer")
+            self.assertFalse(any("needs" in item for item in found), found)
+            lint = (root / ".github" / "workflows" / "lint.yml").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("# template:set", lint)
+            (root / ".github" / "workflows" / "lint.yml").write_text(
+                lint.replace("      - lint-python\n", "          example-field: example-value\n"),
+                encoding="utf-8",
+            )
+            found = checker.findings(root, "producer")
+            self.assertTrue(any("needs nothing" in item for item in found), found)
+
+    def test_an_empty_with_block_is_null(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _valid(root)
+            lint = (root / ".github" / "workflows" / "lint.yml").read_text(
+                encoding="utf-8"
+            )
+            lint = lint.replace(
+                '      - run: "true"\n',
+                "      - uses: lx-software-ltd/actions/setup-python@"
+                + REQUIRE
+                + " # main 2026-11-20\n"
+                + "        with:\n"
+                + "          # template:set\n"
+                + "          # template:end\n",
+            )
+            (root / ".github" / "workflows" / "lint.yml").write_text(
+                lint, encoding="utf-8"
+            )
+            found = checker.findings(root, "producer")
+            self.assertTrue(any("with: has no value" in item for item in found), found)
 
     def test_pre_commit_rev_stays_inside_the_actions_block(self) -> None:
         text = textwrap.dedent(
@@ -753,11 +781,11 @@ class TemplateComparisonTest(unittest.TestCase):
         template = "name: shared\n# template:set\nvalue: one\n# template:end\n"
         product = (
             "name: shared\n# template:set\n"
-            "- name: Skip\ncontinue-on-error: true\ntype: choice\noptions:\nneeds:\n"
+            "- name: Skip\ncontinue-on-error: true\ntype: choice\noptions:\nneeds:\nif: always()\n"
             "# template:end\n"
         )
         found = checker.compare_template("lint.yml", template, product)
-        for snippet in ("- name:", "continue-on-error:", "type:", "options:", "needs:"):
+        for snippet in ("- name:", "continue-on-error:", "type:", "options:", "needs:", "if:"):
             self.assertTrue(any(snippet in item for item in found), found)
 
     def test_a_value_block_cannot_copy_the_template_sample(self) -> None:
@@ -1097,7 +1125,9 @@ def _gated(name: str, gate: str, other: str) -> str:
           {gate}:
             runs-on: ubuntu-26.04
             needs:
+              # template:set
               - {other}
+            # template:end
             if: always()
             steps:
               - uses: lx-software-ltd/actions/require-jobs@{REQUIRE} # main 2026-11-20
