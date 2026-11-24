@@ -6,7 +6,7 @@ A `uses` line in a workflow or `action.yml` must name a 40-character commit. A t
 
 `submit` posts only when it is `true`. A pull request job stays at `contents: read` and does not post, so a branch snapshot does not replace the default-branch graph. `contents: write` belongs only on the job that runs for a push to `main`. In this repository that job runs the action from the checkout, so a pull request must not receive a write token. The caller passes `github.token` as `token` on the submit job.
 
-Manifest paths in the snapshot are relative to the repository root. An unpinned requirement or a use that is not a commit fails the run and nothing is posted. Each `ignore` path must match a manifest the scan would read. A path that matches nothing fails the run. `fixtures/` is not scanned. GitHub's automatic `update-pip-graph` job uses a different correlator and stays in place.
+Manifest paths in the snapshot are relative to the repository root. An unpinned requirement or a use that is not a commit fails the run and nothing is posted. Each `ignore` path must match a manifest the scan would read. A path that matches nothing fails the run. `fixtures/` is not scanned. GitHub's automatic `update-pip-graph` job uses a different correlator and stays in place. The caller's workflow is named "Dependency Submission", so it isn't confused with GitHub's "Dependency Graph".
 
 ## Inputs
 

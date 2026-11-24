@@ -1,4 +1,4 @@
-name: Sync labels
+name: Sync Labels
 
 # Applies the shared catalogue to this repository. github.token can write
 # labels here. The five-repository run is
@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   sync:
-    name: Sync labels
+    name: Sync Labels
     runs-on: ubuntu-26.04
     permissions:
       contents: read
