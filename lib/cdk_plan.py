@@ -101,6 +101,79 @@ def _selected(plan: dict[str, object], stacks: list[str]) -> set[str]:
     return names
 
 
+def _alias_map(plan: dict[str, object]) -> dict[str, list[str]]:
+    """Labels such as ``all stacks``. A missing key means there are none."""
+    raw = plan.get("aliases", {})
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise DeployError("plan.aliases must be an object")
+    aliases: dict[str, list[str]] = {}
+    for label, names in raw.items():
+        if not isinstance(label, str) or not label.strip() or label != label.strip():
+            raise DeployError("an alias label must be a non-empty string")
+        if "," in label:
+            raise DeployError("an alias label cannot contain a comma")
+        if (
+            not isinstance(names, list)
+            or not names
+            or not all(isinstance(item, str) and item.strip() for item in names)
+        ):
+            raise DeployError(f"alias {label} must list stack names")
+        aliases[label] = [item.strip() for item in names]
+    return aliases
+
+
+def _known_stacks(plan: dict[str, object]) -> set[str]:
+    names: set[str] = set()
+    for group in _group_list(plan):
+        names.update(str(name) for name in group.get("stacks") or [])
+    return names
+
+
+def resolve_selection(plan: dict[str, object] | None, raw: str) -> list[str]:
+    """Expand aliases, then stack names.
+
+    The whole string is one alias when it matches, so a label that
+    contains spaces is not split first. Otherwise each comma-separated
+    token is an alias or a list of stack names. Empty means every stack
+    in the plan groups. With a plan, every resulting name must be a
+    stack in the groups. A typo such as ``all stack`` fails instead of
+    deploying nothing.
+    """
+    text = raw.strip()
+    if not text:
+        return []
+    aliases = _alias_map(plan) if plan is not None else {}
+    if text in aliases:
+        chosen = list(aliases[text])
+    else:
+        chosen = []
+        for token in text.split(","):
+            token = token.strip()
+            if not token:
+                continue
+            if token in aliases:
+                chosen.extend(aliases[token])
+            else:
+                chosen.extend(part for part in token.split() if part)
+    seen: set[str] = set()
+    result: list[str] = []
+    for name in chosen:
+        if name not in seen:
+            seen.add(name)
+            result.append(name)
+    if plan is not None and result:
+        unknown = [name for name in result if name not in _known_stacks(plan)]
+        if unknown:
+            raise DeployError(
+                "Unknown stack selection: "
+                + ", ".join(unknown)
+                + ". Use an alias or a stack name from the plan."
+            )
+    return result
+
+
 def _prefixes(groups: list[dict[str, object]]) -> list[str]:
     return [str(prefix) for group in groups for prefix in group.get("prefixes") or []]
 

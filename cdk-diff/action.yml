@@ -9,9 +9,12 @@ inputs:
     required: true
   stacks:
     description: >-
-      Space or comma separated stack names. Empty passes no stack names,
-      so CDK diffs every stack. The caller passes its own default when
-      it always names stacks.
+      A plan alias, or stack names separated by spaces or commas. The
+      whole value is one alias when it matches. Empty passes no stack
+      names, so CDK diffs every stack. With a plan, every name must be
+      a stack in the groups, empty still routes parameters for every
+      stack in the groups, and an alias expands before both the
+      parameters and the command are built.
     required: false
     default: ""
   args:

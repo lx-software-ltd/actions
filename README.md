@@ -83,6 +83,7 @@ Python payload uses the standard library and runs on Python 3.12.
 | `playwright-install` | Install Playwright browsers. | The repositories that run browser tests. |
 | `aws-oidc` | Check the account id and region the caller passed, and mask the account id. | All four. |
 | `cdk-bootstrap-check` | Read the CDK bootstrap version from SSM. It does not bootstrap. | All four, on diff. |
+| `cdk-bootstrap` | Run `cdk bootstrap` for the account and region the caller passes. | No caller yet. Adopt after this commit is on main. |
 | `cdk-diff` | Run `cdk diff` and write the summary. | All four. |
 | `cdk-deploy` | Deploy the stacks in a plan JSON from a parameters file. | All four, on backend deploy. |
 | `cfn-stack-outputs` | Read named CloudFormation outputs. | The repositories that read stack outputs. |

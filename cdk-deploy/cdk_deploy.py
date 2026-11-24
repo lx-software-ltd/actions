@@ -30,6 +30,7 @@ from cdk_plan import (  # noqa: E402
     _resolve_file,
     build_commands,
     load_plan_text,
+    resolve_selection,
 )
 
 DEFAULT_ROLLBACK = "is in UPDATE_ROLLBACK_FAILED state and can not be updated"
@@ -194,7 +195,7 @@ def main(run: Runner = _run, sleep: Sleeper = time.sleep) -> int:
             plan=plan,
             parameters=parameters,
             fmt=os.environ.get("FORMAT", "prefixed-json") or "prefixed-json",
-            selected_stacks=[part for part in re.split(r"[,\s]+", os.environ.get("STACKS", "")) if part],
+            selected_stacks=resolve_selection(plan, os.environ.get("STACKS", "")),
             pass_empty={part for part in os.environ.get("PASS_EMPTY", "").split(",") if part},
             escape_newlines=os.environ.get("ESCAPE_NEWLINES", "false").lower() == "true",
             no_notices=os.environ.get("NO_NOTICES", "false").lower() == "true",

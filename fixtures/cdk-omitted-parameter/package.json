@@ -1,0 +1,10 @@
+{
+  "name": "cdk-omitted-parameter",
+  "private": true,
+  "description": "Fixture that records how aws-cdk 2.1148.1 sends an omitted parameter.",
+  "dependencies": {
+    "aws-cdk": "2.1148.1",
+    "aws-cdk-lib": "2.278.0",
+    "constructs": "10.6.0"
+  }
+}
