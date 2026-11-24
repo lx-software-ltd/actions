@@ -25,6 +25,13 @@ updates:
   # install cleanly turns the fixture green. Only directories that hold
   # a manifest for that ecosystem are listed. A glob would include
   # directories Dependabot rejects for having no manifest.
+  #
+  # ignore stops the pull request. Organisation grouped security updates
+  # record all_versions_ignored and fail the Dependabot job when an
+  # advisory still matches an ignored dependency. A security-updates
+  # group in this file is the grouping for these directories.
+  # exclude-patterns covers every name, so each ignore is an individual
+  # update and the job completes.
   - package-ecosystem: pip
     directories:
       - "/fixtures/pip-audit/fail"
@@ -35,6 +42,13 @@ updates:
       day: monday
     ignore:
       - dependency-name: "*"
+    groups:
+      fail-fixtures:
+        applies-to: security-updates
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "*"
     labels:
       - dependencies
   - package-ecosystem: npm
@@ -46,5 +60,12 @@ updates:
       day: monday
     ignore:
       - dependency-name: "*"
+    groups:
+      fail-fixtures:
+        applies-to: security-updates
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "*"
     labels:
       - dependencies
