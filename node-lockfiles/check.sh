@@ -13,8 +13,8 @@ while IFS= read -r dir; do
     continue
   fi
   if [ ! -f "$dir/package.json" ]; then
-    echo "Skipping Node lockfile check for $dir"
-    continue
+    echo "node-lockfiles: $dir has no package.json" >&2
+    exit 1
   fi
   if [ ! -f "$dir/package-lock.json" ]; then
     echo "Missing package-lock.json in $dir" >&2

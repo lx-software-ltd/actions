@@ -37,10 +37,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        # template:set
         with:
-          lfs: true
           fetch-depth: 0
+
+        # template:optional search-fixture
+      - name: Pull Git LFS objects
+        run: git lfs pull
         # template:end
 
       - name: Set up Python
@@ -48,16 +50,13 @@ jobs:
 
       - name: Run Python tests
         run: bash scripts/ci/test-python.sh
-        # template:set
-        # template:end
-      # template:optional coverage-upload
       - name: Upload coverage report
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: python-coverage
           path: coverage.xml
-      # template:end
+          if-no-files-found: ignore
   test-admin-web:
     name: Test Admin Web
     runs-on: ubuntu-26.04
@@ -75,22 +74,14 @@ jobs:
         run: npm run test:ci
         working-directory: apps/admin_web
         # template:set
-        env:
-          NEXT_PUBLIC_COGNITO_DOMAIN: auth.example.com
-          NEXT_PUBLIC_COGNITO_CLIENT_ID: placeholder-client-id
-          NEXT_PUBLIC_COGNITO_USER_POOL_ID: placeholder-pool
-          NEXT_PUBLIC_API_BASE_URL: https://placeholder.example.com
+          example-field: example-value
         # template:end
 
       - name: Build
         run: npm run build
         working-directory: apps/admin_web
         # template:set
-        env:
-          NEXT_PUBLIC_COGNITO_DOMAIN: auth.example.com
-          NEXT_PUBLIC_COGNITO_CLIENT_ID: placeholder-client-id
-          NEXT_PUBLIC_COGNITO_USER_POOL_ID: placeholder-pool
-          NEXT_PUBLIC_API_BASE_URL: https://placeholder.example.com
+          example-field: example-value
         # template:end
 
   test-public-www:
@@ -106,16 +97,10 @@ jobs:
           cache: npm
           working-directory: apps/public_www
 
-      # template:optional public-origin
-      - name: Resolve public site origin from infrastructure params
-        id: resolve_public_site_origin
-        run: |
-          SITE_DOMAIN="$(python3 -c "import json; from pathlib import Path; params=json.loads(Path('backend/infrastructure/params/production.json').read_text(encoding='utf-8')); print(str(params.get('PublicWwwDomainName', '')).strip())")"
-          if [ -z "$SITE_DOMAIN" ]; then
-            echo "PublicWwwDomainName is required in backend/infrastructure/params/production.json"
-            exit 1
-          fi
-          echo "site_origin=https://${SITE_DOMAIN}" >> "$GITHUB_OUTPUT"
+      # template:optional public-build-env
+      - name: Resolve public site build config
+        id: resolve_public_site_config
+        run: bash scripts/deploy/resolve-public-www-build-env.sh
 
       # template:end
       # template:optional search-fixture
@@ -130,12 +115,14 @@ jobs:
         run: npm run test:ci
         working-directory: apps/public_www
         # template:set
+          example-field: example-value
         # template:end
 
       - name: Build
         run: npm run build
         working-directory: apps/public_www
         # template:set
+          example-field: example-value
         # template:end
 
   # template:optional training
@@ -228,28 +215,17 @@ jobs:
         with:
           working-directory: apps/admin_web
           # template:set
-          browsers: chromium
+          example-field: example-value
           # template:end
 
-      # template:optional admin-e2e-build
-      - name: Build application
-        run: npm run build
-        working-directory: apps/admin_web
-        # template:set
-        env:
-          NEXT_PUBLIC_API_BASE_URL: "http://localhost:3000/api/mock"
-          NEXT_PUBLIC_COGNITO_DOMAIN: "mock-cognito.auth.us-east-1.amazoncognito.com"
-          NEXT_PUBLIC_COGNITO_CLIENT_ID: "mock-client-id-12345"
-        # template:end
-
-      # template:end
       - name: Run viewport smoke tests
         run: npm run test:e2e
         working-directory: apps/admin_web
         # template:set
+        env:
+          EXAMPLE_ENV: ${{ vars.EXAMPLE_ENV }}
         # template:end
 
-      # template:optional admin-e2e-report
       - name: Upload Playwright report
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
@@ -266,7 +242,6 @@ jobs:
           path: apps/admin_web/test-results/
           retention-days: 7
 
-      # template:end
   # template:end
   # template:optional playwright-public
   e2e-public-www:
@@ -279,12 +254,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        # template:set
-        with:
-          lfs: true
-        # template:end
 
-      # template:optional e2e-search-fixture
+      # template:optional search-fixture
+      - name: Pull Git LFS objects
+        run: git lfs pull
+
       - name: Sync staging search fixture
         working-directory: .
         run: bash scripts/codegen/sync-activity-search-staging-fixture.sh public-www
@@ -326,34 +300,17 @@ jobs:
       - name: Set up Flutter
         uses: lx-software-ltd/actions/setup-flutter@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
 
-      # template:optional sqlite
-      - name: Install system SQLite for Linux native assets
-        run: sudo apt-get update && sudo apt-get install -y libsqlite3-0 libsqlite3-dev
-
-      - name: Point Linux sqlite3 hook at the OS library
-        run: |
-          python3 -c 'from pathlib import Path; p=Path("apps/siutindei_app/pubspec.yaml"); t=p.read_text(encoding="utf-8"); h="\nhooks:\n  user_defines:\n    sqlite3:\n      source: system\n"; p.write_text(t+h, encoding="utf-8") if "user_defines:" not in t else None'
-
-      # template:end
-
       - name: Run Flutter tests
-        run: |
-          set -euo pipefail
-          shopt -s globstar nullglob
-          # template:set
-          for dir in apps/siutindei_app; do
-          # template:end
-            if [ ! -f "$dir/pubspec.yaml" ]; then echo "Skipping missing $dir"; continue; fi
-            test_files=("$dir"/test/**/*_test.dart)
-            if [ "${#test_files[@]}" -eq 0 ]; then echo "ERROR: $dir has a pubspec.yaml but no test/**/*_test.dart files"; exit 1; fi
-            echo "Testing Flutter in $dir"
-            (cd "$dir" && flutter pub get && flutter test)
-          done
+        run: bash scripts/ci/test-flutter.sh
 
 
   build-android:
     name: Build Android
     runs-on: ubuntu-26.04
+    env:
+      # Maven Central returns 429 from shared CI egress. Gradle retries that
+      # status and doubles this delay between attempts (5s, 10s, 20s, 40s).
+      GRADLE_OPTS: -Dorg.gradle.internal.repository.max.tentatives=5 -Dorg.gradle.internal.repository.initial.backoff=5000
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -363,7 +320,7 @@ jobs:
         with:
           distribution: temurin
           # template:set
-          java-version: "21"
+          example-field: example-value
           # template:end
 
       - name: Set up Flutter
@@ -374,7 +331,7 @@ jobs:
 
       - name: Build debug APK
         # template:set
-        working-directory: apps/siutindei_app
+          example-field: example-value
         # template:end
         run: flutter build apk --debug
 
@@ -382,8 +339,8 @@ jobs:
   test:
     name: test
     runs-on: ubuntu-26.04
-    # template:set
     needs:
+      # template:set
       - test-python
       - test-admin-web
       - test-public-www

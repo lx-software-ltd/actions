@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import tempfile
 import textwrap
@@ -170,6 +171,45 @@ class WorkflowConformanceTest(unittest.TestCase):
             )
             found = checker.findings(root, "producer")
             self.assertTrue(any("require-jobs" in item for item in found), found)
+
+    def test_a_gate_reads_needs_around_a_value_block_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _valid(root)
+            found = checker.findings(root, "producer")
+            self.assertFalse(any("needs" in item for item in found), found)
+            lint = (root / ".github" / "workflows" / "lint.yml").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("# template:set", lint)
+            (root / ".github" / "workflows" / "lint.yml").write_text(
+                lint.replace("      - lint-python\n", "          example-field: example-value\n"),
+                encoding="utf-8",
+            )
+            found = checker.findings(root, "producer")
+            self.assertTrue(any("needs nothing" in item for item in found), found)
+
+    def test_an_empty_with_block_is_null(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _valid(root)
+            lint = (root / ".github" / "workflows" / "lint.yml").read_text(
+                encoding="utf-8"
+            )
+            lint = lint.replace(
+                '      - run: "true"\n',
+                "      - uses: lx-software-ltd/actions/setup-python@"
+                + REQUIRE
+                + " # main 2026-11-20\n"
+                + "        with:\n"
+                + "          # template:set\n"
+                + "          # template:end\n",
+            )
+            (root / ".github" / "workflows" / "lint.yml").write_text(
+                lint, encoding="utf-8"
+            )
+            found = checker.findings(root, "producer")
+            self.assertTrue(any("with: has no value" in item for item in found), found)
 
     def test_pre_commit_rev_stays_inside_the_actions_block(self) -> None:
         text = textwrap.dedent(
@@ -741,12 +781,33 @@ class TemplateComparisonTest(unittest.TestCase):
         template = "name: shared\n# template:set\nvalue: one\n# template:end\n"
         product = (
             "name: shared\n# template:set\n"
-            "- name: Skip\ncontinue-on-error: true\nif: false\n"
+            "- name: Skip\ncontinue-on-error: true\ntype: choice\noptions:\nneeds:\nif: always()\n"
             "# template:end\n"
         )
         found = checker.compare_template("lint.yml", template, product)
-        self.assertTrue(any("cannot contain" in item for item in found), found)
-        self.assertGreaterEqual(len(found), 3)
+        for snippet in ("- name:", "continue-on-error:", "type:", "options:", "needs:", "if:"):
+            self.assertTrue(any(snippet in item for item in found), found)
+
+    def test_a_value_block_cannot_copy_the_template_sample(self) -> None:
+        template = "name: shared\n# template:set\nstack: stack-name\n# template:end\n"
+        copied = "name: shared\n# template:set\nstack: stack-name\n# template:end\n"
+        found = checker.compare_template("deploy-backend.yml", template, copied)
+        self.assertTrue(any("copies the template sample" in item for item in found), found)
+        own = "name: shared\n# template:set\nstack: evolvesprouts-public-www\n# template:end\n"
+        self.assertEqual(checker.compare_template("deploy-backend.yml", template, own), [])
+        empty = "name: shared\n# template:set\n# template:end\n"
+        blank = "name: shared\n# template:set\n\n# template:end\n"
+        self.assertEqual(checker.compare_template("deploy-backend.yml", empty, blank), [])
+
+    def test_a_joined_product_name_is_unmarked_text(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            templates = root / "templates" / "workflows"
+            templates.mkdir(parents=True)
+            body = "name: Check\njobs:\n  one:\n    steps:\n      - run: echo evolvesprouts-public-www\n"
+            (templates / "lint.yml").write_text(body, encoding="utf-8")
+            found = checker.template_findings(root, templates)
+            self.assertTrue(any("evolvesprouts-public-www" in item for item in found), found)
 
     def test_unclosed_marker_is_a_finding(self) -> None:
         found = checker.compare_template(
@@ -755,6 +816,284 @@ class TemplateComparisonTest(unittest.TestCase):
             "# template:set\nvalue: two\n",
         )
         self.assertTrue(any("unclosed" in item for item in found), found)
+
+
+class TemplateContractTest(unittest.TestCase):
+    def test_an_optional_id_must_be_a_capability_and_follow_the_probe(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            templates = root / "templates" / "workflows"
+            templates.mkdir(parents=True)
+            (root / "templates" / "capabilities.json").write_text(
+                '{"mobile": "apps/*/pubspec.yaml", "search-fixture": "scripts/codegen/sync-activity-search-staging-fixture.sh"}\n',
+                encoding="utf-8",
+            )
+            (templates / "lint.yml").write_text(
+                textwrap.dedent(
+                    """\
+                    name: Lint
+                    jobs:
+                    # template:optional not-a-capability
+                      extra: true
+                    # template:end
+                    # template:optional search-fixture
+                      first: true
+                    # template:end
+                    # template:optional search-fixture
+                      second: true
+                    # template:end
+                    """
+                ),
+                encoding="utf-8",
+            )
+            workflows = root / ".github" / "workflows"
+            workflows.mkdir(parents=True)
+            (workflows / "lint.yml").write_text(
+                "name: Lint\njobs:\n  kept: true\n",
+                encoding="utf-8",
+            )
+            found = checker.template_findings(root, templates)
+            self.assertTrue(
+                any("not-a-capability is not a capability" in item for item in found),
+                found,
+            )
+            probe = root / "scripts" / "codegen"
+            probe.mkdir(parents=True)
+            (probe / "sync-activity-search-staging-fixture.sh").write_text(
+                "#!/bin/sh\n", encoding="utf-8"
+            )
+            found = checker.template_findings(root, templates)
+            self.assertTrue(
+                any("search-fixture" in item and "block count is 0" in item for item in found),
+                found,
+            )
+            (workflows / "lint.yml").write_text(
+                textwrap.dedent(
+                    """\
+                    name: Lint
+                    jobs:
+                    # template:optional search-fixture
+                      first: true
+                    # template:end
+                    # template:optional search-fixture
+                      second: true
+                    # template:end
+                    """
+                ),
+                encoding="utf-8",
+            )
+            found = checker.template_findings(root, templates)
+            self.assertFalse(
+                any("search-fixture" in item and "block count" in item for item in found),
+                found,
+            )
+            (probe / "sync-activity-search-staging-fixture.sh").unlink()
+            found = checker.template_findings(root, templates)
+            self.assertTrue(
+                any("probe" in item and "absent" in item for item in found),
+                found,
+            )
+        repeated = checker.compare_template(
+            "lint.yml",
+            "# template:optional search-fixture\none\n# template:end\n"
+            "# template:optional search-fixture\ntwo\n# template:end\n",
+            "# template:optional search-fixture\none\n# template:end\n"
+            "# template:optional search-fixture\ntwo\n# template:end\n",
+        )
+        self.assertEqual(repeated, [])
+
+    def test_file_presence_follows_the_capability(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            templates = root / "templates" / "workflows"
+            templates.mkdir(parents=True)
+            (root / "templates" / "capabilities.json").write_text(
+                '{"mobile": "apps/*/pubspec.yaml", "staged-release": "scripts/deploy/deploy-public-www.sh"}\n',
+                encoding="utf-8",
+            )
+            (templates / "deploy-ios.yml").write_text(
+                "# template:if-present mobile\nname: Deploy iOS\n",
+                encoding="utf-8",
+            )
+            (templates / "deploy-public-www.yml").write_text(
+                "# template:if-present !staged-release\nname: Deploy public\n",
+                encoding="utf-8",
+            )
+            workflows = root / ".github" / "workflows"
+            workflows.mkdir(parents=True)
+            (workflows / "deploy-ios.yml").write_text(
+                "name: Deploy iOS\n", encoding="utf-8"
+            )
+            found = checker.template_findings(root, templates)
+            self.assertTrue(
+                any("deploy-ios.yml" in item and "excludes" in item for item in found),
+                found,
+            )
+            (workflows / "deploy-ios.yml").unlink()
+            app = root / "apps" / "demo"
+            app.mkdir(parents=True)
+            (app / "pubspec.yaml").write_text("name: demo\n", encoding="utf-8")
+            found = checker.template_findings(root, templates)
+            self.assertTrue(
+                any("deploy-ios.yml" in item and "requires" in item for item in found),
+                found,
+            )
+            deploy = root / "scripts" / "deploy"
+            deploy.mkdir(parents=True)
+            (deploy / "deploy-public-www.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+            (workflows / "deploy-public-www.yml").write_text(
+                "name: Deploy public\n", encoding="utf-8"
+            )
+            found = checker.template_findings(root, templates)
+            self.assertTrue(
+                any(
+                    "deploy-public-www.yml" in item and "excludes" in item
+                    for item in found
+                ),
+                found,
+            )
+
+    def test_a_value_block_rejects_run_id_comments_and_single_quotes(self) -> None:
+        template = "name: shared\n# template:set\nvalue: one\n# template:end\n"
+        product = (
+            "name: shared\n# template:set\n"
+            "run: echo hi\n"
+            "id: aws\n"
+            "# note\n"
+            "description: 'quoted'\n"
+            "# template:end\n"
+        )
+        found = checker.compare_template("lint.yml", template, product)
+        for snippet in ("run: echo hi", "id: aws", "# note", "description: 'quoted'"):
+            self.assertTrue(any(snippet in item for item in found), found)
+
+    def test_product_names_stay_out_of_unmarked_text(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            templates = root / "templates" / "workflows"
+            templates.mkdir(parents=True)
+            workflows = root / ".github" / "workflows"
+            workflows.mkdir(parents=True)
+            body = (
+                "name: Check\n"
+                "jobs:\n"
+                "  one:\n"
+                "    steps:\n"
+                "      - run: echo evolvesprouts\n"
+                "      - uses: lx-software-ltd/actions/setup-node@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa # main 2026-11-24\n"
+                "# template:set\n"
+                "      stack: evolvesprouts\n"
+                "# template:end\n"
+            )
+            (templates / "lint.yml").write_text(body, encoding="utf-8")
+            (workflows / "lint.yml").write_text(body, encoding="utf-8")
+            found = checker.template_findings(root, templates)
+            unmarked = [item for item in found if "product name" in item]
+            self.assertEqual(len(unmarked), 1, unmarked)
+            self.assertIn("echo evolvesprouts", unmarked[0])
+            clean = body.replace("echo evolvesprouts", "echo shared")
+            (templates / "lint.yml").write_text(clean, encoding="utf-8")
+            (workflows / "lint.yml").write_text(clean, encoding="utf-8")
+            found = checker.template_findings(root, templates)
+            self.assertFalse(any("product name" in item for item in found), found)
+
+    def test_an_untemplated_workflow_must_be_listed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            templates = root / "templates" / "workflows"
+            templates.mkdir(parents=True)
+            (templates / "lint.yml").write_text("name: Lint\n", encoding="utf-8")
+            (root / "templates" / "untemplated-workflows.txt").write_text(
+                "evolvesprouts deploy-training.yml\n",
+                encoding="utf-8",
+            )
+            workflows = root / ".github" / "workflows"
+            workflows.mkdir(parents=True)
+            (workflows / "lint.yml").write_text("name: Lint\n", encoding="utf-8")
+            (workflows / "deploy-training.yml").write_text(
+                "name: Training\n", encoding="utf-8"
+            )
+            previous = os.environ.get("CONFORMANCE_REPOSITORY")
+            os.environ["CONFORMANCE_REPOSITORY"] = "findingalpha"
+            try:
+                found = checker.template_findings(root, templates)
+            finally:
+                if previous is None:
+                    os.environ.pop("CONFORMANCE_REPOSITORY", None)
+                else:
+                    os.environ["CONFORMANCE_REPOSITORY"] = previous
+            self.assertTrue(
+                any("deploy-training.yml" in item and "untemplated" in item for item in found),
+                found,
+            )
+            os.environ["CONFORMANCE_REPOSITORY"] = "evolvesprouts"
+            try:
+                found = checker.template_findings(root, templates)
+            finally:
+                os.environ.pop("CONFORMANCE_REPOSITORY", None)
+            self.assertFalse(
+                any("deploy-training.yml" in item for item in found),
+                found,
+            )
+
+    def test_a_path_filter_prefix_must_exist(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _valid(root)
+            (root / "backend").mkdir()
+            (root / "backend" / "keep.json").write_text("{}\n", encoding="utf-8")
+            (root / ".github" / "workflows" / "cdk-diff.yml").write_text(
+                textwrap.dedent(
+                    """\
+                    name: Diff
+                    on:
+                      pull_request:
+                        paths:
+                          - packages/*
+                          - "backend/**"
+                          - "!backend/keep.json"
+                          - "!backend/roadmap.json"
+                    permissions:
+                      contents: read
+                    jobs:
+                      diff:
+                        runs-on: ubuntu-26.04
+                        steps:
+                          - run: "true"
+                    """
+                ),
+                encoding="utf-8",
+            )
+            found = checker.findings(root)
+            self.assertTrue(any("packages/*" in item for item in found), found)
+            self.assertFalse(any("backend/**" in item for item in found), found)
+            self.assertFalse(any("keep.json" in item for item in found), found)
+            self.assertTrue(any("!backend/roadmap.json" in item for item in found), found)
+
+    def test_a_listed_directory_without_package_json_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "apps" / "missing").mkdir(parents=True)
+            node = subprocess.run(
+                ["bash", str(ROOT / "node-lockfiles" / "check.sh")],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                env={**os.environ, "LOCKFILE_DIRECTORIES": "apps/missing"},
+                check=False,
+            )
+            self.assertNotEqual(node.returncode, 0, node.stderr)
+            self.assertIn("no package.json", node.stderr)
+            audit = subprocess.run(
+                ["bash", str(ROOT / "npm-audit" / "run.sh")],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                env={**os.environ, "NPM_AUDIT_DIRECTORIES": "apps/missing"},
+                check=False,
+            )
+            self.assertNotEqual(audit.returncode, 0, audit.stderr)
+            self.assertIn("no package.json", audit.stderr)
 
 
 REQUIRE = "1a3cca7c38163f8164c262323601c34a4df5b7a4"
@@ -791,7 +1130,9 @@ def _gated(name: str, gate: str, other: str) -> str:
           {gate}:
             runs-on: ubuntu-26.04
             needs:
+              # template:set
               - {other}
+            # template:end
             if: always()
             steps:
               - uses: lx-software-ltd/actions/require-jobs@{REQUIRE} # main 2026-11-20

@@ -1,6 +1,6 @@
 # Node lockfiles
 
-Runs `npm ci` in each listed directory and fails when `package-lock.json` is missing or `git diff` shows it changed. A directory with no `package.json` is skipped.
+Runs `npm ci` in each listed directory and fails when `package-lock.json` is missing or `git diff` shows it changed. A listed directory with no `package.json` fails.
 
 The caller runs `setup-node` first. This action does not install Node.
 

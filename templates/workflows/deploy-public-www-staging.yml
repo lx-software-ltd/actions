@@ -1,4 +1,4 @@
-# template:if-present
+# template:if-present staged-release
 name: Deploy Public Website Staging
 
 on:
@@ -8,14 +8,11 @@ on:
   push:
     branches:
 # template:set
-      - main
+          example-field: example-value
 # template:end
     paths:
 # template:set
-      - 'apps/public_www/**'
-      - 'scripts/deploy/deploy-public-www.sh'
-      - 'scripts/deploy/resolve-public-www-build-env.sh'
-      - '.github/workflows/deploy-public-www-staging.yml'
+          example-field: example-value
 # template:end
 
 permissions:
@@ -35,13 +32,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-# template:set
-# template:end
 
-      - name: Resolve public site build config from infrastructure params
-# template:set
-        id: resolve_public_site_domains
-# template:end
+      - name: Resolve public site build config
+        id: resolve_public_site_config
         run: bash scripts/deploy/resolve-public-www-build-env.sh
 
       - name: Set up Node.js
@@ -57,35 +50,20 @@ jobs:
       - name: Audit public website assets
         run: npm run audit:assets
         working-directory: apps/public_www
-# template:set
-      # Figma tokens are already committed to git by the
-      # figma-token-studio-sync workflow. npm run build runs
-      # figma:build:studio to generate CSS from the committed
-      # Token Studio JSON — no Figma API call needed at deploy time.
-# template:end
 
-# template:optional staging-prep
+# template:optional search-fixture
+      - name: Pull Git LFS objects
+        run: git lfs pull
+
       - name: Sync staging search fixture for static hosting
         run: bash scripts/codegen/sync-activity-search-staging-fixture.sh public-www
-
-      - name: Verify home wizard choices are in sync
-        run: bash scripts/codegen/sync-home-wizard-choices.sh --check
-
-      - name: Validate search area scope
-        env:
-          SEARCH_AREA_SCOPE: ${{ vars.SEARCH_AREA_SCOPE }}
-        run: python3 scripts/deploy/validate_search_area_scope.py
 # template:end
 
-      - name: Verify public website build env contract
-        run: npm run assert:build-env-contract
-        working-directory: apps/public_www
+      - name: Run pre-build checks
+        run: bash scripts/deploy/public-www-checks.sh pre-build
 # template:set
         env:
-          NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_WWW_API_BASE_URL || vars.NEXT_PUBLIC_API_BASE_URL }}
-          NEXT_PUBLIC_WWW_CRM_API_KEY: ${{ secrets.NEXT_PUBLIC_WWW_CRM_API_KEY }}
-          NEXT_PUBLIC_WWW_PROXY_ALLOWED_HOSTS: ${{ vars.NEXT_PUBLIC_WWW_PROXY_ALLOWED_HOSTS }}
-          NEXT_PUBLIC_SITE_ORIGIN: ${{ steps.resolve_public_site_domains.outputs.production_site_origin }}
+          EXAMPLE_ENV: ${{ vars.EXAMPLE_ENV }}
 # template:end
 
       - name: Configure AWS credentials
@@ -94,7 +72,7 @@ jobs:
           account-id: ${{ secrets.AWS_ACCOUNT_ID }}
           region: ${{ vars.AWS_REGION }}
 
-# template:optional catalogue-check
+# template:optional catalogue
       # While the fixture is on, the build derives a capped catalogue from
       # it instead.
       - name: Download catalogue snapshot
@@ -109,18 +87,18 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: apps/public_www/.next/cache
-# template:set
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('apps/public_www/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-nextjs-
-# template:end
+          # template:set
+          key: ${{ runner.os }}-nextjs-example-${{ hashFiles('apps/public_www/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-nextjs-example-
+          # template:end
 
       - name: Build public website
         run: npm run build
         working-directory: apps/public_www
 # template:set
         env:
-          NEXT_TELEMETRY_DISABLED: '1'
-          NEXT_PUBLIC_SITE_ORIGIN: ${{ steps.resolve_public_site_domains.outputs.production_site_origin }}
+          NEXT_TELEMETRY_DISABLED: "1"
+          NEXT_PUBLIC_SITE_ORIGIN: ${{ steps.resolve_public_site_config.outputs.production_site_origin }}
           NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
           NEXT_PUBLIC_FPS_MERCHANT_NAME: ${{ vars.NEXT_PUBLIC_FPS_MERCHANT_NAME }}
           NEXT_PUBLIC_FPS_MOBILE_NUMBER: ${{ vars.NEXT_PUBLIC_FPS_MOBILE_NUMBER }}
@@ -131,7 +109,7 @@ jobs:
           NEXT_PUBLIC_WWW_PROXY_ALLOWED_HOSTS: ${{ vars.NEXT_PUBLIC_WWW_PROXY_ALLOWED_HOSTS }}
           NEXT_PUBLIC_WWW_CRM_API_KEY: ${{ secrets.NEXT_PUBLIC_WWW_CRM_API_KEY }}
           NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STAGING_STRIPE_PUBLISHABLE_KEY || vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
-          NEXT_PUBLIC_ASSET_SHARE_BASE_URL: ${{ steps.resolve_public_site_domains.outputs.asset_share_base_url }}
+          NEXT_PUBLIC_ASSET_SHARE_BASE_URL: ${{ steps.resolve_public_site_config.outputs.asset_share_base_url }}
           NEXT_PUBLIC_GTM_ID: ${{ vars.NEXT_PUBLIC_GTM_ID }}
           NEXT_PUBLIC_META_PIXEL_ID: ${{ vars.NEXT_PUBLIC_META_PIXEL_ID }}
           NEXT_PUBLIC_EMAIL: ${{ vars.NEXT_PUBLIC_EMAIL }}
@@ -143,77 +121,59 @@ jobs:
           NEXT_PUBLIC_FOUNDER_NAME: ${{ vars.NEXT_PUBLIC_FOUNDER_NAME }}
 # template:end
 
-# template:optional landing-calendar
-      # The site build may set NEXT_PUBLIC_WWW_API_BASE_URL to the relative
-      # /www path. This probe runs in Node and calls the API directly.
-      - name: Validate landing page calendar API reachability
-        run: node ./scripts/validate-landing-pages-calendar.mjs
-        working-directory: apps/public_www
+      - name: Run post-build checks
+        run: bash scripts/deploy/public-www-checks.sh post-build
+        # template:set
         env:
-          NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL }}
-          NEXT_PUBLIC_WWW_CRM_API_KEY: ${{ secrets.NEXT_PUBLIC_WWW_CRM_API_KEY }}
-# template:end
+          EXAMPLE_ENV: ${{ vars.EXAMPLE_ENV }}
+        # template:end
 
-
-# template:optional optimize-images
       - name: Optimize public website images
         run: bash scripts/deploy/deploy-public-www.sh
         env:
           PUBLIC_WWW_PHASE: optimize
-# template:end
 
       - name: Deploy public website
         uses: lx-software-ltd/actions/s3-cloudfront-deploy@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
         with:
           source: apps/public_www/out
 # template:set
-          stack: evolvesprouts-public-www
+          example-field: example-value
 # template:end
           region: ${{ vars.AWS_REGION }}
           bucket-output: PublicWwwStagingBucketName
           distribution-output: ""
           profile: next-site
-# template:set
-# template:end
+          # template:set
+          example-field: example-value
+          # template:end
           release-id: ${{ github.sha }}
           release-marker: "true"
-# template:set
+          # template:set
           sync-exclude: landing-pages-manifest.json
-# template:end
+          marker-cache: no-store, max-age=0
+          marker-content-type: text/plain; charset=utf-8
+          # template:end
           staging-robots: "true"
           dry-run: "false"
 
-# template:optional function-switch
-      # The action would invalidate /* before the /www function switch.
-      # This step only switches that function and invalidates the site paths.
-      - name: Switch the www function and invalidate
+      - name: Finish the staging release
         run: bash scripts/deploy/deploy-public-www.sh
         env:
-          PUBLIC_WWW_STACK_NAME: evolvesprouts-public-www
+          # template:set
+          PUBLIC_WWW_STACK_NAME: public-www
+          # template:end
           PUBLIC_WWW_ENVIRONMENT: staging
           PUBLIC_WWW_RELEASE_ID: ${{ github.sha }}
           PUBLIC_WWW_UPLOAD: external
-# template:end
-
-
-# template:optional staging-invalidate
-      # The action invalidates /*. Staging still invalidates the site path list.
-      - name: Invalidate the staging distribution
-        run: bash scripts/deploy/deploy-public-www.sh
-        env:
-          PUBLIC_WWW_STACK_NAME: lxsoftware-siutindei-public-www
-          PUBLIC_WWW_ENVIRONMENT: staging
-          PUBLIC_WWW_RELEASE_ID: ${{ github.sha }}
-          PUBLIC_WWW_UPLOAD: external
-# template:end
 
       - name: Run staging smoke checks
         run: npm run smoke:staging
         working-directory: apps/public_www
 # template:set
         env:
-          NEXT_TELEMETRY_DISABLED: '1'
-          SMOKE_BASE_URL: ${{ steps.resolve_public_site_domains.outputs.staging_site_origin }}
+          NEXT_TELEMETRY_DISABLED: "1"
+          SMOKE_BASE_URL: ${{ steps.resolve_public_site_config.outputs.staging_site_origin }}
           STAGING_BYPASS_SECRET: ${{ secrets.STAGING_BYPASS_SECRET }}
           SMOKE_API_KEY: ${{ secrets.NEXT_PUBLIC_WWW_CRM_API_KEY }}
           SMOKE_CRM_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL }}
@@ -221,14 +181,9 @@ jobs:
 # template:end
 
       - name: Publish staging release summary
-# template:set
-        run: |
-          {
-            echo '## Public Website staging deploy'
-            echo ''
-            echo "- Stack: \`evolvesprouts-public-www\`"
-            echo '- Target environment: `staging`'
-            echo "- Release ID: \`${GITHUB_SHA}\`"
-            echo "- Staging URL: \`${{ steps.resolve_public_site_domains.outputs.staging_site_origin }}\`"
-          } >> "$GITHUB_STEP_SUMMARY"
-# template:end
+        run: bash scripts/deploy/publish-staging-summary.sh
+        env:
+          # template:set
+          PUBLIC_WWW_STACK_NAME: public-www
+          STAGING_SITE_ORIGIN: ${{ steps.resolve_public_site_config.outputs.staging_site_origin }}
+          # template:end

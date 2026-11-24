@@ -38,7 +38,9 @@ Node is major version 26. Python is 3.12. Linux jobs use `ubuntu-26.04`. macOS j
 
 `evolvesprouts` and `siutindei` must not run `cdk bootstrap` on every backend deploy. Bootstrap rewrites the CDK output, including zip timestamps, before the asset hash, so the next deploy updates every Lambda. Bootstrap stays in the manual `cdk-bootstrap.yml`. A deploy uses `cdk-bootstrap-check`, which reads the SSM version and does not bootstrap. A CDK upgrade that needs a newer bootstrap stack fails the deploy until someone runs that manual workflow. That failure is the intended trade-off.
 
-A pull request diff does not assume `GitHubActionsRole`. It assumes the role named by the repository variable `AWS_DIFF_ROLE_NAME`, and only when that variable is set. Until the variable is set, the pull request warns and does not call AWS. A manual run still assumes `GitHubActionsRole`. `siutindei` manual diffs use the `production` environment, because that environment holds the parameter-file variable and the branch policy allows `main` only. A `siutindei` pull request assumes that read-only role when `AWS_DIFF_ROLE_NAME` is set and routes the parameters file only, because a pull request cannot see production-environment secrets. Until the variable is set, the pull request warns and does not call AWS.
+`cdk-diff.yml` has two jobs in every product. `diff` runs on main, not on a pull request, selects `environment: production`, and assumes `GitHubActionsRole`. `pull-request` assumes the role named by `AWS_DIFF_ROLE_NAME`, and only when that variable is set. Until the variable is set, the pull request warns and does not call AWS. Manual diffs from a branch other than main are gone, because `production` allows main only. Diff and deploy then see the same variables.
+
+A `# template:optional` id is a capability in `templates/capabilities.json`. The block is present exactly when that capability's probe path exists, and the same id may repeat in one file. `# template:if-present <capability>` follows the probe in both directions. Value blocks hold values only. Product names stay out of unmarked template text.
 
 The workflow step that refuses `GitHubActionsRole` is not a security boundary. A pull request can edit the workflow. The boundary is IAM. `GitHubActionsRole` must not trust `pull_request`. The role named by `AWS_DIFF_ROLE_NAME` is read-only and trusts only `pull_request`. This repository cannot create those roles.
 
@@ -68,11 +70,10 @@ This repository applies the catalogue with `github.token`. That token writes lab
 
 - A Dependabot path that bumps this pin, and a measured cooldown exclusion.
 - Production promotion for `evolvesprouts` and `siutindei` still uploads from the public-www scripts. Staging uses `s3-cloudfront-deploy` with `next-site`. `evolvesprouts` leaves the distribution empty so the `/www/*` switch happens before the invalidation. `siutindei` passes its document cache and marker headers, and the script still invalidates the site path list. Maintenance assembly, image optimisation, the `/www/*` switch, and catalogue comparison stay in the scripts. `maintenance-assets: images` and the production `fixtures/` exclude are not wired yet.
-- The read-only diff role named by `AWS_DIFF_ROLE_NAME`. The workflows do not create it. Until that variable is set, a `siutindei` pull request warns and does not call AWS.
+- The read-only diff role named by `AWS_DIFF_ROLE_NAME`. The workflows do not create it. It is unset as a repository variable in all four products, so a pull-request diff warns and does not call AWS.
 - The mobile signing workflows run on a release, so they have not run yet. siutindei calls `play-prerequisites` with `upload-enabled` from `deploy-mobile.yml`.
 - S3 `public-routes` uploads `.js` and `.css` as `application/octet-stream`. Changing that, or renaming the profiles, needs a dry-run comparison against the live buckets.
 - Product harness configs still name the old modes. The pull request that pins this checker changes `harness.json` in the same commit and omits the TypeScript prefix keys. The checker accepts `typed`, `test-names`, and `full` only.
-- Templates for the shared workflows that are not in `templates/workflows/` yet. The five check workflows and `security.yml` are there, and `templates` warns. Enforce, and `lint.yml`, `test.yml`, and the deploy workflows, are still open.
 - Lockfile and Semgrep jobs folded under the required gates.
 - The same 31 digests held once, which waits on the denylist decision above.
 - Product repositories do not run `sync-labels` yet. This repository applies the catalogue to itself. `SYNC_LABELS_REPOSITORIES=siblings` applies it to the five repositories when `gh` can write issues on each.

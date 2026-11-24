@@ -1,0 +1,21 @@
+{
+  "mobile": "apps/*/pubspec.yaml",
+  "ios-pods": "apps/*/ios/Podfile",
+  "openapi": "docs/api/*.yaml",
+  "database": "backend/db",
+  "migration-recovery": "scripts/check_stack_invariants.py",
+  "training": "apps/training/package.json",
+  "search-fixture": "scripts/codegen/sync-activity-search-staging-fixture.sh",
+  "playwright-admin": "apps/admin_web/playwright.config.*",
+  "playwright-public": "apps/public_www/playwright.config.*",
+  "next-admin": "apps/admin_web/next.config.*",
+  "next-public": "apps/public_www/next.config.*",
+  "public-build-env": "scripts/deploy/resolve-public-www-build-env.sh",
+  "admin-stack-settings": "scripts/deploy/check-admin-spa-settings.sh",
+  "amplify": "scripts/deploy/build_amplify_config.py",
+  "catalogue": "scripts/deploy/fetch-public-www-catalogue-snapshot.sh",
+  "indexnow": "scripts/deploy/indexnow.py",
+  "edge-verify": "scripts/deploy/report_public_www_edge_verify.sh",
+  "staged-release": "scripts/deploy/deploy-public-www.sh",
+  "public-api-keys": "scripts/deploy/create-api-key.sh"
+}

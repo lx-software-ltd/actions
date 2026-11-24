@@ -8,19 +8,10 @@ on:
     branches:
       - main
     # template:set
-    paths:
-      - "apps/admin_web/**"
-      - "contracts/roadmap.json"
-      - ".github/workflows/deploy-admin-web.yml"
+          example-field: example-value
     # template:end
 
-  # template:optional workflow-run
-  # template:set
-  # A backend deploy can replace the Cognito client or the HTTP API. Rebuild
-  # the SPA from current main so it picks up those outputs. Only a successful
-  # Deploy Backend on main qualifies. The SPA is added in M03; until then the
-  # job skips the build.
-  # template:end
+  # template:optional admin-stack-settings
   workflow_run:
     workflows: ["Deploy Backend"]
     types: [completed]
@@ -52,7 +43,7 @@ jobs:
           cache: npm
           working-directory: apps/admin_web
 
-      # template:optional next-cache
+      # template:optional next-admin
       - name: Restore Next.js build cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -63,21 +54,19 @@ jobs:
       # template:end
 
       - name: Configure AWS credentials
-        # template:set
         id: aws
-        # template:end
         uses: lx-software-ltd/actions/aws-oidc@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
         with:
           account-id: ${{ secrets.AWS_ACCOUNT_ID }}
           region: ${{ vars.AWS_REGION }}
 
-      # template:optional admin-settings
+      # template:optional admin-stack-settings
       - name: Read admin SPA settings
         id: stack_outputs
         uses: lx-software-ltd/actions/cfn-stack-outputs@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
         with:
           # template:set
-          stack: findingalpha
+          example-field: example-value
           # template:end
           outputs: UserPoolClientId CognitoDomain AdminApiBaseUrl
           region: ${{ vars.AWS_REGION }}
@@ -87,7 +76,7 @@ jobs:
         env:
           JSON: ${{ steps.stack_outputs.outputs.json }}
           # template:set
-          STACK_NAME: findingalpha
+          example-field: example-value
           # template:end
         run: bash scripts/deploy/check-admin-spa-settings.sh
 
@@ -97,25 +86,19 @@ jobs:
         run: npm run build
         working-directory: apps/admin_web
         # template:set
-        env:
-          VITE_COGNITO_CLIENT_ID: ${{ steps.admin_spa.outputs.client_id }}
-          VITE_COGNITO_DOMAIN: ${{ steps.admin_spa.outputs.domain }}
-          VITE_COGNITO_REDIRECT_URI: https://${{ vars.ADMIN_WEB_DOMAIN_NAME }}/auth/callback
-          VITE_COGNITO_LOGOUT_URI: https://${{ vars.ADMIN_WEB_DOMAIN_NAME }}/
-          VITE_API_BASE_URL: ${{ steps.admin_spa.outputs.api_url }}
+          example-field: example-value
         # template:end
 
       - name: Deploy admin web
         uses: lx-software-ltd/actions/s3-cloudfront-deploy@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
         with:
           # template:set
-          source: apps/admin_web/dist
-          stack: findingalpha-admin-web
+          example-field: example-value
           # template:end
           region: ${{ vars.AWS_REGION }}
           bucket-output: AdminWebBucketName
           distribution-output: AdminWebDistributionId
           # template:set
-          profile: admin-hashed
+          example-field: example-value
           # template:end
           dry-run: "false"
