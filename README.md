@@ -89,7 +89,7 @@ Product repositories call [`dependency-submission`](dependency-submission/README
 | [`pip-audit`](pip-audit/README.md) | `pip-audit` on requirements files. | | ✅ | ✅ | ✅ | ✅ |
 | [`dependency-submission`](dependency-submission/README.md) | Submit pinned requirements and npm lockfiles. Check workflow uses without submitting them. | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [`npm-audit`](npm-audit/README.md) | `npm audit` at the caller's level. | | ✅ | ✅ | ✅ | ✅ |
-| [`setup-node`](setup-node/README.md) | Node 26, and `npm ci` when a working directory is set. | | ✅ | ✅ | ✅ | ✅ |
+| [`setup-node`](setup-node/README.md) | Node 26, and `npm ci --no-audit --no-fund` when a working directory is set. | | ✅ | ✅ | ✅ | ✅ |
 | [`setup-python`](setup-python/README.md) | Python 3.12, and a pip cache when a requirements file is set. | | ✅ | ✅ | ✅ | ✅ |
 | [`node-lockfiles`](node-lockfiles/README.md) | Fail when `package-lock.json` is out of date. | | ✅ | ✅ | ✅ | ✅ |
 | [`python-requirements-pins`](python-requirements-pins/README.md) | Fail when a requirements file is unpinned. | | ✅ | ✅ | ✅ | ✅ |

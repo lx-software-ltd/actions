@@ -1,6 +1,6 @@
 # Setup Node
 
-Sets up Node.js. `npm ci` runs only when `working-directory` is set and `install` is true. The npm cache is off unless `cache` is `npm`.
+Sets up Node.js. `npm ci --no-audit --no-fund` runs only when `working-directory` is set and `install` is true. Audit stays in the caller's `security.yml`. The npm cache is off unless `cache` is `npm`.
 
 The default `node-version` is `26`. Omit the input when that is the version the job should run.
 
@@ -13,7 +13,7 @@ A call site that today only runs `actions/setup-node` passes `node-version` and 
 | `node-version` | no | `26` | Passed to `actions/setup-node`. |
 | `working-directory` | no | empty | Directory with `package.json` and `package-lock.json`. Empty skips `npm ci`. |
 | `cache` | no | empty | `npm` caches that directory's `package-lock.json`. Empty does not cache. Any other value fails the action. |
-| `install` | no | `true` | When `true` and `working-directory` is set, run `npm ci`. |
+| `install` | no | `true` | When `true` and `working-directory` is set, run `npm ci --no-audit --no-fund`. |
 
 ## Permissions
 

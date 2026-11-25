@@ -97,6 +97,7 @@ class SetupNodeContractTest(unittest.TestCase):
             install["if"],
             "inputs.install == 'true' && inputs.working-directory != ''",
         )
+        self.assertIn("npm ci --no-audit --no-fund", install["run"])
 
     def test_fail_fixture_has_no_lockfile(self) -> None:
         directory = ROOT / "fixtures/setup-node-no-lock"
