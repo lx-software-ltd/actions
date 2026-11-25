@@ -171,7 +171,7 @@ jobs:
         run: npm run smoke:staging
         working-directory: apps/public_www
         env:
-          SMOKE_BASE_URL: ${{ vars.STAGING_SITE_ORIGIN || steps.resolve_public_site_config.outputs.staging_site_origin }}
+          SMOKE_BASE_URL: ${{ steps.resolve_public_site_config.outputs.staging_site_origin }}
 # template:set
           NEXT_TELEMETRY_DISABLED: "1"
           STAGING_BYPASS_SECRET: ${{ secrets.STAGING_BYPASS_SECRET }}

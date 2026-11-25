@@ -174,8 +174,8 @@ jobs:
     runs-on: ubuntu-26.04
     environment: production
     steps:
+      # The summary script is in the repository, including when the release is skipped.
       - name: Checkout repository
-        if: ${{ needs.prepare.outputs.deploy == 'true' || needs.prepare.outputs.maintenance_mode == 'true' }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # template:set
