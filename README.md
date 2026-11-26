@@ -109,6 +109,7 @@ Product repositories call [`dependency-submission`](dependency-submission/README
 | [`android-signing`](android-signing/README.md) | Install the upload keystore. | | | | ✅ | ✅ |
 | [`play-prerequisites`](play-prerequisites/README.md) | Skip the Play upload when a signing or track secret is missing. | | | | ✅ | ✅ |
 | [`lighthouse-ci`](lighthouse-ci/README.md) | Run Lighthouse against the caller's page list. The bypass header is not left in the workspace. | | ✅ | ✅ | ✅ | ✅ |
+| [`api-contract`](api-contract/README.md) | Check OpenAPI paths and server URLs against the API contract. | | | | | |
 
 ## Documentation
 
