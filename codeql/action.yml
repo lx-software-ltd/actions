@@ -31,19 +31,29 @@ runs:
         echo "codeql: language is required" >&2
         exit 1
 
+    - name: Select the query suite
+      id: queries
+      if: inputs.language != ''
+      shell: bash
+      env:
+        CODEQL_LANGUAGE: ${{ inputs.language }}
+        CODEQL_QUERIES: ${{ inputs.queries }}
+        CODEQL_CONFIG_FILE: ${{ inputs.config-file }}
+      run: bash "$GITHUB_ACTION_PATH/select_queries.sh"
+
     - name: Initialize CodeQL
       if: inputs.language != '' && inputs.config-file == ''
       uses: github/codeql-action/init@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
       with:
         languages: ${{ inputs.language }}
-        queries: ${{ inputs.queries }}
+        queries: ${{ steps.queries.outputs.path }}
 
     - name: Initialize CodeQL with a config file
       if: inputs.language != '' && inputs.config-file != ''
       uses: github/codeql-action/init@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
       with:
         languages: ${{ inputs.language }}
-        queries: ${{ inputs.queries }}
+        queries: ${{ steps.queries.outputs.path }}
         config-file: ${{ inputs.config-file }}
 
     - name: Perform CodeQL Analysis
