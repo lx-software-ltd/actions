@@ -72,7 +72,7 @@ The four product repositories serve one API. The rules are [`docs/api-contract.m
 
 The token audience is `/v1/partner`. A token is sent as `Authorization: Bearer <token>`. JSON field names are snake_case. Website routes live under `/v1/public/`, and a site calls them through the prefix `/api`. `siutindei` names its API hostname with `ApiCustomDomainName`. There is no notice period for a caller the owner deploys. That caller changes on the day the server changes.
 
-Three things keep working across that day: a link inside an email that was already sent, a callback address held in a provider's dashboard until the owner changes it there, and a public website build that is live until the next build is promoted. The token validates under either header for one deploy, and the holder changes the path on the deploy day. The old header is accepted for one deploy. The removal is the next pull request in each product.
+Three things keep working across that day: a link inside an email that was already sent, a callback address held in a provider's dashboard until the owner changes it there, and a public website build that is live until the next build is promoted. The token validates under either header for one deploy, and the holder changes the path on the deploy day. The removal is the next pull request in each product.
 
 Routes under `/v1/public/` are listed one by one in API Gateway. A route that appears in a sent email is never removed.
 
