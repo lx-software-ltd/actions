@@ -12,6 +12,8 @@ The `execute-api` hostname is disabled. Every client uses `api.<domain>`.
 
 Every route starts with a major version and then an audience: `/v1/<audience>/<resource>`. `GET /health` is the only route without a version.
 
+The audience root, with no trailing slash, is an index and is allowed: `/v1/public`, `/v1/user`, `/v1/admin`, `/v1/partner`, `/v1/webhooks`, and the same form for an audience a product adds.
+
 A client is configured with the origin only, for example `https://api.siutindei.com`. Client code adds `/v1/...`.
 
 A website that calls the API through its own origin uses `https://<site>/api/<path>`. `<path>` is the same path on `api.<domain>`. The edge forwards only an allow-list of `/v1/public/` routes.
@@ -33,7 +35,7 @@ A product may add an audience for a product role. `siutindei` keeps `/v1/manager
 
 A route under `/v1/public/` never returns personal data.
 
-Routes under `/v1/public/` are listed one by one in API Gateway. A greedy `{proxy+}` route is allowed only under a prefix whose method carries an authorizer.
+Routes under `/v1/public/` are listed one by one in API Gateway. A greedy `{proxy+}` route is the last segment, and only under a prefix whose method carries an authorizer. It is not used in `public.yaml`.
 
 A handler for a partner route refuses a request that carries no authorizer context. A stack test proves that every method under `/v1/partner/` has the token authorizer, and that no method under `/v1/public/` has it.
 
@@ -44,6 +46,8 @@ A handler for a partner route refuses a request that carries no authorizer conte
 A token is a registered prefix, an underscore and random characters: `esk_`, `stk_`, `lxpk_`, `fapk_`. Each prefix has a gitleaks rule. Only a digest is stored. The plaintext is shown once.
 
 The authorizer reads `Authorization`. It accepts the scheme `Bearer` in any letter case, and it denies on any error. It never decides on the HTTP method, because a cached answer is reused across methods. The handler checks writes and scopes.
+
+An issued token is like a link in a sent email: the holder cannot see a header change coming. For one deploy after a credential change, the authorizer accepts the previous header and `Authorization: Bearer`. It logs `auth_scheme=legacy` or `auth_scheme=bearer`. The cache key includes both headers, or neither, so a cached answer does not cross schemes. The old header is removed in a later change once logs show no legacy use over the window the owner sets, or after the owner has notified the holders.
 
 A revoked token stops working within 5 minutes. The authorizer cache is 300 seconds at most.
 
@@ -101,4 +105,18 @@ These are breaking: anything removed or renamed, a changed type or meaning, stri
 
 A route that appears in a sent email is never removed.
 
-`docs/api/` holds one OpenAPI 3 file per audience: `public.yaml`, `admin.yaml` (admin, user and product roles), `partner.yaml`, `webhooks.yaml`. `servers` is `https://api.<domain>` with no path. CI lints the files and compares them with the route table.
+`docs/api/` holds one OpenAPI 3 file per audience: `public.yaml`, `admin.yaml` (admin, user and product roles), `partner.yaml`, `webhooks.yaml`. `servers` is `https://api.<domain>` with no path. A path that a sent email still uses, or a temporary alias kept for one deploy, is listed in `docs/api/legacy-paths.txt`, one path per line.
+
+## What is checked
+
+| Rule | Enforced by |
+| --- | --- |
+| `servers` equals the origin, path prefixes, the audience root, `/health` only in `admin.yaml`, `{proxy+}` only as the last segment and not in `public.yaml`, snake_case path parameters, no second version, one path in one file | `api-contract` action, after each product pins the commit on `main` |
+| A path in `legacy-paths.txt` | The same action, via its `legacy-paths` input |
+| OpenAPI syntax | Redocly in the product lint workflow |
+| The spec matches the route table | Each product's own script. The shared action does not read the route table |
+| snake_case JSON names, the problem-details members, and Bearer `securitySchemes` | Each product's codec tests and authorizer tests. The shared action does not read schemas |
+| Every `/v1/partner/` method has the token authorizer, and no `/v1/public/` method has it | Product stack test |
+| `GET /health` touches no database and returns `{"status": "ok"}` | Product test |
+| Token overlap and the cache key | Product authorizer test |
+| `execute-api` disabled, the edge policy applied, and the site promoted | Owner steps in the pull request. Not a shared CI check |

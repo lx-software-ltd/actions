@@ -70,9 +70,9 @@ This repository applies the catalogue with `github.token`. That token writes lab
 
 The four product repositories serve one API. The rules are [`docs/api-contract.md`](api-contract.md).
 
-The token audience is `/v1/partner`. A token is sent as `Authorization: Bearer <token>`. JSON field names are snake_case. Website routes live under `/v1/public/`, and a site calls them through the prefix `/api`. `siutindei` names its API hostname with `ApiCustomDomainName`. There is no notice period. A caller that holds a credential, or that the owner deploys, changes on the day the server changes.
+The token audience is `/v1/partner`. A token is sent as `Authorization: Bearer <token>`. JSON field names are snake_case. Website routes live under `/v1/public/`, and a site calls them through the prefix `/api`. `siutindei` names its API hostname with `ApiCustomDomainName`. There is no notice period for a caller the owner deploys. That caller changes on the day the server changes.
 
-Three things cannot change on that day, and they keep working: a link inside an email that was already sent, a callback address held in a provider's dashboard until the owner changes it there, and a public website build that is live until the next build is promoted.
+Four things keep working across that day: a link inside an email that was already sent, a callback address held in a provider's dashboard until the owner changes it there, a public website build that is live until the next build is promoted, and an issued token. The authorizer accepts the previous header and `Authorization: Bearer` for one deploy, then the old header goes.
 
 Routes under `/v1/public/` are listed one by one in API Gateway. A route that appears in a sent email is never removed.
 
