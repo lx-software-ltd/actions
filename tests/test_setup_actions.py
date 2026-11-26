@@ -118,6 +118,20 @@ class FlutterLockfilesContractTest(unittest.TestCase):
 
 
 class SetupPythonContractTest(unittest.TestCase):
+    def test_producer_workflows_pin_python_3_12(self) -> None:
+        workflows = ROOT / ".github" / "workflows"
+        for path in sorted(workflows.glob("*.yml")):
+            lines = path.read_text(encoding="utf-8").splitlines()
+            for index, line in enumerate(lines):
+                if "uses: actions/setup-python@" not in line:
+                    continue
+                window = "\n".join(lines[index : index + 4])
+                self.assertIn(
+                    'python-version: "3.12"',
+                    window,
+                    f"{path.name} calls actions/setup-python without Python 3.12",
+                )
+
     def test_requirements_gate_the_cache(self) -> None:
         inputs = _inputs(_text("setup-python/action.yml"))
         self.assertEqual(inputs["python-version"]["default"], '"3.12"')
