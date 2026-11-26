@@ -18,7 +18,7 @@ This repository is public. Nothing private goes in it: no secret, account id, in
 | [`fixtures/`](fixtures/) | Passing and failing input for the action tests. |
 | [`scripts/`](scripts/) | The layout check, the personal-data check, and the pin bump. |
 | [`tests/`](tests/) | Unit tests for the payload and the scripts. |
-| [`docs/`](docs/) | The CI contract, the decisions that still bind, the zone map, and the architecture notes. |
+| [`docs/`](docs/) | The CI contract, the API contract, the decisions that still bind, the zone map, and the architecture notes. |
 
 ## Working here
 
@@ -113,6 +113,7 @@ Product repositories call [`dependency-submission`](dependency-submission/README
 ## Documentation
 
 - [`docs/ci-contract.md`](docs/ci-contract.md): the CI contract that `workflow-conformance` checks.
+- [`docs/api-contract.md`](docs/api-contract.md): the API shape the four product repositories serve.
 - [`docs/decisions.md`](docs/decisions.md): the decisions that still bind.
 - [`docs/architecture/zones.md`](docs/architecture/zones.md): the zone map.
 - [`docs/architecture/cdk-deploy.md`](docs/architecture/cdk-deploy.md): the design of `cdk-deploy` and the plan JSON.

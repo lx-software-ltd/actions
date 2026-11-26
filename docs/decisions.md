@@ -66,6 +66,16 @@ This repository applies the catalogue with `github.token`. That token writes lab
 
 `scripts/pii-denylist.sha256` holds the 31 organisation digests approved on 20 Nov 2026. No plaintext. `lx-software` holds 30 of them. That omission was deliberate: the copy decision does not add the missing digest there. Holding the organisation list only in this repository would apply that digest to `lx-software`, so the five copies stay until a new approval.
 
+## API
+
+The four product repositories serve one API. The rules are [`docs/api-contract.md`](api-contract.md).
+
+The token audience is `/v1/partner`. A token is sent as `Authorization: Bearer <token>`. JSON field names are snake_case. Website routes live under `/v1/public/`, and a site calls them through the prefix `/api`. `siutindei` names its API hostname with `ApiCustomDomainName`. There is no notice period. A caller that holds a credential, or that the owner deploys, changes on the day the server changes.
+
+Three things cannot change on that day, and they keep working: a link inside an email that was already sent, a callback address held in a provider's dashboard until the owner changes it there, and a public website build that is live until the next build is promoted.
+
+Routes under `/v1/public/` are listed one by one in API Gateway. A route that appears in a sent email is never removed.
+
 ## Not finished
 
 - A Dependabot path that bumps this pin, and a measured cooldown exclusion.
