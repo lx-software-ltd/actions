@@ -41,6 +41,26 @@ _ACTION_PIN = re.compile(
 )
 
 
+def _git_ok(args: list[str]) -> bool:
+    result = subprocess.run(args, cwd=ROOT, capture_output=True, check=False)
+    return result.returncode == 0
+
+
+def _commit_has_action(sha: str, directory: str, fetched: set[str]) -> bool:
+    """True when ``directory/action.yml`` exists at ``sha``.
+
+    A pull-request checkout is shallow, so a pin on main is fetched once
+    before the missing path is treated as a failure.
+    """
+    spec = f"{sha}:{directory}/action.yml"
+    if _git_ok(["git", "cat-file", "-e", spec]):
+        return True
+    if sha not in fetched:
+        fetched.add(sha)
+        _git_ok(["git", "fetch", "--depth=1", "origin", sha])
+    return _git_ok(["git", "cat-file", "-e", spec])
+
+
 def _check(directory: Path, legacy: Path | None = None) -> list[str]:
     return check_module.check(
         directory,
@@ -104,18 +124,13 @@ class ApiContractTest(unittest.TestCase):
 
     def test_template_pins_point_at_an_action_file(self) -> None:
         missing: list[str] = []
+        fetched: set[str] = set()
         for path in sorted((ROOT / "templates").rglob("*.yml")):
             text = path.read_text(encoding="utf-8")
             for match in _ACTION_PIN.finditer(text):
                 directory, sha = match.group(1), match.group(2)
-                spec = f"{sha}:{directory}/action.yml"
-                result = subprocess.run(
-                    ["git", "cat-file", "-e", spec],
-                    cwd=ROOT,
-                    capture_output=True,
-                    check=False,
-                )
-                if result.returncode != 0:
-                    relative = path.relative_to(ROOT)
-                    missing.append(f"{relative}: {directory}@{sha}")
+                if _commit_has_action(sha, directory, fetched):
+                    continue
+                relative = path.relative_to(ROOT)
+                missing.append(f"{relative}: {directory}@{sha}")
         self.assertEqual(missing, [])
