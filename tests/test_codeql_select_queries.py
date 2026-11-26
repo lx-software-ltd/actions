@@ -19,7 +19,7 @@ def _select(language: str, queries: str = "security-extended", config: str = "")
                 "CODEQL_LANGUAGE": language,
                 "CODEQL_QUERIES": queries,
                 "CODEQL_CONFIG_FILE": config,
-                "RUNNER_TEMP": tmp,
+                "GITHUB_WORKSPACE": tmp,
                 "GITHUB_OUTPUT": "",
             }
         )
@@ -29,10 +29,11 @@ def _select(language: str, queries: str = "security-extended", config: str = "")
             capture_output=True,
             text=True,
             env=env,
+            cwd=tmp,
         )
         selected = result.stdout.strip()
         suite = ""
-        path = Path(selected)
+        path = Path(tmp) / selected
         if path.is_file():
             suite = path.read_text(encoding="utf-8")
         return selected, suite
@@ -40,7 +41,8 @@ def _select(language: str, queries: str = "security-extended", config: str = "")
 
 class SelectQueriesTest(unittest.TestCase):
     def test_python_suite_adds_alert_suppression(self) -> None:
-        _selected, text = _select("python")
+        selected, text = _select("python")
+        self.assertEqual(selected, "./.codeql-suites/codeql-python-security-extended.qls")
         self.assertIn("from: codeql/python-queries", text)
         self.assertIn("security-extended-selectors.yml", text)
         self.assertIn("kind: alert-suppression", text)
