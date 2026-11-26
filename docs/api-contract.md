@@ -47,7 +47,7 @@ A token is a registered prefix, an underscore and random characters: `esk_`, `st
 
 The authorizer reads `Authorization`. It accepts the scheme `Bearer` in any letter case, and it denies on any error. It never decides on the HTTP method, because a cached answer is reused across methods. The handler checks writes and scopes.
 
-An issued token is like a link in a sent email: the holder cannot see a header change coming. For one deploy after a credential change, the authorizer accepts the previous header and `Authorization: Bearer`. It logs `auth_scheme=legacy` or `auth_scheme=bearer`. The cache key includes both headers, or neither, so a cached answer does not cross schemes. The old header is removed in a later change once logs show no legacy use over the window the owner sets, or after the owner has notified the holders.
+An issued token is like a link in a sent email: the holder cannot see a header change coming. For one deploy after a credential change, the authorizer accepts the previous header and `Authorization: Bearer`. It logs `auth_scheme=legacy` or `auth_scheme=bearer`. The cache is off during the overlap and returns when the old header is removed. The old header is accepted for one deploy. The removal is the next pull request in each product.
 
 A revoked token stops working within 5 minutes. The authorizer cache is 300 seconds at most.
 
@@ -118,5 +118,5 @@ A route that appears in a sent email is never removed.
 | snake_case JSON names, the problem-details members, and Bearer `securitySchemes` | Each product's codec tests and authorizer tests. The shared action does not read schemas |
 | Every `/v1/partner/` method has the token authorizer, and no `/v1/public/` method has it | Product stack test |
 | `GET /health` touches no database and returns `{"status": "ok"}` | Product test |
-| Token overlap and the cache key | Product authorizer test |
+| Token overlap, with the cache off during the overlap | Product authorizer test |
 | `execute-api` disabled, the edge policy applied, and the site promoted | Owner steps in the pull request. Not a shared CI check |
