@@ -46,3 +46,12 @@ runs:
         sarif_file: semgrep-results.sarif
         category: ${{ inputs.category }}
         wait-for-processing: false
+
+    - name: Upload SARIF results to the previous category
+      if: always() && inputs.upload == 'true' && inputs.category == 'semgrep'
+      uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+      continue-on-error: true
+      with:
+        sarif_file: semgrep-results.sarif
+        category: ".github/workflows/security.yml:semgrep"
+        wait-for-processing: false

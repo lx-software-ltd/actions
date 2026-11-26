@@ -9,8 +9,8 @@ The calling job needs a checkout, `contents: read`, `security-events: write`, an
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
 | `language` | yes | | One CodeQL language. |
-| `queries` | no | `security-extended` | Query suite. For Python and JavaScript this also runs the alert-suppression query, so an in-source `lgtm` or `noqa` mark is uploaded. |
+| `queries` | no | `security-extended` | Query suite. For Python and JavaScript this also runs the alert-suppression query. A `lgtm` or `noqa` mark is removed before upload, because code scanning leaves a suppressed result open. |
 | `config-file` | no | empty | CodeQL config. Omitted when empty. |
-| `category` | no | empty | Passed to analyze when set. |
+| `category` | no | empty | Passed to the upload when set. |
 
 The CodeQL action is `1bd86f2fdb4b86187fa4059f16f31a3202acc9ea` (`v4.39.4`).
