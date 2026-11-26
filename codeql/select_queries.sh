@@ -34,7 +34,11 @@ case "$language" in
     ;;
 esac
 
-dest="${RUNNER_TEMP:-/tmp}/codeql-${language}-security-extended.qls"
+# The codescanning config rejects an absolute path outside the repository.
+# The suite file has to live in the workspace, and the queries input is relative.
+root="${GITHUB_WORKSPACE:-.}"
+mkdir -p "${root}/.codeql-suites"
+dest="${root}/.codeql-suites/codeql-${language}-security-extended.qls"
 cat > "$dest" << EOF
 - description: Security-extended queries plus in-source alert suppressions
 - queries: .
@@ -44,4 +48,4 @@ cat > "$dest" << EOF
 - include:
     kind: alert-suppression
 EOF
-write_output "$dest"
+write_output "./.codeql-suites/codeql-${language}-security-extended.qls"
