@@ -25,7 +25,3 @@ Shared steps:
 - Release id, promote id, maintenance flag, and contact values stay inputs. An action cannot read `vars` or `secrets`.
 - Stack names stay inputs. `evolvesprouts` defaults to `evolvesprouts-public-www`. `siutindei` names its own stack.
 - `s3-cloudfront-deploy` profile `next-export` is a plain `aws s3 sync --delete`. It does not do release copies, maintenance pages, or the three cache policies. It is not this release.
-
-## A later action
-
-One `public-site-release` action can own the six steps above once a dry-run against both buckets matches the scripts byte for byte on cache headers, key prefixes, and invalidation paths. Until that comparison exists, the workflows keep calling the scripts. `evolvesprouts` `deploy-training.sh` is a separate `next-export` upload and is not part of this release.
