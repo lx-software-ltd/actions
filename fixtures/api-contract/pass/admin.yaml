@@ -20,3 +20,6 @@ paths:
   /v1/user/tasks:
     get:
       summary: Example
+  /v1/admin/{proxy+}:
+    get:
+      summary: Example

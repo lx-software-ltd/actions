@@ -1,0 +1,32 @@
+openapi: 3.0.3
+info:
+  title: Example
+  version: 0.0.0
+servers:
+  - url: https://api.example.com
+    description: Production
+paths:
+  "/v1/public/items/{item_id}":
+    get:
+      summary: One item
+      description: |
+        servers:
+        A $ref below is not a path.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Item"
+components:
+  schemas:
+    Item:
+      type: object
+      properties:
+        paths:
+          type: array
+          items:
+            type: string
+        name:
+          type: string

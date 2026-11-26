@@ -1,0 +1,2 @@
+/v1/calendar/public
+/v1/public/missing

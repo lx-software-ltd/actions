@@ -36,6 +36,22 @@ EXPECTATIONS = {
     "flow-style": "this reader cannot follow flow-style YAML",
     "proxy-middle": "{proxy+} is not the last segment",
     "proxy-public": "{proxy+} is not allowed without an authorizer",
+    "proxy-webhooks": "{proxy+} is not allowed without an authorizer",
+    "servers-under-path": "servers key under a path is not the document servers",
+    "quoted-paths": "quoted paths key is not opened",
+    "quoted-paths-single": "quoted paths key is not opened",
+    "no-paths": "file has no paths block",
+    "query-segment": "path segment a?x=1 does not match ^[a-z0-9]+(-[a-z0-9]+)*$",
+    "empty-segment": "empty path segment",
+    "trailing-slash": "empty path segment",
+    "colon-segment": "path segment items:search does not match ^[a-z0-9]+(-[a-z0-9]+)*$",
+    "hash-segment": "path segment a#b does not match ^[a-z0-9]+(-[a-z0-9]+)*$",
+    "parameter-underscores": "path parameter {a__b_} is not snake_case",
+    "single-quoted-path": "single-quoted path key is not a path",
+    "extension-key": "x- key under paths is not a path",
+    "paths-comment": "comment after paths: is not read",
+    "url-comment": "comment after a servers URL is not read",
+    "duplicate-one": "path is duplicated in public.yaml",
 }
 
 _ACTION_PIN = re.compile(
@@ -122,19 +138,60 @@ class ApiContractTest(unittest.TestCase):
         findings = _check(FIXTURES / "missing")
         self.assertIn(f"{FIXTURES / 'missing'}: directory is missing", findings)
 
-    def test_a_real_spec_with_refs_parses(self) -> None:
-        directory = FIXTURES / "siutindei-public"
+    def test_a_ref_and_a_schema_property_named_paths_parse(self) -> None:
+        directory = FIXTURES / "refs"
         text = (directory / "public.yaml").read_text(encoding="utf-8")
-        servers, paths = check_module.read_openapi(text)
-        self.assertIn("https://api.siutindei.com", servers)
-        self.assertGreater(len(paths), 0)
-        findings = check_module.check(
-            directory,
-            origin="https://api.siutindei.com",
-            admin_prefixes=PREFIXES,
-            legacy_file=None,
+        servers, paths, reader_findings = check_module.read_openapi(text)
+        self.assertEqual(reader_findings, [])
+        self.assertEqual(servers, [ORIGIN])
+        self.assertEqual(paths, ["/v1/public/items/{item_id}"])
+        self.assertEqual(_check(directory), [])
+
+    def test_a_path_duplicated_in_one_file_names_that_file(self) -> None:
+        findings = _check(FIXTURES / "fail" / "duplicate-one")
+        self.assertIn(
+            "/v1/public/items: path is duplicated in public.yaml",
+            findings,
         )
-        self.assertEqual(findings, [])
+        self.assertFalse(any("more than one file" in finding for finding in findings))
+
+    def test_a_stale_legacy_path_is_reported(self) -> None:
+        findings = _check(FIXTURES / "pass", FIXTURES / "fail" / "stale-legacy.txt")
+        self.assertEqual(
+            findings,
+            ["/v1/public/missing: legacy path is not in a contract file"],
+        )
+
+    def test_an_admin_prefix_without_a_trailing_slash_fails(self) -> None:
+        findings = check_module.check(
+            FIXTURES / "pass",
+            origin=ORIGIN,
+            admin_prefixes=("/v1/admin", "/v1/user/"),
+            legacy_file=FIXTURES / "legacy-paths.txt",
+        )
+        self.assertTrue(
+            any(
+                "admin prefix /v1/admin does not match ^/v1/[a-z0-9-]+/$" in finding
+                for finding in findings
+            ),
+            findings,
+        )
+
+    def test_an_origin_outside_the_pattern_fails(self) -> None:
+        findings = check_module.check(
+            FIXTURES / "pass",
+            origin="https://api.example.com/v1",
+            admin_prefixes=PREFIXES,
+            legacy_file=FIXTURES / "legacy-paths.txt",
+        )
+        self.assertTrue(
+            any(
+                "origin https://api.example.com/v1 does not match ^https://[a-z0-9.-]+$"
+                in finding
+                for finding in findings
+            ),
+            findings,
+        )
 
     def test_lint_template_omits_the_action_until_it_is_on_main(self) -> None:
         text = (ROOT / "templates" / "workflows" / "lint.yml").read_text(

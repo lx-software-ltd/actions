@@ -2,7 +2,8 @@
 """Check OpenAPI files against the shared API contract.
 
 The payload uses the standard library. It reads block-style YAML only: the
-``servers`` URLs and the keys directly under ``paths``. Flow-style YAML fails
+``servers`` URLs and the keys directly under the top-level ``paths`` key.
+A schema property named ``paths`` is not that key. Flow-style YAML fails
 with a message that says this reader cannot follow it.
 """
 
@@ -19,9 +20,14 @@ _PREFIX = {
     "partner.yaml": ("/v1/partner/",),
     "webhooks.yaml": ("/v1/webhooks/",),
 }
+_PROXY_ALLOWED = {"partner.yaml", "admin.yaml"}
 _VERSION = re.compile(r"^v[0-9]+$")
-_SNAKE = re.compile(r"^[a-z][a-z0-9_]*$")
-_PARAM = re.compile(r"\{([^{}]*)\}")
+_LITERAL = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_PARAM_NAME = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
+_ADMIN_PREFIX = re.compile(r"^/v1/[a-z0-9-]+/$")
+_ORIGIN = re.compile(r"^https://[a-z0-9.-]+$")
+_QUOTED_PATHS = re.compile(r"""^(['"])paths\1\s*:\s*$""")
+_BLOCK_SCALAR = re.compile(r":\s*[|>](?:[+-]\d*|\d*[+-]?)?\s*$")
 _GREEDY = "{proxy+}"
 
 
@@ -60,6 +66,24 @@ def _server_url(stripped: str, line: int) -> str | None:
     return value
 
 
+def _commented_url(stripped: str) -> bool:
+    if " #" not in stripped:
+        return False
+    return re.match(
+        r"^(?:-\s+)?url:\s*\S+\s*$",
+        _comment_stripped(stripped),
+    ) is not None
+
+
+def _is_servers_key(stripped: str) -> bool:
+    bare = _comment_stripped(stripped)
+    if bare == "servers:":
+        return True
+    if not bare.startswith("servers:"):
+        return False
+    return bare[len("servers:") :].startswith((" ", "[", "{"))
+
+
 def _path_key(stripped: str, line: int) -> str:
     text = _comment_stripped(stripped)
     if text.startswith('"'):
@@ -78,13 +102,18 @@ def _path_key(stripped: str, line: int) -> str:
     return path
 
 
-def read_openapi(text: str) -> tuple[list[str], list[str]]:
-    """Return the server URLs and the path keys in ``text``."""
+def read_openapi(text: str) -> tuple[list[str], list[str], list[str]]:
+    """Return the server URLs, the path keys, and reader findings."""
     servers: list[str] = []
     paths: list[str] = []
+    findings: list[str] = []
     mode: str | None = None
     block_indent = -1
     path_indent: int | None = None
+    scalar_indent: int | None = None
+    saw_paths = False
+    saw_quoted_paths = False
+    saw_paths_comment = False
     for number, raw in enumerate(text.splitlines(), 1):
         if "\t" in raw:
             raise FlowError(number)
@@ -92,31 +121,73 @@ def read_openapi(text: str) -> tuple[list[str], list[str]]:
             continue
         indent = len(raw) - len(raw.lstrip(" "))
         stripped = raw.strip()
+        if scalar_indent is not None and indent <= scalar_indent:
+            scalar_indent = None
         if mode is not None and indent <= block_indent:
             mode = None
             path_indent = None
+            scalar_indent = None
+        if scalar_indent is not None and indent > scalar_indent:
+            continue
         if mode is None:
+            if indent != 0:
+                continue
+            bare = _comment_stripped(stripped)
+            if _QUOTED_PATHS.fullmatch(bare):
+                saw_quoted_paths = True
+                findings.append(f"line {number}: quoted paths key is not opened")
+                continue
+            if bare == "paths:" and stripped != "paths:":
+                saw_paths_comment = True
+                findings.append(f"line {number}: comment after paths: is not read")
+                continue
+            if bare == "servers:" and stripped != "servers:" and " #" in stripped:
+                mode = "servers"
+                block_indent = indent
+                continue
             if _open_block(stripped, "servers", number):
                 mode = "servers"
                 block_indent = indent
-            elif _open_block(stripped, "paths", number):
+                continue
+            if _open_block(stripped, "paths", number):
                 mode = "paths"
                 block_indent = indent
                 path_indent = None
+                saw_paths = True
             continue
         if mode == "servers":
+            if _commented_url(stripped):
+                findings.append(
+                    f"line {number}: comment after a servers URL is not read"
+                )
+                continue
             url = _server_url(stripped, number)
             if url is not None:
                 servers.append(url)
             continue
         if path_indent is not None and indent > path_indent:
+            if _is_servers_key(stripped):
+                findings.append(
+                    f"line {number}: servers key under a path is not the document servers"
+                )
+            if _BLOCK_SCALAR.search(stripped):
+                scalar_indent = indent
             continue
         if path_indent is None:
             path_indent = indent
         if indent != path_indent:
             raise FlowError(number)
+        bare = _comment_stripped(stripped)
+        if bare.startswith("'"):
+            findings.append(f"line {number}: single-quoted path key is not a path")
+            continue
+        if bare.startswith("x-"):
+            findings.append(f"line {number}: x- key under paths is not a path")
+            continue
         paths.append(_path_key(stripped, number))
-    return servers, paths
+    if not saw_paths and not saw_quoted_paths and not saw_paths_comment:
+        findings.append("file has no paths block")
+    return servers, paths, findings
 
 
 def _matches_prefix(path: str, prefix: str) -> bool:
@@ -126,28 +197,53 @@ def _matches_prefix(path: str, prefix: str) -> bool:
 
 def _segment_findings(path: str) -> list[str]:
     findings: list[str] = []
+    if not path.startswith("/"):
+        findings.append(f"{path}: path does not start with /")
+        return findings
+    segments = path.split("/")[1:]
+    if not segments:
+        findings.append(f"{path}: empty path segment")
+        return findings
     versions = 0
-    segments = [part for part in path.split("/") if part]
     last = len(segments) - 1
     for index, segment in enumerate(segments):
+        if segment == "":
+            findings.append(f"{path}: empty path segment")
+            continue
         if segment == _GREEDY:
             if index != last:
                 findings.append(f"{path}: {{proxy+}} is not the last segment")
             continue
-        if segment.startswith("{") and segment.endswith("}") and segment.count("{") == 1:
+        if (
+            segment.startswith("{")
+            and segment.endswith("}")
+            and segment.count("{") == 1
+        ):
             name = segment[1:-1]
-            if _SNAKE.fullmatch(name) is None:
+            if _PARAM_NAME.fullmatch(name) is None:
                 findings.append(f"{path}: path parameter {segment} is not snake_case")
             continue
-        if _PARAM.search(segment):
+        if "{" in segment or "}" in segment:
             findings.append(f"{path}: path parameter is not snake_case")
             continue
-        if any(character.isupper() for character in segment):
-            findings.append(f"{path}: path segment {segment} has an upper-case letter")
-        if "_" in segment:
-            findings.append(f"{path}: path segment {segment} has an underscore")
-        if "." in segment:
-            findings.append(f"{path}: path segment {segment} has a dot")
+        if _LITERAL.fullmatch(segment) is None:
+            specific = False
+            if any(character.isupper() for character in segment):
+                findings.append(
+                    f"{path}: path segment {segment} has an upper-case letter"
+                )
+                specific = True
+            if "_" in segment:
+                findings.append(f"{path}: path segment {segment} has an underscore")
+                specific = True
+            if "." in segment:
+                findings.append(f"{path}: path segment {segment} has a dot")
+                specific = True
+            if not specific:
+                findings.append(
+                    f"{path}: path segment {segment} does not match "
+                    "^[a-z0-9]+(-[a-z0-9]+)*$"
+                )
         if _VERSION.fullmatch(segment):
             versions += 1
             if segment != "v1" or versions > 1:
@@ -164,7 +260,9 @@ def _prefix_finding(
     if path in legacy:
         return None
     if filename == "admin.yaml":
-        if path == "/health" or any(_matches_prefix(path, prefix) for prefix in admin_prefixes):
+        if path == "/health" or any(
+            _matches_prefix(path, prefix) for prefix in admin_prefixes
+        ):
             return None
         return f"admin.yaml: {path} does not start with an admin prefix"
     prefixes = _PREFIX[filename]
@@ -187,6 +285,21 @@ def _legacy_paths(path: Path | None) -> tuple[set[str], list[str]]:
     return found, []
 
 
+def _duplicate_findings(seen: dict[str, list[str]]) -> list[str]:
+    findings: list[str] = []
+    for path, names in seen.items():
+        unique = list(dict.fromkeys(names))
+        for name in unique:
+            if names.count(name) > 1:
+                findings.append(f"{path}: path is duplicated in {name}")
+        if len(unique) > 1:
+            joined = ", ".join(unique)
+            findings.append(
+                f"{path}: path is listed in more than one file ({joined})"
+            )
+    return findings
+
+
 def check(
     directory: Path,
     *,
@@ -198,6 +311,16 @@ def check(
     findings: list[str] = []
     if not origin:
         findings.append("origin is empty")
+    elif _ORIGIN.fullmatch(origin) is None:
+        findings.append(f"origin {origin} does not match ^https://[a-z0-9.-]+$")
+    for prefix in admin_prefixes:
+        if _ADMIN_PREFIX.fullmatch(prefix) is None:
+            findings.append(
+                f"admin prefix {prefix} does not match ^/v1/[a-z0-9-]+/$"
+            )
+    usable_prefixes = tuple(
+        prefix for prefix in admin_prefixes if _ADMIN_PREFIX.fullmatch(prefix)
+    )
     if not directory.is_dir():
         findings.append(f"{directory}: directory is missing")
         return findings
@@ -222,13 +345,22 @@ def check(
             "partner.yaml, or webhooks.yaml"
         )
     seen: dict[str, list[str]] = {}
+    parsed_all = True
     for item in contract:
         try:
-            servers, paths = read_openapi(item.read_text(encoding="utf-8"))
+            servers, paths, reader_findings = read_openapi(
+                item.read_text(encoding="utf-8")
+            )
         except FlowError as exc:
             findings.append(f"{item.name}: {exc}")
+            parsed_all = False
             continue
-        if not servers:
+        for reader_finding in reader_findings:
+            findings.append(f"{item.name}: {reader_finding}")
+        if not servers and not any(
+            "comment after a servers URL" in item_finding
+            for item_finding in reader_findings
+        ):
             findings.append(f"{item.name}: has no servers URL")
         for url in servers:
             if url != origin:
@@ -237,20 +369,27 @@ def check(
             seen.setdefault(path, []).append(item.name)
             if path in legacy:
                 continue
-            prefix = _prefix_finding(item.name, path, admin_prefixes, legacy)
-            if prefix is not None:
-                findings.append(prefix)
-            if item.name == "public.yaml" and _GREEDY in path.split("/"):
+            prefix_finding = _prefix_finding(
+                item.name, path, usable_prefixes, legacy
+            )
+            if prefix_finding is not None:
+                findings.append(prefix_finding)
+            if _GREEDY in path.split("/") and item.name not in _PROXY_ALLOWED:
                 findings.append(
-                    f"public.yaml: {path}: {{proxy+}} is not allowed without an authorizer"
+                    f"{item.name}: {path}: {{proxy+}} is not allowed without an authorizer"
                 )
             findings.extend(
-                f"{item.name}: {item_finding}" for item_finding in _segment_findings(path)
+                f"{item.name}: {item_finding}"
+                for item_finding in _segment_findings(path)
             )
-    for path, names in seen.items():
-        if len(names) > 1:
-            joined = ", ".join(names)
-            findings.append(f"{path}: path is listed in more than one file ({joined})")
+    findings.extend(_duplicate_findings(seen))
+    if contract and parsed_all:
+        present = set(seen)
+        for legacy_path in sorted(legacy):
+            if legacy_path not in present:
+                findings.append(
+                    f"{legacy_path}: legacy path is not in a contract file"
+                )
     return findings
 
 
