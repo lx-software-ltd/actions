@@ -206,10 +206,12 @@ class FixtureWorkflowTest(unittest.TestCase):
             "lighthouse-fail:",
             "dependency-submission-pass:",
             "dependency-submission-fail:",
+            "api-contract-pass:",
+            "api-contract-fail:",
         ):
             self.assertIn(job, text)
-        self.assertEqual(text.count("continue-on-error: true"), 34)
-        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 33)
+        self.assertEqual(text.count("continue-on-error: true"), 35)
+        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 34)
 
 
 if __name__ == "__main__":
