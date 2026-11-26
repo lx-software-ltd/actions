@@ -3,8 +3,10 @@
 
 The payload uses the standard library. It reads block-style YAML only: the
 ``servers`` URLs and the keys directly under the top-level ``paths`` key.
-A schema property named ``paths`` is not that key. Flow-style YAML fails
-with a message that says this reader cannot follow it.
+A schema property named ``paths`` or ``servers`` is not that key. Flow-style
+YAML fails with a message that says this reader cannot follow it. A key
+under ``paths`` that does not start with ``/``, and an anchor on ``paths``,
+are reported on their own.
 """
 
 from __future__ import annotations
@@ -28,7 +30,12 @@ _ADMIN_PREFIX = re.compile(r"^/v1/[a-z0-9-]+/$")
 _ORIGIN = re.compile(r"^https://[a-z0-9.-]+$")
 _QUOTED_PATHS = re.compile(r"""^(['"])paths\1\s*:\s*$""")
 _BLOCK_SCALAR = re.compile(r":\s*[|>](?:[+-]\d*|\d*[+-]?)?\s*$")
+_PATHS_ANCHOR = re.compile(r"paths:\s*&")
+_PATHS_ANCHOR_BLOCK = re.compile(r"paths:\s*&\S+")
 _GREEDY = "{proxy+}"
+_METHODS = frozenset(
+    {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
+)
 
 
 class FlowError(Exception):
@@ -37,6 +44,14 @@ class FlowError(Exception):
     def __init__(self, line: int) -> None:
         self.line = line
         super().__init__(f"line {line}: this reader cannot follow flow-style YAML")
+
+
+class NotAPathKey(Exception):
+    """A mapping key directly under paths does not start with /."""
+
+    def __init__(self, key: str) -> None:
+        self.key = key
+        super().__init__(key)
 
 
 def _comment_stripped(stripped: str) -> str:
@@ -84,21 +99,43 @@ def _is_servers_key(stripped: str) -> bool:
     return bare[len("servers:") :].startswith((" ", "[", "{"))
 
 
+def _is_method_key(stripped: str) -> bool:
+    bare = _comment_stripped(stripped)
+    if not bare.endswith(":"):
+        return False
+    return bare[:-1].strip() in _METHODS
+
+
 def _path_key(stripped: str, line: int) -> str:
     text = _comment_stripped(stripped)
     if text.startswith('"'):
-        match = re.match(r'^"(.*)"\s*:\s*$', text)
-        if match is None or '"' in match.group(1):
+        match = re.match(r'^"(?P<key>[^"]*)"\s*:(?P<rest>.*)$', text)
+        if match is None:
             raise FlowError(line)
-        path = match.group(1)
-    else:
-        if "[" in text or (text.count("{") != text.count("}")):
+        key = match.group("key")
+        rest = match.group("rest").strip()
+        if not key or " " in key:
             raise FlowError(line)
-        if not text.startswith("/") or not text.endswith(":"):
+        if not key.startswith("/"):
+            raise NotAPathKey(key)
+        if rest:
             raise FlowError(line)
-        path = text[:-1].rstrip()
-    if not path.startswith("/") or " " in path:
+        return key
+    if "[" in text or (text.count("{") != text.count("}")):
         raise FlowError(line)
+    if not text.endswith(":"):
+        if not text.startswith("/") and ":" in text:
+            key = text.split(":", 1)[0].rstrip()
+            if key and not any(character in key for character in "[]{}"):
+                raise NotAPathKey(key)
+        raise FlowError(line)
+    path = text[:-1].rstrip()
+    if " " in path or not path:
+        raise FlowError(line)
+    if not path.startswith("/"):
+        if any(character in path for character in "[]{}"):
+            raise FlowError(line)
+        raise NotAPathKey(path)
     return path
 
 
@@ -110,6 +147,9 @@ def read_openapi(text: str) -> tuple[list[str], list[str], list[str]]:
     mode: str | None = None
     block_indent = -1
     path_indent: int | None = None
+    item_indent: int | None = None
+    operation_indent: int | None = None
+    inside_operation = False
     scalar_indent: int | None = None
     saw_paths = False
     saw_quoted_paths = False
@@ -126,6 +166,9 @@ def read_openapi(text: str) -> tuple[list[str], list[str], list[str]]:
         if mode is not None and indent <= block_indent:
             mode = None
             path_indent = None
+            item_indent = None
+            operation_indent = None
+            inside_operation = False
             scalar_indent = None
         if scalar_indent is not None and indent > scalar_indent:
             continue
@@ -149,10 +192,24 @@ def read_openapi(text: str) -> tuple[list[str], list[str], list[str]]:
                 mode = "servers"
                 block_indent = indent
                 continue
+            if _PATHS_ANCHOR.match(bare):
+                findings.append(f"line {number}: anchor is not accepted")
+                saw_paths = True
+                if _PATHS_ANCHOR_BLOCK.fullmatch(bare):
+                    mode = "paths"
+                    block_indent = indent
+                    path_indent = None
+                    item_indent = None
+                    operation_indent = None
+                    inside_operation = False
+                continue
             if _open_block(stripped, "paths", number):
                 mode = "paths"
                 block_indent = indent
                 path_indent = None
+                item_indent = None
+                operation_indent = None
+                inside_operation = False
                 saw_paths = True
             continue
         if mode == "servers":
@@ -166,7 +223,20 @@ def read_openapi(text: str) -> tuple[list[str], list[str], list[str]]:
                 servers.append(url)
             continue
         if path_indent is not None and indent > path_indent:
-            if _is_servers_key(stripped):
+            if item_indent is None:
+                item_indent = indent
+            servers_here = False
+            if indent == item_indent:
+                inside_operation = False
+                operation_indent = None
+                servers_here = _is_servers_key(stripped)
+                if _is_method_key(stripped):
+                    inside_operation = True
+            elif inside_operation and indent > item_indent:
+                if operation_indent is None:
+                    operation_indent = indent
+                servers_here = indent == operation_indent and _is_servers_key(stripped)
+            if servers_here:
                 findings.append(
                     f"line {number}: servers key under a path is not the document servers"
                 )
@@ -177,6 +247,9 @@ def read_openapi(text: str) -> tuple[list[str], list[str], list[str]]:
             path_indent = indent
         if indent != path_indent:
             raise FlowError(number)
+        item_indent = None
+        operation_indent = None
+        inside_operation = False
         bare = _comment_stripped(stripped)
         if bare.startswith("'"):
             findings.append(f"line {number}: single-quoted path key is not a path")
@@ -184,7 +257,10 @@ def read_openapi(text: str) -> tuple[list[str], list[str], list[str]]:
         if bare.startswith("x-"):
             findings.append(f"line {number}: x- key under paths is not a path")
             continue
-        paths.append(_path_key(stripped, number))
+        try:
+            paths.append(_path_key(stripped, number))
+        except NotAPathKey as exc:
+            findings.append(f"line {number}: {exc.key} under paths is not a path")
     if not saw_paths and not saw_quoted_paths and not saw_paths_comment:
         findings.append("file has no paths block")
     return servers, paths, findings
@@ -331,7 +407,11 @@ def check(
         if legacy_file is not None and legacy_file.is_file()
         else None
     )
-    files = sorted(item for item in directory.iterdir() if item.is_file())
+    entries = sorted(directory.iterdir(), key=lambda item: item.name)
+    for item in entries:
+        if item.is_dir():
+            findings.append(f"{item.name}: subdirectory is not a contract file")
+    files = [item for item in entries if item.is_file()]
     contract = [item for item in files if item.name in CONTRACT_FILES]
     if not contract:
         findings.append(f"{directory}: directory has no OpenAPI contract file")
@@ -367,6 +447,10 @@ def check(
                 findings.append(f"{item.name}: servers URL {url} is not {origin}")
         for path in paths:
             seen.setdefault(path, []).append(item.name)
+            if _GREEDY in path.split("/") and item.name not in _PROXY_ALLOWED:
+                findings.append(
+                    f"{item.name}: {path}: {{proxy+}} is not allowed without an authorizer"
+                )
             if path in legacy:
                 continue
             prefix_finding = _prefix_finding(
@@ -374,10 +458,6 @@ def check(
             )
             if prefix_finding is not None:
                 findings.append(prefix_finding)
-            if _GREEDY in path.split("/") and item.name not in _PROXY_ALLOWED:
-                findings.append(
-                    f"{item.name}: {path}: {{proxy+}} is not allowed without an authorizer"
-                )
             findings.extend(
                 f"{item.name}: {item_finding}"
                 for item_finding in _segment_findings(path)

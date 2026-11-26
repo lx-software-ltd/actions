@@ -52,6 +52,10 @@ EXPECTATIONS = {
     "paths-comment": "comment after paths: is not read",
     "url-comment": "comment after a servers URL is not read",
     "duplicate-one": "path is duplicated in public.yaml",
+    "non-path-key": "summary under paths is not a path",
+    "paths-anchor": "anchor is not accepted",
+    "subdirectory": "subdirectory is not a contract file",
+    "servers-under-operation": "servers key under a path is not the document servers",
 }
 
 _ACTION_PIN = re.compile(
@@ -138,7 +142,7 @@ class ApiContractTest(unittest.TestCase):
         findings = _check(FIXTURES / "missing")
         self.assertIn(f"{FIXTURES / 'missing'}: directory is missing", findings)
 
-    def test_a_ref_and_a_schema_property_named_paths_parse(self) -> None:
+    def test_a_ref_and_a_schema_property_named_paths_or_servers_parse(self) -> None:
         directory = FIXTURES / "refs"
         text = (directory / "public.yaml").read_text(encoding="utf-8")
         servers, paths, reader_findings = check_module.read_openapi(text)
@@ -146,6 +150,87 @@ class ApiContractTest(unittest.TestCase):
         self.assertEqual(servers, [ORIGIN])
         self.assertEqual(paths, ["/v1/public/items/{item_id}"])
         self.assertEqual(_check(directory), [])
+
+    def test_reader_misses_are_not_called_flow_style(self) -> None:
+        expectations = {
+            "non-path-key": [
+                "public.yaml: line 8: summary under paths is not a path",
+                "public.yaml: line 9: widgets under paths is not a path",
+                "public.yaml: line 10: note under paths is not a path",
+            ],
+            "paths-anchor": ["public.yaml: line 7: anchor is not accepted"],
+            "subdirectory": ["nested: subdirectory is not a contract file"],
+            "servers-under-operation": [
+                "public.yaml: line 10: servers key under a path is not the document servers"
+            ],
+        }
+        for name, expected in expectations.items():
+            with self.subTest(name=name):
+                findings = _check(FIXTURES / "fail" / name)
+                self.assertEqual(findings, expected)
+                self.assertFalse(any("flow-style" in finding for finding in findings))
+
+    def test_a_legacy_path_skips_prefix_segment_and_parameter_rules(self) -> None:
+        directory = FIXTURES / "fail" / "proxy-legacy"
+        legacy = directory / "legacy-paths.txt"
+        listed = _check(directory, legacy)
+        self.assertEqual(
+            listed,
+            [
+                "public.yaml: /v1/public/{proxy+}: {proxy+} is not allowed "
+                "without an authorizer"
+            ],
+        )
+        unlisted = _check(directory)
+        self.assertTrue(
+            any(
+                "/v1/Kept/items/{grantId} does not start with /v1/public/" in finding
+                for finding in unlisted
+            ),
+            unlisted,
+        )
+        self.assertTrue(
+            any(
+                "path segment Kept has an upper-case letter" in finding
+                for finding in unlisted
+            ),
+            unlisted,
+        )
+        self.assertTrue(
+            any(
+                "path parameter {grantId} is not snake_case" in finding
+                for finding in unlisted
+            ),
+            unlisted,
+        )
+
+    def test_a_legacy_proxy_outside_partner_and_admin_still_fails(self) -> None:
+        cases = (
+            ("proxy-public", "/v1/public/{proxy+}"),
+            ("proxy-webhooks", "/v1/webhooks/{proxy+}"),
+        )
+        for name, path in cases:
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    source = FIXTURES / "fail" / name
+                    for item in source.iterdir():
+                        if item.is_file():
+                            shutil.copy(item, root / item.name)
+                    legacy = root / "legacy-paths.txt"
+                    legacy.write_text(f"{path}\n", encoding="utf-8")
+                    findings = _check(root, legacy)
+                    filename = next(
+                        item.name for item in source.iterdir() if item.suffix == ".yaml"
+                    )
+                    self.assertIn(
+                        f"{filename}: {path}: {{proxy+}} is not allowed without an authorizer",
+                        findings,
+                    )
+                    self.assertFalse(
+                        any("flow-style" in finding for finding in findings),
+                        findings,
+                    )
 
     def test_a_path_duplicated_in_one_file_names_that_file(self) -> None:
         findings = _check(FIXTURES / "fail" / "duplicate-one")
