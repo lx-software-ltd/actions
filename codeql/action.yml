@@ -60,11 +60,37 @@ runs:
       if: inputs.language != '' && inputs.category == ''
       uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
       with:
+        upload: never
+        post-processed-sarif-path: ${{ github.workspace }}/.codeql-sarif
         wait-for-processing: false
 
     - name: Perform CodeQL Analysis with a category
       if: inputs.language != '' && inputs.category != ''
       uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
       with:
+        category: ${{ inputs.category }}
+        upload: never
+        post-processed-sarif-path: ${{ github.workspace }}/.codeql-sarif
+        wait-for-processing: false
+
+    - name: Drop in-source suppressions
+      if: success() && inputs.language != ''
+      shell: bash
+      env:
+        SARIF_DIR: ${{ github.workspace }}/.codeql-sarif
+      run: bash "$GITHUB_ACTION_PATH/filter_results.sh"
+
+    - name: Upload SARIF results
+      if: success() && inputs.language != '' && inputs.category == ''
+      uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+      with:
+        sarif_file: ${{ github.workspace }}/.codeql-sarif
+        wait-for-processing: false
+
+    - name: Upload SARIF results with a category
+      if: success() && inputs.language != '' && inputs.category != ''
+      uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+      with:
+        sarif_file: ${{ github.workspace }}/.codeql-sarif
         category: ${{ inputs.category }}
         wait-for-processing: false
