@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info:
+  title: Example
+  version: 0.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /v1/public:
+    get:
+      summary: Example
+  /v1/public/items:
+    get:
+      summary: Example
+  /v1/public/items/{item_id}:
+    get:
+      summary: Example
+  "/v1/public/orders/{order_id}":
+    get:
+      summary: Example
+  /v1/calendar/public:
+    get:
+      summary: Example

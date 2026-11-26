@@ -1,0 +1,13 @@
+openapi: 3.0.3
+info:
+  title: Example
+  version: 0.0.0
+servers:
+  - url: https://api.example.com
+paths:
+  /v1/webhooks:
+    get:
+      summary: Example
+  /v1/webhooks/mailchimp:
+    get:
+      summary: Example

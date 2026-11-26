@@ -1,0 +1,40 @@
+name: API contract
+description: >-
+  Fail when an OpenAPI file in docs/api breaks the shared API contract.
+  The check reads block-style YAML with the standard library.
+
+inputs:
+  origin:
+    description: >-
+      Server URL that every file must use, for example
+      https://api.siutindei.com.
+    required: true
+  directory:
+    description: Directory of OpenAPI files, relative to the workspace.
+    required: false
+    default: docs/api
+  admin-prefixes:
+    description: >-
+      Comma-separated prefixes allowed in admin.yaml. siutindei adds
+      /v1/manager/.
+    required: false
+    default: /v1/admin/,/v1/user/
+  legacy-paths:
+    description: >-
+      Optional file of paths that may stay in any contract file, one
+      path per line. Empty skips the list.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Check the API contract
+      shell: bash
+      env:
+        API_CONTRACT_ORIGIN: ${{ inputs.origin }}
+        API_CONTRACT_DIRECTORY: ${{ inputs.directory }}
+        API_CONTRACT_ADMIN_PREFIXES: ${{ inputs.admin-prefixes }}
+        API_CONTRACT_LEGACY_PATHS: ${{ inputs.legacy-paths }}
+        API_CONTRACT_ROOT: ${{ github.workspace }}
+      run: python3 "$GITHUB_ACTION_PATH/check.py"

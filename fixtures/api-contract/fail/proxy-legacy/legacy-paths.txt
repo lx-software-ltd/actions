@@ -1,0 +1,2 @@
+/v1/Kept/items/{grantId}
+/v1/public/{proxy+}
