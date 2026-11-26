@@ -1,37 +1,32 @@
-# Review: API standard pull requests, second round
+# Review: API standard pull requests, third round
 
 **Status**: Open. Work through it, then delete this file with the plan note.
 **Zone**: yellow (a plan note). The fixes inherit the zones and the approval
 in section 3 of `api-standard.md`.
 
-Reviewed on 26 Nov 2026 between 15:55 and 16:15 Hong Kong time, against the
-plan in `api-standard.md`. CI was green on every pull request. None of the
-blockers below is visible to CI: `cdk-diff` builds no change set on a pull
-request, and the tests that exist check the wrong thing.
-
-The first round's fixes are in place: each product accepts the old token
-header for one deploy, `execute-api` stays open in the cutover pull
-requests, and `GET /v1/partner` stays. One of those fixes introduced
-blocker B4.
+Reviewed on 26 Nov 2026 between 16:56 and 17:10 Hong Kong time, against the
+plan in `api-standard.md`. The second round's items are listed at the end
+with their status. Most are fixed. This round found new blockers in the
+fixes themselves.
 
 ## Heads reviewed
 
-| Pull request | Head |
-| --- | --- |
-| [actions#99](https://github.com/lx-software-ltd/actions/pull/99) A1 | `e9694f3` |
-| [actions#100](https://github.com/lx-software-ltd/actions/pull/100) A2 | `0b7b662` |
-| [findingalpha#119](https://github.com/lx-software-ltd/findingalpha/pull/119) F1 | `51b995b` |
-| [findingalpha#120](https://github.com/lx-software-ltd/findingalpha/pull/120) F2, draft | `4b879ef` |
-| [lx-software#714](https://github.com/lx-software-ltd/lx-software/pull/714) L1 | `46a1954` |
-| [lx-software#715](https://github.com/lx-software-ltd/lx-software/pull/715) L2 | `227a5b5` |
-| [lx-software#717](https://github.com/lx-software-ltd/lx-software/pull/717) L3, draft | `37d8657` |
-| [siutindei#982](https://github.com/lx-software-ltd/siutindei/pull/982) S1 | `820cc2e` |
-| [siutindei#983](https://github.com/lx-software-ltd/siutindei/pull/983) S2 | `dd84020` |
-| [siutindei#985](https://github.com/lx-software-ltd/siutindei/pull/985) S3 | `2d85eff` |
-| [siutindei#986](https://github.com/lx-software-ltd/siutindei/pull/986) S4, draft | `9f9f193` |
-| [evolvesprouts#2335](https://github.com/lx-software-ltd/evolvesprouts/pull/2335) E1 | `4212b8c` |
-| [evolvesprouts#2336](https://github.com/lx-software-ltd/evolvesprouts/pull/2336) E2 | `5b05131` |
-| [evolvesprouts#2338](https://github.com/lx-software-ltd/evolvesprouts/pull/2338) E3, draft | `d2cb9ad` |
+| Pull request | Head | CI |
+| --- | --- | --- |
+| [actions#99](https://github.com/lx-software-ltd/actions/pull/99) A1 | `d3b1b61` | Green |
+| [actions#100](https://github.com/lx-software-ltd/actions/pull/100) A2 | `80cb52e` | Green |
+| [findingalpha#119](https://github.com/lx-software-ltd/findingalpha/pull/119) F1 | `6408c95` | Green |
+| [findingalpha#120](https://github.com/lx-software-ltd/findingalpha/pull/120) F2, draft | `69c43a5` | Green |
+| [lx-software#714](https://github.com/lx-software-ltd/lx-software/pull/714) L1 | `d4b106e` | Green |
+| [lx-software#715](https://github.com/lx-software-ltd/lx-software/pull/715) L2 | `e46ff79` | Green |
+| [lx-software#717](https://github.com/lx-software-ltd/lx-software/pull/717) L3, draft | `4c9010c` | Green |
+| [siutindei#982](https://github.com/lx-software-ltd/siutindei/pull/982) S1 | `820cc2e` | Green |
+| [siutindei#983](https://github.com/lx-software-ltd/siutindei/pull/983) S2 | `bcaa500` | Green |
+| [siutindei#985](https://github.com/lx-software-ltd/siutindei/pull/985) S3 | `cda8322` | Green |
+| [siutindei#986](https://github.com/lx-software-ltd/siutindei/pull/986) S4, draft | `b9da035` | Green |
+| [evolvesprouts#2335](https://github.com/lx-software-ltd/evolvesprouts/pull/2335) E1 | `33e2474` | Green |
+| [evolvesprouts#2336](https://github.com/lx-software-ltd/evolvesprouts/pull/2336) E2 | `008606d` | Red: `Build Android` could not reach the Gradle plugin repository. Unrelated. Rerun it |
+| [evolvesprouts#2338](https://github.com/lx-software-ltd/evolvesprouts/pull/2338) E3, draft | `2f8b570` | Green |
 
 Line numbers are at those heads.
 
@@ -40,362 +35,209 @@ Line numbers are at those heads.
 | Pull request | Verdict |
 | --- | --- |
 | L1 | Ready to merge |
-| A1 | Ready after one wording fix (A1-1) |
-| F1, F2 | Hold: B3 |
-| L2, L3 | Hold: B3, B4, B5 |
-| S1 | Hold: B7 |
-| S2, S4 | Hold: B6 |
-| S3 | Hold behind S2 |
-| E1, E2, E3 | Hold: B1, B2 |
-| A2 | Hold: should-fix items |
+| A1 | Ready to merge. One nit |
+| S1 | Ready once the owner has built a change set and seen no replacement of the API domain |
+| E1, E2, E3 | Ready after R3-7. No blocker |
+| A2 | Ready after R3-8 and R3-9 |
+| F1, F2 | Hold: R3-1 |
+| L2, L3 | Hold: R3-2, R3-3 |
+| S2, S3, S4 | Hold: R3-4 |
 
 ## Blockers
 
-### B1. evolvesprouts E1: the admin grant route rename fails the stack update
+### R3-1. findingalpha F1: the token check gives 500 on a DynamoDB error
 
-`backend/infrastructure/lib/api-stack.ts` near 3668 renames
-`{grantId}` to `{grant_id}` and deletes the comment that warned against
-exactly this. The logical id changes, CloudFormation creates the new
-resource before it deletes the old one, and API Gateway refuses a second
-variable segment under `/grants`. The update fails and rolls back. The plan
-also says `/v1/admin/*` does not change.
+`backend/lambda/public_api_authorizer/handler.py:177` now catches
+`BotoCoreError` only. `botocore.exceptions.ClientError` is not a subclass of
+`BotoCoreError`, so throttling or an internal DynamoDB error escapes the
+handler and API Gateway returns 500 where the plan wants a deny. The test
+stub at `test_handler.py:26-30` declares `class ClientError(BotoCoreError)`,
+which hides it.
 
-Fix: restore `{grantId}` and the comment.
+Fix: `except (ClientError, BotoCoreError) as exc:`, and make the stub's
+`ClientError` subclass `Exception`.
 
-### B2. evolvesprouts E1, E2, E3: most new `/v1/public/...` routes return 404
+### R3-2. lx-software L2: the backend deploy deletes an export the live admin-web imports
 
-API Gateway has the new routes and `_with_public_aliases` in
-`backend/src/app/api/admin.py` near 348 sends them to the old handlers, but
-five handlers parse the old prefixes themselves:
+On `main`, `bin/app.ts:78` passes `lxsoftware.httpApi.apiEndpoint`, so the
+deployed admin-web stack imports CDK's automatic export of that endpoint
+(`ExportsOutputFnGetAttHttpApi…ApiEndpoint…`). L2 no longer references the
+endpoint, so the backend template drops that export. The backend deploys
+first, and CloudFormation refuses to delete an export another stack imports.
+The update rolls back.
 
-- `public_forms.py` near 27 and `public_polls.py` near 39 know only
-  `/v1/forms/`, `/v1/polls/` and the `/www` forms.
-- `public_free_assets.py` near 43 knows only `/v1/assets/free`.
-- `public_assets.py` near 36 requires `assets/public`.
-- `share_assets.py` near 34 and 50 requires three segments starting
-  `assets/share` or `assets/email-download`.
+The new `lxsoftware-CspApiExecuteApiOrigin` output also has an empty value
+when the custom domain is off, and CloudFormation rejects an empty export.
+Production sets the domain, so production would not hit that part.
 
-Broken in E1: every forms and polls route, `GET /v1/public/assets/free`,
-`GET /v1/public/assets`, `/v1/public/assets/{id}/download`, and the share
-and email-download routes. Calendar, availability, reservations,
-payment-intent, contact-us, discounts and free/request work.
+Fix: build the content security policy origin as
+`Fn.join(" ", [Fn.importValue("lxsoftware-AdminApiBaseUrl"), lxsoftware.httpApi.apiEndpoint])`.
+That keeps the automatic export under its old name, and the
+`CspApiExecuteApiOrigin` output can go. Add a stack test that the backend
+still exports the old name.
 
-E2 makes it live: the media distribution rewrites emailed share links to
-the broken paths, and both sites move to them. E3 fixes forms, polls and
-free assets, but not `public_assets.py` or `share_assets.py`.
+findingalpha F1 already does this correctly: it keeps the old export in
+`app-assembly.ts:40`.
 
-Fix, in E1: map `/v1/public/<x>` to the path the handler expects before
-calling it, in `_match_handler`, or teach the five handlers both prefixes.
-Add a router test that sends every path in `docs/api/public.yaml` and
-every path the media rewrite produces, and fails on a 404 from the handler.
+### R3-3. lx-software L3: the same failure one release later
 
-### B3. findingalpha F1, lx-software L2, and their drafts: the admin-web template names a condition it does not have
+L3 deletes the export that L2's admin-web imports. With the R3-2 fix, that
+is the execute-api endpoint export. Keep it in L3, and remove it in a later
+pull request after L3's admin-web has deployed. Pin it with a stack test.
 
-- findingalpha: `backend/infrastructure/bin/app.ts:52` passes
-  `backend.httpApiEndpoint`, which `lib/http-api.ts` near 175 builds with
-  `Fn::If` on `UseApiCustomDomain`.
-- lx-software: `bin/app.ts:78` passes `cspApiConnectOrigin`, which
-  `admin-http-api.ts` near 187 builds the same way. L3 keeps the pattern
-  near 192.
+### R3-4. siutindei S2: gateway error bodies will not be JSON
 
-CDK turns the references inside into imports and copies the `Fn::If` as
-is. The admin-web templates do not define `UseApiCustomDomain`, so
-CloudFormation rejects them. `cdk synth` already warns (E1028). In
-findingalpha, synth also creates an export whose value is the
-`ApiCustomDomainName` parameter. CloudFormation refuses an empty export, so
-the backend stack probably fails too while that parameter is empty.
+`backend/infrastructure/lib/api-stack.ts` near 2395 to 2425 starts the
+`DEFAULT_4XX` and `MISSING_AUTHENTICATION_TOKEN` templates with a chain of
+`#set(...)` and `#if(...)` lines to choose a title. AWS processes gateway
+response templates with "a non-VTL mapping template supporting only simple
+variable substitutions"
+([gateway responses](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-gatewayResponse-definition.html)).
+evolvesprouts E1 records the same thing at `api-stack.ts:3282`: an earlier
+Velocity template there leaked `#set` and `#if` text. Every gateway 401,
+403, 404 and 429 would start with literal directives, and a client that
+parses JSON fails on it.
 
-siutindei and evolvesprouts do not have this problem.
-
-Fix:
-
-1. Pass `cdk.Fn.importValue("<stack>-AdminApiBaseUrl")`. That output already
-   resolves the condition inside the API stack. lx-software needs the
-   two-origin form until L3, so add a second output for it.
-2. `adminWeb.addDependency(<api stack>)`.
-3. findingalpha: keep `backend.exportValue(httpApi.apiEndpoint)` for one
-   release. The deployed admin-web stack still imports that export, and
-   dropping it fails the backend deploy.
-4. Add a stack test in both products: every condition named by `Fn::If` in
-   a template exists in that template's `Conditions`.
-
-### B4. lx-software L2: the token check reuses one caller's approval for the whole IP address
-
-`backend/infrastructure/lib/admin-api-authorizers.ts` near 100 sets
-`identitySource: ["$context.identity.sourceIp"]` with a 60 second cache. The
-cache key is the IP address alone. For 60 seconds after one valid token is
-accepted, any request from that address, with no token or another token,
-reuses that token's `keyId`, scopes and write flag. A denial also blocks
-valid callers from that address for 60 seconds. The stack test near
-`lxsoftware-stack.test.ts:631` asserts the 60 seconds, and the L2 plan note
-`docs/plans/2026-11-26-board-alias-wire-cache.md` says "TTL stays 60".
-
-The other three products set the cache to 0 for the same overlap. L3 is
-correct: `Authorization` plus source IP, 60 seconds.
-
-Fix: `resultsCacheTtl: cdk.Duration.seconds(0)` in L2, assert
-`AuthorizerResultTtlInSeconds: 0`, and correct the plan note.
-
-### B5. lx-software L2: catalog import loses `/v1`
-
-L2 sets `SiutindeiAdminApiBaseUrl` to `https://api.siutindei.com`, but
-`backend/lambda/admin/board_catalog_import.py:901` and `:924` still join
-`admin/imports/presign` and `admin/imports`. Both requests get 404. The
-tests only check `url.endswith(...)`.
-
-Fix: join `v1/admin/imports/presign` and `v1/admin/imports`, and assert the
-full URL.
-
-### B6. siutindei S2 and S4: `backend/db/seed/seed_data.sql` is edited
-
-S2 changes lines 296 to 298 and S4 changes the file again, while the S4
-body says the seed data is unchanged. `backend/db/**` is not approved.
-
-Fix: revert the file in both, and list the line in both bodies.
-
-### B7. siutindei S1: the change set the merge condition needs was never built
-
-The S1 body says the `cdk-diff` job builds a change set. It did not: on a
-pull request that job only warns that `AWS_DIFF_ROLE_NAME` is unset.
-
-The template comparison is clean. The domain is `ApiSecondaryCustomDomain…`
-and the mapping `ApiSecondaryBasePathMapping…` on `main` and on S1. The
-domain's only changes are the `DomainName` and `RegionalCertificateArn`
-references and its condition, and both references resolve to the same
-values. No replacement is expected.
-
-Fix: correct the body. Before merging, the owner builds a change set for
-the branch by hand, or sets `AWS_DIFF_ROLE_NAME`, and confirms no
-replacement of `AWS::ApiGateway::DomainName`.
+Fix: drop the chain. Use one fixed title per gateway response, as
+evolvesprouts E1 does, or give each needed response type its own gateway
+response with a literal title. Each extra response is one resource, and the
+stack is at 496 of 500.
 
 ## Should fix
 
-### actions
-
-- **A1-1.** `docs/api-contract.md:50` lets the old header stay "once logs
-  show no legacy use over the window the owner sets". That is a notice
-  period. `docs/decisions.md:75` says one deploy. Use the decisions
-  wording in both, and say the removal is the next pull request in each
-  product.
-- **A1-2.** `decisions.md:75` says "an issued token keeps working across
-  that day". Not true where the path also moves (findingalpha, evolvesprouts).
-  Say the token validates under either header for one deploy, and the
-  holder changes the path on the deploy day.
-- **A1-3.** `api-contract.md:50` says "the cache key includes both headers,
-  or neither". Both is impossible, and neither with a cache is B4. Write:
-  the cache is off during the overlap and returns when the old header goes.
-- **A2-1.** The rollout order in the PR body and `api-contract/README.md:80`
-  fails conformance. The step stays out of the template until A2 is on
-  `main`, which is right, but then: a second actions pull request adds the
-  step pinned at A2's merge SHA and deletes
-  `test_lint_template_omits_the_action_until_it_is_on_main`; each product
-  bumps to that SHA and adds the step in one pull request, and only after
-  its own L2, S2 or E1 is on `main`. Write that order down.
-- **A2-2.** No pull request deletes a plan note. The note is
-  `docs/plans/api-standard.md` on #98, which A2 does not build on. Either
-  stack A1 on #98 and delete the note and this file in A2, or close #98
-  unmerged and say so in the A2 body.
-- **A2-3.** `check.py` near 112 skips every line under a path key, so a
-  `servers:` under a path or operation is never checked. Fail on it.
-- **A2-4.** A quoted `"paths":` or `'paths':` is never opened and the file
-  passes. A file with no `paths` block passes. Fail on both.
-- **A2-5.** The segment rule is a denylist. `/v1/public/a?x=1`, `//`, a
-  trailing `/`, `items:search`, `a#b`, `{a__b_}` pass. Use
-  `^[a-z0-9]+(-[a-z0-9]+)*$` for literal segments,
-  `^[a-z][a-z0-9]*(_[a-z0-9]+)*$` for parameters, and reject empty
-  segments.
-- **A2-6.** `admin-prefixes` is not validated: `/v1/admin` without a slash
-  admits `/v1/adminevil`. Require `^/v1/[a-z0-9-]+/$`. Require `origin` to
-  match `^https://[a-z0-9.-]+$`.
-
-### findingalpha
-
-- **F1-1.** `contracts/wire-format.json:17` excludes the backtest routes, so
-  their bodies and their error bodies stay camelCase (`requestId`). A real
-  backtest output converts cleanly. `docs/api/admin.yaml` near 250 already
-  claims snake_case. Set `excludedRoutes` to `[]` and add a raw wire test.
-- **F1-2.** The data-keyed map guard in `test_wire_format.py` near 40
-  checks only `shareSources`, and the round-trip helper cannot catch a
-  snake_case data key missing from `mapFields`. Assert all nine maps are in
-  the contract: `done`, `sectors`, `shareSources`, `flows`, `stocks`,
-  `shareFlows`, `groups`, `factors`, `z`. Add raw wire tests for
-  universe, screens and owner tasks.
-- **F1-3.** `apps/admin_web/src/lib/apiAdminClient.ts:104` builds
-  `new Response(body, {status})`. That throws for 204, 205 and 304. Pass
-  `null` for those or for an empty body. Add `adminFetch` tests with a
-  stubbed `fetch`.
-- **F1-4.** `scripts/check_openapi_routes.py` never runs in CI. Call it
-  from `scripts/ci/test-python.sh` or a unit test.
-- **F2-1.** Move the preconditions to the first lines of the body as a "Do
-  not merge before" list. Drop the precondition written into the API's
-  `Description`.
-
-### lx-software
-
-- **L2-1.** `evolvesprouts_finance.py:272` changes a stored ledger
-  description from `[evolve-sprouts]` to `[evolvesprouts]`. The next sync
-  rewrites every refund line. Revert it and the mock fixture near
-  `fixtures.ts:177`.
-- **L2-2.** `bySubscription` and `byOnboardingStep` in `board_progress.py`
-  are keyed by status names such as `past_due`. Add both to `mapFields`
-  with depth 1.
-- **L2-3.** `scripts/check-contracts.py` near 44 skips the byte check
-  against findingalpha when no sibling checkout exists, which is always in
-  CI, and hardcodes an agent path. Print the skip, or fetch the files from
-  findingalpha at a pinned commit.
-- **L3-1.** `scripts/check_admin_spa_config.py` is not run by anything, and
-  `scripts/deploy/check-admin-spa-settings.sh` already does the job. Wire it
-  in or drop it. If kept, see X-1.
-
-### siutindei
-
-- **S2-1.** The partner WAF rule in `lib/constructs/api-rate-limit.ts` near
-  149 now keys on `authorization`. A rate rule does not count requests
-  without its key header, so callers on `x-partner-key` are not limited,
-  and with the cache off each of their requests runs the authorizer. Add a
-  second rule keyed on `x-partner-key` for S2, with its metric in the
-  alarm. S4 removes it.
-- **S2-2.** `gatewayResponseHeaders` near `api-stack.ts:2379` uses keys
-  that start `method.response.header.`. CDK adds that prefix itself, so the
-  headers never reach clients. The CORS headers on gateway errors have had
-  the same fault since before this work. `'$context.requestId'` is also a
-  quoted literal. Use bare header names and `context.requestId`. If API
-  Gateway refuses a `context` value there, drop `x-request-id` from gateway
-  errors; the body carries `request_id`. The stack test near the CORS
-  assertion uses `endsWith` and passes the bad keys; tighten it.
-- **S2-3.** The partner authorizer clears `IdentitySource` with a deletion
-  override. If the update does not clear the live `x-partner-key` source,
-  every Bearer-only request gets 401 before the Lambda. Give the S2
-  authorizer a new construct id so CloudFormation creates a fresh one, or
-  add `aws apigateway get-authorizer` and one probe per header to the
-  post-deploy checks.
-- **S2-4.** The open `/health` raises Checkov alert 239 (`CKV_AWS_59`).
-  Suppress it on that one method with a reason.
-- **S2-5.** Add the stack test from plan section 4.2: every
-  `/v1/partner/` method has the partner authorizer and no `/v1/public/`
-  method has it. Add a test that the `/health` HTTP path opens no database
-  connection.
-- **S2-6.** The rollback paragraph says reverting the API alone restores
-  the old paths. It does not; CloudFront would rewrite to paths that no
-  longer exist. Reverting S2 reverts both.
-- **S3-1.** `scripts/deploy/deploy-public-www.sh:382` invalidates only
-  `/v1/activities/search*`. Add `/api/v1/public*` in S3, not S4.
-- **S3-2.** The new Cloudflare `check` reads a local file, not the zone, and
-  matches a substring. Match the exact expression, read stdin only with
-  `--policy -`, and tell the owner to run `edge_policy.py plan` after
-  `apply` and expect no difference.
-- **S4-1.** `scripts/check_public_www_bundle.py` near 76 reads only the
-  scripts on the root page. The search client is in code-split chunks, so
-  the check can pass while the old path is live. Scan the search pages and
-  the chunks the build manifest lists. See also X-1.
-
-### evolvesprouts
-
-- **E1-1.** `api-stack.ts` near 3613 adds `GET /v1/admin/health` and moves
-  the database check behind it. Plan section 4.6: no second health route;
-  the deep check is a direct invocation. Drop the route and run
-  `check_health()` for an event with no `httpMethod`.
-- **E1-2.** The gateway error template near 3296 has no `message` member.
-  Plan section 4.5 keeps it. Add `"message": $context.error.messageString`.
-- **E1-3.** `ANY /v1/public/{proxy+}` near 3818 carries the token
-  authorizer, so every unknown `/v1/public/` path gets 403. Add the section
-  4.2 stack test, with an exemption for this one alias in E1 and none in
-  E3.
-- **E1-4.** A request with no token gets 403 from a `Deny`. The plan's
-  post-deploy check and `partner.yaml` say 401. Raise `Unauthorized` when no
-  token is presented and re-raise it before the catch-all, or change both
-  documents.
-- **E1-5.** `exceptions.py:36` copies the message into `detail`, and
-  `apps/admin_web/src/lib/api-admin-client.ts` near 52 renders
-  `error (detail)`, so admin errors read "X (X)". Skip `detail` when it
-  equals `error`.
-- **E3-1.** The "Do not merge before" list names `NEXT_PUBLIC_API_BASE_URL`
-  only. `vars.PUBLIC_WWW_API_BASE_URL`,
-  `vars.PUBLIC_WWW_MEDIA_REQUEST_API_BASE_URL` and
-  `vars.NEXT_PUBLIC_WWW_API_BASE_URL` can override it. If a backend one
-  still ends in `/prod` after E3, the whole site API fails. List all three,
-  or make the parameters reject a path in E3.
-- **E3-2.** `scripts/check_api_cutover_preconditions.py` near 100 ignores
-  the bundle's status, so a 404 passes, and a `ValueError` from
-  `_https_url` ends in a traceback. See also X-1.
-
-### Across products
-
-- **X-1.** The three live-check scripts (L3, S4, E3) check the scheme before
-  `urlopen`, but `urlopen` follows redirects, including https to http. The
-  Semgrep alerts are cleared by suppression, not by closing this. Use an
-  opener whose redirect handler refuses a non-https target, cap the bytes
-  read, and in S4 fetch only from the origin's host.
+- **R3-5. siutindei S2 and evolvesprouts E1: `x-request-id` on gateway
+  errors is a literal.** Both set the header to `'$context.requestId'`.
+  Gateway response headers take "any incoming request parameter value or a
+  static custom value"
+  ([gatewayResponse object](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-swagger-extensions-gateway-responses.gatewayResponse.html)).
+  A quoted value is static, so clients receive the text `$context.requestId`.
+  The body's `request_id` substitutes correctly. Drop the header from
+  gateway responses in both, and fix the siutindei comment near 2376 and the
+  assertion that locks the literal in `assert-existing-db.ts`.
+- **R3-6. siutindei S2: the gateway error CORS origin is the mobile app's.**
+  Now that the header names are right (S2-2), `Access-Control-Allow-Origin`
+  reaches clients as `corsAllowedOrigins[0]`, which is
+  `capacitor://localhost`. Browser errors from the admin site stay blocked.
+  Choose the origin as the WAF does near `api-stack.ts:3390`.
+- **R3-7. evolvesprouts E1: `detail` is dropped from most handler errors.**
+  `backend/src/app/exceptions.py:40` emits `detail` only when it differs
+  from `error`. Section 4.5 lists `detail` on every handler error. Emit
+  `detail or message`. The admin client fix already removes the "X (X)"
+  text.
+- **R3-8. actions A2: evolvesprouts cannot adopt the check without an
+  undocumented step.** `{grantId}` must stay (round 2, B1), and the check
+  rejects it as not snake_case on E1, E2 and E3. A legacy entry is the way
+  out, but `check.py:370` skips every rule for a legacy path while
+  `api-contract/README.md:20` describes a prefix exemption. State that in
+  the README, and add "evolvesprouts adds
+  `/v1/admin/assets/{id}/grants/{grantId}` to `docs/api/legacy-paths.txt`" to
+  the rollout steps at `:42-46`. Run the `{proxy+}` rule before the legacy
+  skip, so a legacy entry cannot admit `/v1/public/{proxy+}`.
+- **R3-9. actions A2: the notes on #98 have no end.** A2 says #98 "stays
+  open and unmerged" but not that it is closed. Write: close #98 unmerged
+  once A2 merges. Put the README rollout order at the end of the A2 body, in
+  place of the old one-line instruction.
+- **R3-10. findingalpha F1: confirm the custom domain is on before merging.**
+  F1 makes admin-web import `findingalpha-AdminApiBaseUrl`, whose value
+  changes when the custom domain is switched on or off. CloudFormation
+  refuses to change an imported export. The repository variable
+  `API_CUSTOM_DOMAIN_NAME` is set and `api.findingalpha.app` is live, so
+  this should be fine. State in the F1 body that the name and the
+  certificate are both set.
+- **R3-11. lx-software L3: `check_admin_spa_config.py` checks nothing.**
+  Nothing sets `ADMIN_SPA_CONFIG_URL` and the admin site has no
+  `config.json`, so every deploy prints a skip. If someone set it, the check
+  would fetch the old site's HTML and fail the deploy. Drop the script and
+  its call, and assert in `check-admin-spa-settings.sh` that `api_url`
+  contains no `execute-api`.
+- **R3-12. findingalpha F2: drop the precondition from the API
+  `Description`** (`http-api.ts:175`) and its two test assertions.
+- **R3-13. siutindei S2: the new authorizer permission can race.** It has
+  no dependency on the deployment, so partner calls can fail for a few
+  seconds during the update. Add the dependency or note the window in the
+  body. Say "merge at a quiet hour" in the body, as plan section 10 asks.
+- **R3-14. siutindei S2: squash-merge.** The seed file was edited and then
+  reverted inside the branch. The net diff is empty, but a merge commit
+  keeps the edit in `main`'s history.
 
 ## Nits
 
-- L1: `_problem_field`'s `setdefault` branch does nothing; HTML and PDF
-  responses carry no `x-request-id`.
-- L2: `/aws/usage.pdf` remains in `aws_billing.py:6` and `:348` and in
-  `docs/deployment/admin-website.md` near 843; `params/README.md:57` says
-  `/public/*`.
-- F1: `wireFormat.ts:70` reads inherited keys, so `constructor` converts
-  differently from Python; use `Object.hasOwn`. `adminFetch` passes no
-  route to the codec. `docs/architecture/security.md:69` says
-  `GET /api-keys`. The authorizer catches `ClientError` only; a
-  `BotoCoreError` gives 500. The plan note is deleted in F1, not in F2.
-- S2: gateway errors for 429, invalid key, WAF block and not found get the
-  title "Bad Request".
-- E1: each of the three OpenAPI files carries all 116 component schemas,
-  which is most of the +11,851 lines. The `/www` function changed only in
-  whitespace, which still updates it. `API_TOKEN_HEADER` in `api_keys.py`
-  is unused. The package-move commit `a1142063` is not a pure move and does
-  not import on its own.
-- E2: the `/prod/` branch in the media rewrite never runs; no behaviour
-  matches `prod/v1/assets/...`.
-- E3: `X-Api-Token` is still in the CORS headers near 3138 and 3283; docs
-  still describe `/www/*`; the body says 386 resources, synth gives 389.
-- A2: unclear messages for single-quoted path keys, `x-` keys under
-  `paths`, comments after `paths:` or a URL, and a schema property named
-  `paths`; `{proxy+}` passes in `webhooks.yaml`; a duplicate key in one file
-  is reported as two files; a stale legacy entry is not reported; a unit
-  test runs `git fetch`; the CI fail job runs one failing tree; the
-  926-line siutindei fixture could be a small purpose-built one.
+- A1: `api-contract.md:50` and `decisions.md:75` say "for one deploy" twice.
+- A2: a schema property named `servers` under an operation is flagged as a
+  path-level `servers`; a non-path key under `paths` and `paths: &anchor`
+  report flow-style YAML; subdirectories of `docs/api` are ignored; the PR
+  body's fixture wording is misleading.
+- F1: `adminFetch` passes the route without the method, so a future
+  `rootMaps` entry would not match in TypeScript; a non-JSON 304 still
+  throws; nothing records that the kept execute-api export goes in the next
+  release; `httpApiEndpoint` is unused.
+- L1: plain-text responses in `board_newsletter.py`, `board_outreach.py` and
+  `board_meta.py` lack `x-request-id`.
+- L2: `docs/deployment/admin-website.md:405` is garbled; `byStage` and
+  `byStatus` in `board_progress.py` are status-keyed maps missing from
+  `mapFields`; `test_check_contracts.py` uses a fixed `/tmp` path;
+  `Stack#addDependency` is deprecated.
+- L3: `board-alias-wire-cache.md:29` still says "both credential headers or
+  neither".
+- S2: 413 and 415 gateway errors read "Bad Request" (moot after R3-4).
+- S3, S4: `PUBLIC_API_RATE_PATH` in `edge_policy.py:50` is unused.
+- S4: one off-host script or a missing chunk fails the whole bundle check.
+- E1: the router test says it reads the media rewrite function but reads
+  only the www proxy functions; a malformed or invalid token gets 403, not
+  401.
+- E3: the cutover check accepts 3xx; `.env.example:44` and
+  `publish-promotion-summary.sh:12` still name `/www`.
 
-## Verified correct
+## Second-round items
 
-- lx-software: all 181 original routes map onto their new names with the
-  same methods, auth kind and throttle. L2 has 234 route keys, L3 225.
-  `path_class`, `path_allowed`, `write_blocked` and redaction receive the
-  path shape they expect, and the old board path is converted before them.
-  Owner-only writes return 403 on new and old board paths.
-- The wire codec passes the shared cases in Python and Vitest, and its three
-  files are byte-identical in findingalpha and lx-software. It runs after
-  redaction, skips SQS, internal events, base64 and non-JSON bodies, and the
-  admin mock branch.
-- findingalpha: the authorizer parses both headers correctly, the cache is
-  0 with source IP as the only identity source, the old root and `/public`
-  paths return 404, and `lint.yml` matches the actions template.
-- siutindei: S1 keeps the domain and mapping logical ids. The moved website
-  methods are identical apart from their resource. The CloudFront functions,
-  run in Node, rewrite both old paths, strip `/api`, and keep the query
-  string. The Cloudflare expressions cover both paths. S4 restores
-  `Authorization` with a 300 second cache.
-- evolvesprouts: E1 keeps the domain, the `prod` mapping, the API, the stage
-  and the authorizers on their logical ids and adds one root mapping. Both
-  token headers reach the authorizer. The two edge allow-lists come from one
-  table. E3 restores `Authorization` with a 300 second cache.
-- Resource counts: siutindei 493 after S1, 496 after S2. evolvesprouts 483
-  on `main`, 475 after E1, 476 after E2, 389 after E3.
-- The A2 checker gives the expected result on every product branch.
-- No account id, API id, certificate ARN, `execute-api` hostname or
-  CloudFront hostname was added in any pull request.
+| Item | Status |
+| --- | --- |
+| B1 evolvesprouts grant route | Fixed. Logical id equals `main` on E1, E2, E3 |
+| B2 evolvesprouts `/v1/public` 404s | Fixed. Every `public.yaml` path and both media rewrite targets reach their handler on E1, E2, E3. A router test fails on 12 paths without the fix |
+| B3 admin-web condition | findingalpha fixed. lx-software fixed for the condition, broken for exports (R3-2, R3-3) |
+| B4 lx-software IP-keyed cache | Fixed. L2 TTL 0 with a test; L3 `Authorization` plus source IP, 60 s |
+| B5 lx-software catalog import | Fixed, with full-URL tests |
+| B6 siutindei seed file | Fixed. Net diff empty in S2 to S4; bodies name line 296 (R3-14) |
+| B7 siutindei change set | Body corrected. The owner still builds the change set |
+| A1-1, A1-2, A1-3 | Fixed |
+| A2-1 rollout order | Partly (R3-9) |
+| A2-2 plan note | Partly (R3-9) |
+| A2-3 to A2-6 checker holes | Fixed. Every adversarial input now fails |
+| F1-1 to F1-4 | Fixed |
+| F2-1 | Partly (R3-12) |
+| L2-1, L2-2, L2-3 | Fixed. Codec files byte-identical to findingalpha `6408c95` |
+| L3-1 | Partly (R3-11) |
+| S2-1 legacy key rate rule | Fixed; S4 removes it |
+| S2-2 gateway headers | Partly. Names fixed; value literal (R3-5); origin wrong (R3-6) |
+| S2-3 authorizer replacement | Fixed. New construct id, methods and permission moved |
+| S2-4, S2-5, S2-6 | Fixed |
+| S3-1, S3-2, S4-1 | Fixed |
+| E1-1 to E1-5 | Fixed; E1-5 overreached (R3-7) |
+| E3-1, E3-2 | Fixed |
+| X-1 redirects | Fixed in L3, S4, E3 |
+
+## Verified this round
+
+- Local suites pass on every head: findingalpha (Python 494, infra 39,
+  admin 67), lx-software (admin Python about 2,030, infra 91, admin 500),
+  siutindei (`test:infra` 34, targeted Python up to 109), evolvesprouts
+  (`test:infra`, lint, typecheck, targeted Python 422 to 428).
+- Synth: no template names a condition it does not define, in findingalpha
+  and lx-software.
+- Resource counts: siutindei 493, 496, 496, 496. evolvesprouts 472, 473,
+  386.
+- The A2 checker passes findingalpha, lx-software and siutindei at their
+  heads, and rejects only `{grantId}` in evolvesprouts.
 
 ## Not verified
 
-No change set or deploy was run. Three things are therefore unverified
-against AWS:
+No change set, deploy or live probe was run. Still unverified against AWS:
 
-- that removing a REST authorizer's identity source takes effect on update
-  (S2-3, and the same pattern in E1);
-- that API Gateway accepts the corrected gateway header mapping (S2-2);
-- that API Gateway accepts an empty base path mapping beside `prod` (E1).
+- that the REST authorizer replacement in S2 and the identity-source
+  removal in E1 take effect on update;
+- that API Gateway accepts an empty base path mapping beside `prod` (E1);
+- WAF capacity in siutindei S2, estimated at 300 to 400 of 1,500.
 
-Not run locally: Redocly in every product, the Flutter and Playwright
-suites, and the full Python suites of siutindei and evolvesprouts. CI ran
-those.
+R3-4 and R3-5 rest on the AWS documentation and on the evolvesprouts
+comment, not on a live probe. A `put-gateway-response` on a scratch REST API
+would settle both.
