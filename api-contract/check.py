@@ -22,6 +22,7 @@ _PREFIX = {
 _VERSION = re.compile(r"^v[0-9]+$")
 _SNAKE = re.compile(r"^[a-z][a-z0-9_]*$")
 _PARAM = re.compile(r"\{([^{}]*)\}")
+_GREEDY = "{proxy+}"
 
 
 class FlowError(Exception):
@@ -118,10 +119,21 @@ def read_openapi(text: str) -> tuple[list[str], list[str]]:
     return servers, paths
 
 
+def _matches_prefix(path: str, prefix: str) -> bool:
+    """True for the audience root and for every path under that prefix."""
+    return path == prefix.rstrip("/") or path.startswith(prefix)
+
+
 def _segment_findings(path: str) -> list[str]:
     findings: list[str] = []
     versions = 0
-    for segment in [part for part in path.split("/") if part]:
+    segments = [part for part in path.split("/") if part]
+    last = len(segments) - 1
+    for index, segment in enumerate(segments):
+        if segment == _GREEDY:
+            if index != last:
+                findings.append(f"{path}: {{proxy+}} is not the last segment")
+            continue
         if segment.startswith("{") and segment.endswith("}") and segment.count("{") == 1:
             name = segment[1:-1]
             if _SNAKE.fullmatch(name) is None:
@@ -152,11 +164,11 @@ def _prefix_finding(
     if path in legacy:
         return None
     if filename == "admin.yaml":
-        if path == "/health" or any(path.startswith(prefix) for prefix in admin_prefixes):
+        if path == "/health" or any(_matches_prefix(path, prefix) for prefix in admin_prefixes):
             return None
         return f"admin.yaml: {path} does not start with an admin prefix"
     prefixes = _PREFIX[filename]
-    if any(path.startswith(prefix) for prefix in prefixes):
+    if any(_matches_prefix(path, prefix) for prefix in prefixes):
         return None
     return f"{filename}: {path} does not start with {prefixes[0]}"
 
@@ -220,6 +232,10 @@ def check(
             prefix = _prefix_finding(item.name, path, admin_prefixes, legacy)
             if prefix is not None:
                 findings.append(prefix)
+            if item.name == "public.yaml" and _GREEDY in path.split("/"):
+                findings.append(
+                    f"public.yaml: {path}: {{proxy+}} is not allowed without an authorizer"
+                )
             findings.extend(
                 f"{item.name}: {item_finding}" for item_finding in _segment_findings(path)
             )

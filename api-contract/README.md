@@ -4,7 +4,7 @@ Fails when an OpenAPI file breaks the shared API contract in [`docs/api-contract
 
 The calling job needs `python3` on `PATH` and a checkout. The action does not install Python. `ubuntu-26.04` provides it.
 
-The reader uses the standard library. It reads the `servers` URLs and the keys directly under `paths` from block-style YAML. Flow-style YAML fails, and the message says the reader cannot follow it.
+The reader uses the standard library. It reads the `servers` URLs and the keys directly under `paths` from block-style YAML. Flow-style YAML fails, and the message says the reader cannot follow it. It does not read schema property names, problem-details members, `securitySchemes`, or the route table. Those stay with each product's tests.
 
 ## Inputs
 
@@ -17,9 +17,9 @@ The reader uses the standard library. It reads the `servers` URLs and the keys d
 
 The directory may contain only `public.yaml`, `admin.yaml`, `partner.yaml`, and `webhooks.yaml`. A missing file is allowed. An extra file fails. `/health` is allowed in `admin.yaml`.
 
-A path in `public.yaml` starts with `/v1/public/`. A path in `partner.yaml` starts with `/v1/partner/`. A path in `webhooks.yaml` starts with `/v1/webhooks/`. A path in `admin.yaml` starts with one of `admin-prefixes`. A path listed in `legacy-paths` is allowed in any file.
+A path in `public.yaml` is `/v1/public` or starts with `/v1/public/`. A path in `partner.yaml` is `/v1/partner` or starts with `/v1/partner/`. A path in `webhooks.yaml` is `/v1/webhooks` or starts with `/v1/webhooks/`. A path in `admin.yaml` is `/health`, an admin-prefix root, or starts with one of `admin-prefixes`. A path listed in `legacy-paths` is allowed in any file.
 
-A path segment is lower case, with hyphens. An underscore is allowed only inside `{snake_case}`. A segment has no dot and no second version such as `v2`. One path is not listed in two files.
+A path segment is lower case, with hyphens. An underscore is allowed only inside `{snake_case}`. `{proxy+}` is allowed only as the last segment, and not in `public.yaml`. A segment has no dot and no second version such as `v2`. One path is not listed in two files.
 
 ## Permissions
 
@@ -37,4 +37,4 @@ The calling job needs `contents: read` for the checkout. The action does not cal
           # template:end
 ```
 
-Pin the same commit as the repository's other `lx-software-ltd/actions` references. The product pin bump waits until this action is on `main`.
+Pin a commit on `main` that contains `api-contract/action.yml`. `templates/workflows/lint.yml` does not call this action yet, because the shared pin does not contain it. Each product adds the step when it bumps that pin.

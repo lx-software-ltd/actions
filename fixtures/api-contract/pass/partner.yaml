@@ -5,6 +5,12 @@ info:
 servers:
   - url: https://api.example.com
 paths:
+  /v1/partner:
+    get:
+      summary: Example
+  /v1/partner/{proxy+}:
+    get:
+      summary: Example
   /v1/partner/contacts:
     get:
       summary: Example

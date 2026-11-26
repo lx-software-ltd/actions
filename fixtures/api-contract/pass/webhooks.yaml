@@ -5,6 +5,9 @@ info:
 servers:
   - url: https://api.example.com
 paths:
+  /v1/webhooks:
+    get:
+      summary: Example
   /v1/webhooks/mailchimp:
     get:
       summary: Example

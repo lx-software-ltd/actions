@@ -8,6 +8,12 @@ paths:
   /health:
     get:
       summary: Example
+  /v1/admin:
+    get:
+      summary: Example
+  /v1/user:
+    get:
+      summary: Example
   /v1/admin/tasks:
     get:
       summary: Example

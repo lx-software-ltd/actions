@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import importlib.util
+import re
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -30,7 +32,13 @@ EXPECTATIONS = {
     "second-version": "path segment v2 is a second version",
     "parameter": "path parameter {itemId} is not snake_case",
     "flow-style": "this reader cannot follow flow-style YAML",
+    "proxy-middle": "{proxy+} is not the last segment",
+    "proxy-public": "{proxy+} is not allowed without an authorizer",
 }
+
+_ACTION_PIN = re.compile(
+    r"uses:\s*lx-software-ltd/actions/([A-Za-z0-9_.-]+)@([0-9a-f]{40})"
+)
 
 
 def _check(directory: Path, legacy: Path | None = None) -> list[str]:
@@ -73,18 +81,41 @@ class ApiContractTest(unittest.TestCase):
         findings = _check(FIXTURES / "missing")
         self.assertIn(f"{FIXTURES / 'missing'}: directory is missing", findings)
 
-    def test_lint_template_runs_the_check_after_redocly(self) -> None:
+    def test_a_real_spec_with_refs_parses(self) -> None:
+        directory = FIXTURES / "siutindei-public"
+        text = (directory / "public.yaml").read_text(encoding="utf-8")
+        servers, paths = check_module.read_openapi(text)
+        self.assertIn("https://api.siutindei.com", servers)
+        self.assertGreater(len(paths), 0)
+        findings = check_module.check(
+            directory,
+            origin="https://api.siutindei.com",
+            admin_prefixes=PREFIXES,
+            legacy_file=None,
+        )
+        self.assertEqual(findings, [])
+
+    def test_lint_template_omits_the_action_until_it_is_on_main(self) -> None:
         text = (ROOT / "templates" / "workflows" / "lint.yml").read_text(
             encoding="utf-8"
         )
-        redocly = text.index("npx --yes @redocly/cli@1.34.11 lint docs/api/*.yaml")
-        step = text.index("lx-software-ltd/actions/api-contract@", redocly)
-        self.assertIn(
-            "8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24",
-            text[step : step + 120],
-        )
-        window = text[step : text.index("# template:end", step)]
-        self.assertIn("# template:set", window)
-        self.assertIn("origin: https://api.example.com", window)
-        self.assertIn("admin-prefixes: /v1/admin/,/v1/user/", window)
-        self.assertNotIn("- uses:", window.split("# template:set", 1)[1])
+        self.assertIn("npx --yes @redocly/cli@1.34.11 lint docs/api/*.yaml", text)
+        self.assertNotIn("lx-software-ltd/actions/api-contract@", text)
+
+    def test_template_pins_point_at_an_action_file(self) -> None:
+        missing: list[str] = []
+        for path in sorted((ROOT / "templates").rglob("*.yml")):
+            text = path.read_text(encoding="utf-8")
+            for match in _ACTION_PIN.finditer(text):
+                directory, sha = match.group(1), match.group(2)
+                spec = f"{sha}:{directory}/action.yml"
+                result = subprocess.run(
+                    ["git", "cat-file", "-e", spec],
+                    cwd=ROOT,
+                    capture_output=True,
+                    check=False,
+                )
+                if result.returncode != 0:
+                    relative = path.relative_to(ROOT)
+                    missing.append(f"{relative}: {directory}@{sha}")
+        self.assertEqual(missing, [])

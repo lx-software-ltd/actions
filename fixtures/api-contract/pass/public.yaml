@@ -5,6 +5,9 @@ info:
 servers:
   - url: https://api.example.com
 paths:
+  /v1/public:
+    get:
+      summary: Example
   /v1/public/items:
     get:
       summary: Example
