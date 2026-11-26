@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import importlib.util
 import re
+import shutil
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -83,6 +85,25 @@ class ApiContractTest(unittest.TestCase):
                     any(expected in finding for finding in findings),
                     findings,
                 )
+
+    def test_the_legacy_file_may_sit_in_the_contract_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for item in (FIXTURES / "pass").iterdir():
+                if item.is_file():
+                    shutil.copy(item, root / item.name)
+            legacy = root / "legacy-paths.txt"
+            shutil.copy(FIXTURES / "legacy-paths.txt", legacy)
+            self.assertEqual(_check(root, legacy), [])
+            (root / "notes.txt").write_text("extra\n", encoding="utf-8")
+            findings = _check(root, legacy)
+            self.assertEqual(
+                findings,
+                [
+                    "notes.txt: file is not public.yaml, admin.yaml, "
+                    "partner.yaml, or webhooks.yaml"
+                ],
+            )
 
     def test_a_legacy_path_in_two_files_still_fails(self) -> None:
         findings = _check(

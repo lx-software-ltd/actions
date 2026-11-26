@@ -15,7 +15,7 @@ The reader uses the standard library. It reads the `servers` URLs and the keys d
 | `admin-prefixes` | no | `/v1/admin/,/v1/user/` | Prefixes allowed in `admin.yaml`. `siutindei` adds `/v1/manager/`. |
 | `legacy-paths` | no | empty | File of paths that may stay in any contract file, one path per line. |
 
-The directory may contain only `public.yaml`, `admin.yaml`, `partner.yaml`, and `webhooks.yaml`. A missing file is allowed. An extra file fails. `/health` is allowed in `admin.yaml`.
+The directory may contain only `public.yaml`, `admin.yaml`, `partner.yaml`, and `webhooks.yaml`, plus the `legacy-paths` file when that file is inside the directory. A missing contract file is allowed. Any other extra file fails. `/health` is allowed in `admin.yaml`.
 
 A path in `public.yaml` is `/v1/public` or starts with `/v1/public/`. A path in `partner.yaml` is `/v1/partner` or starts with `/v1/partner/`. A path in `webhooks.yaml` is `/v1/webhooks` or starts with `/v1/webhooks/`. A path in `admin.yaml` is `/health`, an admin-prefix root, or starts with one of `admin-prefixes`. A path listed in `legacy-paths` is allowed in any file.
 

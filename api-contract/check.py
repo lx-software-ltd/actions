@@ -203,16 +203,24 @@ def check(
         return findings
     legacy, legacy_findings = _legacy_paths(legacy_file)
     findings.extend(legacy_findings)
+    legacy_resolved = (
+        legacy_file.resolve()
+        if legacy_file is not None and legacy_file.is_file()
+        else None
+    )
     files = sorted(item for item in directory.iterdir() if item.is_file())
     contract = [item for item in files if item.name in CONTRACT_FILES]
     if not contract:
         findings.append(f"{directory}: directory has no OpenAPI contract file")
     for item in files:
-        if item.name not in CONTRACT_FILES:
-            findings.append(
-                f"{item.name}: file is not public.yaml, admin.yaml, "
-                "partner.yaml, or webhooks.yaml"
-            )
+        if item.name in CONTRACT_FILES:
+            continue
+        if legacy_resolved is not None and item.resolve() == legacy_resolved:
+            continue
+        findings.append(
+            f"{item.name}: file is not public.yaml, admin.yaml, "
+            "partner.yaml, or webhooks.yaml"
+        )
     seen: dict[str, list[str]] = {}
     for item in contract:
         try:
