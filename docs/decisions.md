@@ -75,15 +75,3 @@ The token audience is `/v1/partner`. A token is sent as `Authorization: Bearer <
 Three things keep working across that day: a link inside an email that was already sent, a callback address held in a provider's dashboard until the owner changes it there, and a public website build that is live until the next build is promoted. The token validates under either header for one deploy, and the holder changes the path on the deploy day. The removal is the next pull request in each product.
 
 Routes under `/v1/public/` are listed one by one in API Gateway. A route that appears in a sent email is never removed.
-
-## Not finished
-
-- A Dependabot path that bumps this pin, and a measured cooldown exclusion.
-- Production promotion for `evolvesprouts` and `siutindei` still uploads from the public-www scripts. Staging uses `s3-cloudfront-deploy` with `next-site`. `evolvesprouts` leaves the distribution empty so the `/www/*` switch happens before the invalidation. `siutindei` passes its document cache and marker headers, and the script still invalidates the site path list. Maintenance assembly, image optimisation, the `/www/*` switch, and catalogue comparison stay in the scripts. `maintenance-assets: images` and the production `fixtures/` exclude are not wired yet.
-- The read-only diff role named by `AWS_DIFF_ROLE_NAME`. The workflows do not create it. It is unset as a repository variable in all four products, so a pull-request diff warns and does not call AWS.
-- The mobile signing workflows run on a release, so they have not run yet. siutindei calls `play-prerequisites` with `upload-enabled` from `deploy-mobile.yml`.
-- S3 `public-routes` uploads `.js` and `.css` as `application/octet-stream`. Changing that, or renaming the profiles, needs a dry-run comparison against the live buckets.
-- Product harness configs still name the old modes. The pull request that pins this checker changes `harness.json` in the same commit and omits the TypeScript prefix keys. The checker accepts `typed`, `test-names`, and `full` only.
-- Lockfile and Semgrep jobs folded under the required gates.
-- The same 31 digests held once, which waits on the denylist decision above.
-- Product repositories do not run `sync-labels` yet. This repository applies the catalogue to itself. `SYNC_LABELS_REPOSITORIES=siblings` applies it to the five repositories when `gh` can write issues on each.
