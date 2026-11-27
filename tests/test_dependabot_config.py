@@ -70,3 +70,18 @@ class DependabotFailFixturesTest(unittest.TestCase):
         self.assertIn('"ip": "2.0.1"', workflow)
         for relative in UNTRACKED_PINS:
             self.assertFalse((ROOT / relative).exists(), relative)
+
+    def test_github_actions_has_no_cooldown_and_splits_the_pin(self) -> None:
+        blocks = _update_blocks(CONFIG.read_text(encoding="utf-8"))
+        actions = next(
+            block
+            for block in blocks
+            if block.splitlines()[0].strip() == "github-actions"
+        )
+        self.assertNotIn("cooldown:", actions)
+        self.assertIn("actions-pin:", actions)
+        self.assertEqual(actions.count('"lx-software-ltd/actions/*"'), 2)
+        for block in blocks:
+            if block.splitlines()[0].strip() == "github-actions":
+                continue
+            self.assertNotIn("lx-software-ltd/actions", block)

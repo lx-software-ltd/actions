@@ -17,10 +17,17 @@ updates:
     labels:
       - dependencies
       - ci
+    # No cooldown. dependabot-core treats a missing cooldown as 0 days.
+    # actions-pin is its own pull request.
     groups:
       github-actions:
         patterns:
           - "*"
+        exclude-patterns:
+          - "lx-software-ltd/actions/*"
+      actions-pin:
+        patterns:
+          - "lx-software-ltd/actions/*"
   # Fail fixtures that stay on main. A bump that makes one install
   # cleanly turns the fixture green. Only directories that hold a
   # manifest for that ecosystem are listed. A glob would include
