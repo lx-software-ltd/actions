@@ -4,7 +4,7 @@ Creates and updates the shared issue labels. A label that is not in the catalogu
 
 The catalogue is `labels.json` in this action. It is the GitHub defaults plus `dependencies`, `ci`, `infrastructure`, and `mobile`. Colour and description follow the value already shared by the product repositories. `mobile` is `0e8a16`, "Flutter app". `dependencies` and `ci` are the labels Dependabot is configured to apply.
 
-`siblings` means `lx-software-ltd/actions`, `evolvesprouts`, `findingalpha`, `lx-software`, and `siutindei`.
+`siblings` means `lx-software-ltd/actions`, `evolvesprouts`, `findingalpha`, `lx-software`, and `siutindei`. Each of those repositories runs `.github/workflows/sync-labels.yml` and applies the catalogue to itself. `github.token` writes the calling repository. `siblings` is the local command when `gh` can write issues on each of them.
 
 ## Inputs
 
@@ -18,7 +18,7 @@ The catalogue is `labels.json` in this action. It is the GitHub defaults plus `d
 
 ## Permissions
 
-The calling job needs `contents: read`. `apply` also needs `issues: write` on each target repository. `github.token` can write labels on the repository that is running the workflow. Writing the other four repositories needs a token that can write issues on each of them. The runner needs `python3` and, unless `live-json` is set, `gh` on `PATH`. The current Ubuntu runners provide both. Do not add `setup-python`.
+The calling job needs `contents: read`. `apply` also needs `issues: write` on each target repository. `github.token` can write labels on the repository that is running the workflow, which is what `sync-labels.yml` does. Writing another repository needs a token that can write issues there. The runner needs `python3` and, unless `live-json` is set, `gh` on `PATH`. The current Ubuntu runners provide both. Do not add `setup-python`.
 
 ## Example
 
@@ -26,6 +26,7 @@ The calling job needs `contents: read`. `apply` also needs `issues: write` on ea
       - uses: lx-software-ltd/actions/sync-labels@<40-hex> # main <yyyy-mm-dd>
         with:
           mode: apply
+          repositories: ${{ github.repository }}
 ```
 
 From a checkout of this repository, with `gh` authenticated for every target:

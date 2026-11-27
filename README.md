@@ -78,7 +78,7 @@ Product repositories call [`dependency-submission`](dependency-submission/README
 | [`require-jobs`](require-jobs/README.md) | Fail unless every job in `needs` succeeded. | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [`workflow-conformance`](workflow-conformance/README.md) | Check workflows against [`docs/ci-contract.md`](docs/ci-contract.md). | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [`verify-rulesets`](verify-rulesets/README.md) | Fail unless `main-protection` requires the three gates and zero reviews, and the tag rulesets block `v*`. | | ✅ | ✅ | ✅ | ✅ |
-| [`sync-labels`](sync-labels/README.md) | Create and update the shared issue labels, including `mobile`. Other labels stay. | ✅ | | | | |
+| [`sync-labels`](sync-labels/README.md) | Create and update the shared issue labels, including `mobile`. Other labels stay. | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [`agent-harness`](agent-harness/README.md) | Check agent rules, file length, and test focus from `.github/harness.json`. | | ✅ | ✅ | ✅ | ✅ |
 | [`pii-denylist`](pii-denylist/README.md) | Fail when tracked source matches a SHA-256 denylist. The match text is not printed. | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [`gitleaks`](gitleaks/README.md) | Secret scan with the gitleaks CLI. | ✅ | ✅ | ✅ | ✅ | ✅ |
