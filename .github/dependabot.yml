@@ -12,6 +12,12 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # The platform default is 3 days. The exclude is this repository,
+    # so a tag on main is not held. Other actions stay on 3 days.
+    cooldown:
+      default-days: 3
+      exclude:
+        - "lx-software-ltd/actions/*"
     commit-message:
       prefix: ci
     labels:

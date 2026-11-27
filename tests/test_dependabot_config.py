@@ -70,3 +70,18 @@ class DependabotFailFixturesTest(unittest.TestCase):
         self.assertIn('"ip": "2.0.1"', workflow)
         for relative in UNTRACKED_PINS:
             self.assertFalse((ROOT / relative).exists(), relative)
+
+    def test_github_actions_excludes_this_repository_from_cooldown(self) -> None:
+        blocks = _update_blocks(CONFIG.read_text(encoding="utf-8"))
+        actions = next(
+            block
+            for block in blocks
+            if block.splitlines()[0].strip() == "github-actions"
+        )
+        cooldown = actions.split("cooldown:", 1)[1].split("commit-message:", 1)[0]
+        self.assertIn("default-days: 3", cooldown)
+        self.assertIn('"lx-software-ltd/actions/*"', cooldown)
+        for block in blocks:
+            if block.splitlines()[0].strip() == "github-actions":
+                continue
+            self.assertNotIn("lx-software-ltd/actions", block)

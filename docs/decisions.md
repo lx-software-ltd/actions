@@ -10,7 +10,9 @@ Callers pin one full commit SHA of this repository. A product repository uses on
 
 The `lint`, `test`, and `security-summary` gates in this repository pin `lx-software-ltd/actions/require-jobs` at `1a3cca7c38163f8164c262323601c34a4df5b7a4` (`# main 2026-11-20`). They must not use `uses: ./require-jobs`. A local action is loaded from the pull request. Fixture jobs may use `uses: ./require-jobs`.
 
-No `v*` tag. `release-tags` blocks update and deletion. `release-tags-create` blocks creation. Organization admin is on the bypass list of `release-tags-create` and is the actor who can create a tag. Tags are worth adding only if Dependabot should open the bump pull requests. The bump script comes first. Dependabot has not moved an actions pin, and a cooldown exclusion for this repository is not a measured result.
+No `v*` tag is created by a pull request in this repository. `release-tags` blocks update and deletion. `release-tags-create` blocks creation. Organization admin is on the bypass list of `release-tags-create` and is the actor who creates a tag. Dependabot resolves a GitHub Action from a git tag, so a tag on `main` is what lets it open a bump pull request. The owner tags each commit callers already pin, then tags the commit the bump should move to. Callers stay on the full SHA and `# main YYYY-MM-DD`.
+
+The four product `github-actions` entries keep `cooldown.default-days` at 7 and exclude `lx-software-ltd/actions/*`. This repository's `github-actions` entry sets `default-days` to 3, the platform default, and the same exclude. Other ecosystems keep their cooldown. Dependabot rewrites the workflow SHA and leaves the date comment and the pre-commit `rev` alone, so `scripts/bump_pins.py` still rewrites those on that pull request before it merges.
 
 ## Rulesets
 

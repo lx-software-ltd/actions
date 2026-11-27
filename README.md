@@ -67,6 +67,8 @@ python3 /path/to/actions/scripts/bump_pins.py . <40-hex> --date <yyyy-mm-dd>
 
 The script rewrites every `lx-software-ltd/actions` pin, the `# main YYYY-MM-DD` comment, and the pre-commit `rev`. Review the diff and open one pull request. The SHA has to be on `main` before that pull request merges. The script is [`scripts/bump_pins.py`](scripts/bump_pins.py).
 
+A `v*` tag on `main` lets Dependabot open that bump. The product `github-actions` cooldown excludes `lx-software-ltd/actions/*`. On the Dependabot pull request, run the script with the SHA Dependabot wrote so the date comment and the pre-commit `rev` match.
+
 ## Catalogue
 
 A green check means a workflow in that repository calls the action. Fixture jobs in `test.yml` here are not callers.
