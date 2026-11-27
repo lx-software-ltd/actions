@@ -71,16 +71,16 @@ class DependabotFailFixturesTest(unittest.TestCase):
         for relative in UNTRACKED_PINS:
             self.assertFalse((ROOT / relative).exists(), relative)
 
-    def test_github_actions_excludes_this_repository_from_cooldown(self) -> None:
+    def test_github_actions_has_no_cooldown_and_splits_the_pin(self) -> None:
         blocks = _update_blocks(CONFIG.read_text(encoding="utf-8"))
         actions = next(
             block
             for block in blocks
             if block.splitlines()[0].strip() == "github-actions"
         )
-        cooldown = actions.split("cooldown:", 1)[1].split("commit-message:", 1)[0]
-        self.assertIn("default-days: 3", cooldown)
-        self.assertIn('"lx-software-ltd/actions/*"', cooldown)
+        self.assertNotIn("cooldown:", actions)
+        self.assertIn("actions-pin:", actions)
+        self.assertEqual(actions.count('"lx-software-ltd/actions/*"'), 2)
         for block in blocks:
             if block.splitlines()[0].strip() == "github-actions":
                 continue

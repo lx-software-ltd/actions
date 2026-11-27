@@ -53,7 +53,7 @@ An action cannot read `secrets` or `vars`. Callers pass those as inputs.
 uses: lx-software-ltd/actions/require-jobs@<40-hex> # main <yyyy-mm-dd>
 ```
 
-Pin a commit that is on `main`. `main-protection` blocks a force-push, so that commit stays reachable. One product repository uses one SHA. The pre-commit `rev` for this repository is that same SHA. Conformance fails when they differ.
+Pin a tagged commit that is on `main`. `main-protection` blocks a force-push, so that commit stays reachable. One product repository uses one SHA. The pre-commit `rev` for this repository is that same SHA. Conformance fails when they differ.
 
 `release-tags` blocks update and deletion of `v*` tags. `release-tags-create` blocks creation. Callers pin the commit SHA.
 
@@ -65,9 +65,9 @@ From a product checkout:
 python3 /path/to/actions/scripts/bump_pins.py . <40-hex> --date <yyyy-mm-dd>
 ```
 
-The script rewrites every `lx-software-ltd/actions` pin, the `# main YYYY-MM-DD` comment, and the pre-commit `rev`. Review the diff and open one pull request. The SHA has to be on `main` before that pull request merges. The script is [`scripts/bump_pins.py`](scripts/bump_pins.py).
+The script rewrites every `lx-software-ltd/actions` pin, the `# main YYYY-MM-DD` comment, and the pre-commit `rev`. Review the diff and open one pull request. The SHA has to be a tagged commit on `main` before that pull request merges. The script is [`scripts/bump_pins.py`](scripts/bump_pins.py). Once any tag exists, Dependabot moves a pinned SHA that has no tag to the head of the branch that contains it, so a manual bump to an untagged SHA is moved there on the next run.
 
-A `v*` tag on `main` lets Dependabot open that bump. The product `github-actions` cooldown excludes `lx-software-ltd/actions/*`. On the Dependabot pull request, run the script with the SHA Dependabot wrote so the date comment and the pre-commit `rev` match.
+A `v*` tag on `main` lets Dependabot open the bump. The product `github-actions` cooldown excludes `lx-software-ltd/actions/*`, and that dependency is the group `actions-pin`. On the Dependabot pull request, run the script with the SHA Dependabot wrote so the date comment and the pre-commit `rev` match. In this repository, the same pull request updates the gate SHA in `AGENTS.md`, `docs/ci-contract.md`, `docs/decisions.md`, and `require-jobs/README.md`.
 
 ## Catalogue
 
