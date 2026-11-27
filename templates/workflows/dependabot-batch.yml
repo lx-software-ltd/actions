@@ -1,4 +1,3 @@
-# template:if-present
 name: Dependabot Batch
 
 on:
