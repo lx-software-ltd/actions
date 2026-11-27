@@ -24,7 +24,7 @@ A major update stays a single pull request, unless the caller adds `major` to `u
 
 This repository does not open a batch of its own. Its Dependabot updates are `github-actions`. It runs `dependabot-batch.yml` in `report` mode for the five repositories. `land` skips this repository, including when the repository list is `siblings`.
 
-The five measurements are taken on `findingalpha` after that repository runs the workflow. They are not recorded yet. The measurements are whether a dispatched gate satisfies the ruleset, whether a pull request that is waiting for approval stays mergeable, whether `POST /merges` accepts a member after `main` changes a workflow, whether a merge commit marks every member merged, and whether this repository's `github.token` can read the five-repository report.
+The five measurements are still open. On 2026-11-27 a local report of the five repositories found no pull request in class `batch` in `findingalpha`, `lx-software`, `siutindei`, or this repository. `evolvesprouts` had three ready candidates, #2346, #2351, and #2356. Dispatching `dependabot-batch.yml` on `evolvesprouts` and on this repository returned HTTP 403, so the workflow's `github.token` has not been exercised. The open questions are whether a dispatched gate satisfies `lint`, `test`, and `security-summary`, whether a pull request that is waiting for approval stays mergeable, whether `POST /merges` with `github.token` accepts a member after `main` changes a workflow, whether a merge commit marks every member merged, and whether this repository's `github.token` can read the five-repository report.
 
 ## Rulesets
 
