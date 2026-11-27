@@ -196,6 +196,9 @@ class World:
             "refs": {},
             "merge_status": {},
             "behind": set(),
+            "on_default": set(),
+            "merges_done": 0,
+            "label_status": 200,
             "next_number": 80,
         }
         self.repos[name] = state
@@ -263,7 +266,7 @@ class World:
             )
         )
         refs[ref] = sha
-        checks_by_sha[sha] = _runs(checks or GREEN)
+        checks_by_sha[sha] = _runs(GREEN if checks is None else checks)
 
     def run(self, args: list[str], payload: dict[str, object] | None = None) -> subprocess.CompletedProcess[str]:
         method = "GET"
@@ -333,11 +336,23 @@ class World:
                 if name.startswith("dependabot-batch/")
             ]
         if method == "GET" and rest.startswith("compare/"):
-            sha = rest[len("compare/") :].split("...", 1)[1]
-            behind = state["behind"]
-            assert isinstance(behind, set)
-            is_behind = sha in behind
-            return 200, {"status": "behind" if is_behind else "identical", "behind_by": 1 if is_behind else 0}
+            spec = rest[len("compare/") :]
+            left, _, right = spec.partition("...")
+            branch = str(state["branch"])
+            if left == branch:
+                behind = state["behind"]
+                assert isinstance(behind, set)
+                is_behind = right in behind
+                return 200, {
+                    "status": "behind" if is_behind else "identical",
+                    "behind_by": 1 if is_behind else 0,
+                    "ahead_by": 0,
+                }
+            on_default = state["on_default"]
+            assert isinstance(on_default, set)
+            if right == branch and (left == state["sha"] or left in on_default):
+                return 200, {"status": "identical", "behind_by": 0, "ahead_by": 0}
+            return 200, {"status": "diverged", "behind_by": 1, "ahead_by": 1}
         if method == "DELETE" and rest.startswith("git/refs/heads/"):
             branch = rest[len("git/refs/heads/") :]
             refs = state["refs"]
@@ -354,9 +369,17 @@ class World:
             merge_status = state["merge_status"]
             assert isinstance(merge_status, dict)
             status = int(merge_status.get(payload["head"], 201))
+            if status == 204:
+                return 204, None
             if status >= 400:
                 return status, {"message": "not merged"}
-            return status, {"sha": _sha("f")}
+            done = int(state["merges_done"]) + 1
+            state["merges_done"] = done
+            merge_sha = f"{done:040x}"
+            refs = state["refs"]
+            assert isinstance(refs, dict)
+            refs[str(payload["base"])] = merge_sha
+            return 201, {"sha": merge_sha}
         if method == "POST" and rest == "pulls" and payload is not None:
             number = int(state["next_number"])
             state["next_number"] = number + 1
@@ -377,7 +400,10 @@ class World:
             )
             return 201, {"number": number}
         if method == "POST" and rest.startswith("issues/") and rest.endswith("/labels"):
-            return 200, [{"name": "dependencies"}]
+            status = int(state["label_status"])
+            if status >= 400:
+                return status, {"message": "label failed"}
+            return status, [{"name": "dependencies"}]
         if method == "POST" and rest.startswith("issues/") and rest.endswith("/comments"):
             return 201, {"id": 1}
         if method == "PATCH" and rest.startswith("pulls/") and payload is not None:
@@ -498,6 +524,17 @@ class DependabotBatchTest(unittest.TestCase):
         self.assertEqual(batch.classify(unverified, _config()).kind, "edited")
         missing_author = _pull(commits=(_commit(author_login=None),))
         self.assertEqual(batch.classify(missing_author, _config()).kind, "edited")
+        web_editor = (
+            _commit(),
+            _commit(
+                message="Merge branch 'main' into dependabot/npm_and_yarn/left-pad-1.2.3",
+                author_login="lcacchiani",
+                committer_login="web-flow",
+                verified=True,
+                parents=2,
+            ),
+        )
+        self.assertEqual(batch.classify(_pull(commits=web_editor), _config()).kind, "edited")
 
     def test_update_branch_commit_stays_batch(self) -> None:
         commits = (
@@ -508,6 +545,8 @@ class DependabotBatchTest(unittest.TestCase):
                 committer_login="web-flow",
                 verified=True,
                 parents=2,
+                parent_shas=(_sha("b"), _sha("a")),
+                second_parent_on_default=True,
             ),
         )
         self.assertEqual(batch.classify(_pull(commits=commits), _config()).kind, "batch")
@@ -563,6 +602,8 @@ class DependabotBatchTest(unittest.TestCase):
         self.assertEqual(marker.members, {2: _sha("b")})
         self.assertEqual(marker.conflict, {4: _sha("d")})
         self.assertEqual(marker.refused, {})
+        self.assertEqual(marker.landed, {})
+        self.assertIn('"landed":{}', text)
         self.assertIsNone(batch.parse_marker("<!-- dependabot-batch nope -->"))
         self.assertIsNone(batch.parse_marker(text + "\nthanks"))
         self.assertIsNone(batch.parse_marker("<!-- dependabot-batch {} -->"))
@@ -587,31 +628,34 @@ class DependabotBatchTest(unittest.TestCase):
 
     def test_build_merges_in_ascending_order_and_records_409_and_422(self) -> None:
         self.world.add_repo()
-        shas = {2: _sha("b"), 4: _sha("c"), 5: _sha("d"), 9: _sha("e")}
+        shas = {2: _sha("b"), 4: _sha("c"), 5: _sha("d"), 6: _sha("f"), 9: _sha("e")}
         for number, sha in shas.items():
             self.world.add_candidate(number=number, sha=sha, title=f"chore(deps): bump pkg-{number}")
         merge_status = self.world.repos[REPO]["merge_status"]
         assert isinstance(merge_status, dict)
         merge_status[_sha("c")] = 409
         merge_status[_sha("d")] = 422
+        merge_status[_sha("f")] = 403
         merge_status[_sha("e")] = 204
         os.environ["DEPENDABOT_BATCH_MODE"] = "open"
         os.environ["DEPENDABOT_BATCH_START_GATES"] = "dispatch"
         code, stdout, stderr = self._run()
         self.assertEqual(code, 0, stderr)
         merges = [payload["head"] for _path, payload in self._calls("POST", "/merges") if payload]
-        self.assertEqual(merges, [_sha("b"), _sha("c"), _sha("d"), _sha("e")])
+        self.assertEqual(merges, [_sha("b"), _sha("c"), _sha("d"), _sha("f"), _sha("e")])
         created = self._calls("POST", "/pulls")
         self.assertEqual(len(created), 1)
         body = str(created[0][1]["body"])
-        self.assertEqual(created[0][1]["title"], "chore(deps): batch 2 Dependabot updates")
+        self.assertEqual(created[0][1]["title"], "chore(deps): batch 1 Dependabot updates")
         self.assertIn("Merge this pull request with a merge commit.", body)
         self.assertIn("passed the required checks on its own head", body)
         marker = batch.parse_marker(body)
         assert marker is not None
-        self.assertEqual(set(marker.members), {2, 9})
+        self.assertEqual(set(marker.members), {2})
         self.assertEqual(marker.conflict, {4: _sha("c")})
-        self.assertEqual(marker.refused, {5: _sha("d")})
+        self.assertEqual(marker.refused, {5: _sha("d"), 6: _sha("f")})
+        self.assertEqual(marker.landed, {9: _sha("e")})
+        self.assertIn("| landed |", stdout)
         ref = self._calls("POST", "/git/refs")
         self.assertEqual(ref[0][1]["ref"], "refs/heads/dependabot-batch/20261127-030405")
         self.assertEqual(len(self._calls("POST", "/labels")), 1)
@@ -785,6 +829,14 @@ class DependabotBatchTest(unittest.TestCase):
         self.assertEqual(merge[0][1]["merge_method"], "merge")
         self.assertEqual(merge[0][1]["sha"], _sha("b"))
         self.assertIn("merged #40", stdout)
+        update_at = next(
+            index
+            for index, (method, path, _payload) in enumerate(self.world.calls)
+            if method == "PUT" and path.endswith("/update-branch")
+        )
+        later_checks = [path for method, path, _payload in self.world.calls[update_at:] if "check-runs" in path]
+        self.assertTrue(later_checks)
+        self.assertTrue(all(_sha("b") in path for path in later_checks))
         deleted = [path for path, _payload in self._calls("DELETE", "dependabot-batch/20261126-010101")]
         self.assertEqual(deleted, [f"repos/{REPO}/git/refs/heads/dependabot-batch/20261126-010101"])
 
@@ -914,6 +966,212 @@ class DependabotBatchTest(unittest.TestCase):
         self.assertIn("missing", stderr)
         self.assertIn(f"## {REPO}", stdout)
         self.assertIn("nothing to do", stdout)
+
+    def test_an_update_already_on_the_default_branch_is_left_out(self) -> None:
+        self.world.add_repo()
+        self.world.add_candidate(number=2, sha=_sha("b"))
+        merge_status = self.world.repos[REPO]["merge_status"]
+        assert isinstance(merge_status, dict)
+        merge_status[_sha("b")] = 204
+        os.environ["DEPENDABOT_BATCH_MODE"] = "open"
+        code, stdout, stderr = self._run()
+        self.assertEqual(code, 0, stderr)
+        self.assertIn("nothing to do", stdout)
+        self.assertIn("| landed |", stdout)
+        self.assertEqual(self._calls("POST", "/pulls"), [])
+        deleted = [path for path, _payload in self._calls("DELETE", "dependabot-batch/20261127-030405")]
+        self.assertEqual(deleted, [f"repos/{REPO}/git/refs/heads/dependabot-batch/20261127-030405"])
+
+    def test_a_failed_build_deletes_its_branch(self) -> None:
+        self.world.add_repo()
+        self.world.add_candidate(number=2, sha=_sha("b"))
+        merge_status = self.world.repos[REPO]["merge_status"]
+        assert isinstance(merge_status, dict)
+        merge_status[_sha("b")] = 500
+        os.environ["DEPENDABOT_BATCH_MODE"] = "open"
+        code, _stdout, stderr = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("returned 500", stderr)
+        self.assertEqual(self._calls("POST", "/pulls"), [])
+        deleted = [path for path, _payload in self._calls("DELETE", "dependabot-batch/20261127-030405")]
+        self.assertEqual(len(deleted), 1)
+        refs = self.world.repos[REPO]["refs"]
+        assert isinstance(refs, dict)
+        self.assertNotIn("dependabot-batch/20261127-030405", refs)
+
+    def test_a_failed_label_closes_the_pull_request_and_deletes_the_branch(self) -> None:
+        state = self.world.add_repo()
+        self.world.add_candidate(number=2, sha=_sha("b"))
+        state["label_status"] = 500
+        os.environ["DEPENDABOT_BATCH_MODE"] = "open"
+        code, _stdout, stderr = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("label failed", stderr)
+        self.assertEqual(len(self._calls("POST", "/pulls")), 1)
+        self.assertTrue(self._calls("PATCH", "/pulls/80"))
+        self.assertIn("failed before it was labeled", str(self._calls("POST", "/comments")[0][1]["body"]))
+        refs = state["refs"]
+        assert isinstance(refs, dict)
+        self.assertNotIn("dependabot-batch/20261127-030405", refs)
+
+    def test_the_new_batch_head_is_the_last_merge_commit(self) -> None:
+        self.world.add_repo()
+        snapshot = batch.Snapshot(REPO, "main", _sha("a"), ())
+        classified = [
+            batch.Classified(_pull(number=2, head_sha=_sha("b")), "batch", "ready"),
+            batch.Classified(_pull(number=3, head_sha=_sha("c")), "batch", "ready"),
+        ]
+        opened, _final, count = batch._build(snapshot, classified, _config())
+        assert opened is not None
+        self.assertEqual(count, 2)
+        self.assertEqual(opened.head_sha, f"{2:040x}")
+        self.assertNotEqual(opened.head_sha, snapshot.sha)
+
+    def test_a_stuck_queued_check_does_not_hold_the_repository(self) -> None:
+        fresh = batch.Check("queued", None, datetime(2026, 11, 27, 3, 0, tzinfo=timezone.utc))
+        self.assertEqual(batch.classify(_pull(checks=_checks(test=fresh)), _config()).kind, "running")
+        stuck = batch.Check("queued", None, datetime(2026, 11, 27, 1, 0, tzinfo=timezone.utc))
+        self.assertEqual(batch.classify(_pull(checks=_checks(test=stuck)), _config()).kind, "unchecked")
+        self.world.add_repo()
+        self.world.add_candidate(number=2, sha=_sha("b"), checks={**GREEN, "test": "queued"})
+        runs = self.world.repos[REPO]["checks"]
+        assert isinstance(runs, dict)
+        for run in runs[_sha("b")]:
+            if run["name"] == "test":
+                run["started_at"] = "2026-11-27T01:00:00Z"
+        self.world.add_candidate(number=3, sha=_sha("c"))
+        os.environ["DEPENDABOT_BATCH_MODE"] = "open"
+        code, stdout, stderr = self._run()
+        self.assertEqual(code, 0, stderr)
+        self.assertIn("built #80", stdout)
+        self.assertIn("| unchecked |", stdout)
+        merges = [payload["head"] for _path, payload in self._calls("POST", "/merges") if payload]
+        self.assertEqual(merges, [_sha("c")])
+
+    def test_a_new_green_candidate_waits_for_the_next_batch(self) -> None:
+        self.world.add_repo()
+        self.world.add_candidate(number=2, sha=_sha("b"))
+        self.world.add_candidate(number=3, sha=_sha("c"))
+        body = "kept\n" + batch.format_marker({2: _sha("b")}, {}, {}) + "\n"
+        self.world.add_batch(number=40, sha=_sha("d"), body=body)
+        os.environ["DEPENDABOT_BATCH_MODE"] = "open"
+        code, stdout, stderr = self._run()
+        self.assertEqual(code, 0, stderr)
+        self.assertIn("kept #40", stdout)
+        self.assertIn("waits for the next batch", stdout)
+        self.assertEqual(self._calls("POST", "/merges"), [])
+        self.assertEqual(self._calls("PATCH", ""), [])
+
+    def test_missing_gates_are_started_again_and_the_run_exits_1(self) -> None:
+        self.world.add_repo()
+        self.world.add_candidate(number=2, sha=_sha("b"))
+        body = "kept\n" + batch.format_marker({2: _sha("b")}, {}, {}) + "\n"
+        self.world.add_batch(number=40, sha=_sha("d"), body=body, checks={})
+        os.environ["DEPENDABOT_BATCH_MODE"] = "open"
+        os.environ["DEPENDABOT_BATCH_START_GATES"] = "dispatch"
+        code, stdout, stderr = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("kept #40", stdout)
+        self.assertIn("gates have not started", stderr)
+        self.assertIn("Checks: not started", stdout)
+        workflows = [path.rsplit("/", 2)[-2] for path, _payload in self._calls("POST", "/dispatches")]
+        self.assertEqual(workflows, ["lint.yml", "test.yml", "security.yml"])
+        self.assertEqual(self._calls("POST", "/pulls"), [])
+
+    def test_report_exits_1_when_gates_have_not_started(self) -> None:
+        self.world.add_repo()
+        body = "kept\n" + batch.format_marker({2: _sha("b")}, {}, {}) + "\n"
+        self.world.add_batch(number=40, sha=_sha("d"), body=body, checks={})
+        os.environ["DEPENDABOT_BATCH_MODE"] = "report"
+        code, stdout, stderr = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("Checks: not started", stdout)
+        self.assertIn("gates have not started", stderr)
+        self.assertEqual(self._calls("POST", "/dispatches"), [])
+
+    def test_update_branch_second_parent_is_read_from_the_default_branch(self) -> None:
+        state = self.world.add_repo()
+        self.world.add_candidate(number=2, sha=_sha("b"))
+        commits = state["commits"]
+        assert isinstance(commits, dict)
+        merge = _api_commit(
+            "Merge branch 'main' into dependabot/npm_and_yarn/left-pad-1.2.3",
+            author="lcacchiani",
+            parents=2,
+        )
+        merge["parents"] = [{"sha": _sha("b")}, {"sha": _sha("a")}]
+        commits[2].append(merge)
+        os.environ["DEPENDABOT_BATCH_MODE"] = "report"
+        code, stdout, stderr = self._run()
+        self.assertEqual(code, 0, stderr)
+        self.assertIn("| batch |", stdout)
+        merge["parents"] = [{"sha": _sha("b")}, {"sha": _sha("c")}]
+        code, stdout, stderr = self._run()
+        self.assertEqual(code, 0, stderr)
+        self.assertIn("| edited |", stdout)
+
+    def test_land_polls_repositories_together(self) -> None:
+        slow = REPO
+        fast = "lx-software-ltd/lx-software"
+        self.world.add_repo(slow)
+        self.world.add_repo(fast)
+        self.world.add_candidate(number=2, sha=_sha("e"), repo=slow)
+        self.world.add_candidate(number=3, sha=_sha("c"), repo=fast)
+        self.world.add_batch(
+            number=40,
+            sha=_sha("d"),
+            body="kept\n" + batch.format_marker({2: _sha("e")}, {}, {}) + "\n",
+            checks={**GREEN, "test": "in_progress"},
+            repo=slow,
+        )
+        self.world.add_batch(
+            number=41,
+            sha=_sha("b"),
+            body="kept\n" + batch.format_marker({3: _sha("c")}, {}, {}) + "\n",
+            repo=fast,
+        )
+        order: list[str] = []
+        real_run = self.world.run
+
+        def run(args: list[str], payload: dict[str, object] | None = None) -> subprocess.CompletedProcess[str]:
+            result = real_run(args, payload)
+            if "--method" in args and args[args.index("--method") + 1] == "PUT" and args[-1].endswith("/merge"):
+                order.append("merge:" + args[-1])
+            return result
+
+        def sleep(seconds: float) -> None:
+            del seconds
+            order.append("sleep")
+            self.now += 30
+            checks = self.world.repos[slow]["checks"]
+            assert isinstance(checks, dict)
+            checks[_sha("d")] = _runs(GREEN, start=50)
+
+        batch._run_gh = run
+        batch._sleep = sleep
+        os.environ["DEPENDABOT_BATCH_MODE"] = "land"
+        os.environ["DEPENDABOT_BATCH_REPOSITORIES"] = f"{slow} {fast}"
+        code, stdout, stderr = self._run()
+        self.assertEqual(code, 0, stderr)
+        self.assertLess(order.index(f"merge:repos/{fast}/pulls/41/merge"), order.index("sleep"))
+        self.assertLess(order.index("sleep"), order.index(f"merge:repos/{slow}/pulls/40/merge"))
+        self.assertIn("merged #41", stdout)
+        self.assertIn("merged #40", stdout)
+
+    def test_land_skips_this_repository(self) -> None:
+        self.world.add_repo(batch.THIS_REPOSITORY)
+        self.world.add_candidate(number=2, sha=_sha("b"), repo=batch.THIS_REPOSITORY)
+        self.world.add_repo()
+        self.world.add_candidate(number=3, sha=_sha("c"))
+        body = "kept\n" + batch.format_marker({3: _sha("c")}, {}, {}) + "\n"
+        self.world.add_batch(number=40, sha=_sha("d"), body=body)
+        os.environ["DEPENDABOT_BATCH_MODE"] = "land"
+        os.environ["DEPENDABOT_BATCH_REPOSITORIES"] = f"{batch.THIS_REPOSITORY} {REPO}"
+        code, stdout, stderr = self._run()
+        self.assertEqual(code, 0, stderr)
+        self.assertIn(f"{batch.THIS_REPOSITORY} does not open a batch", stdout)
+        self.assertIn("merged #40", stdout)
+        self.assertFalse(any(batch.THIS_REPOSITORY in path for _method, path, _payload in self.world.calls))
 
     def test_unknown_mode_and_repository_exit_1(self) -> None:
         os.environ["DEPENDABOT_BATCH_MODE"] = "explode"

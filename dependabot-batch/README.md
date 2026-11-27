@@ -14,19 +14,22 @@ The first rule that matches wins.
 | --- | --- |
 | `foreign` | The author is not `dependabot[bot]` (id `49699333`, type `Bot`), or the head repository is not the base repository. |
 | `draft` | The pull request is a draft. |
-| `edited` | A commit is not Dependabot's, or is not verified. A verified two-parent commit whose committer is `web-flow` is the Update branch merge and is allowed. |
+| `edited` | A commit is not Dependabot's, or is not verified. A verified two-parent commit whose committer is `web-flow` is allowed only when its second parent is already on the default branch. That is the Update branch merge. A web-editor conflict resolution is not. |
 | `unclassified` | No Dependabot commit carries an `updated-dependencies` block, or an entry has no `update-type`. |
 | `excluded` | A dependency name matches `exclude-dependencies`. |
 | `level` | An entry's semver level is not in `update-types`. One major entry in a group makes the pull request `level`. |
 | `path` | A changed file matches `exclude-paths`. |
-| `running` | A required check on the head is still running. |
-| `unchecked` | A required check has no run on the head. |
+| `running` | A required check on the head is still running, and it has not been in that state for `timeout-minutes`. |
+| `unchecked` | A required check has no run on the head, or it has been queued or in progress for at least `timeout-minutes`. A stuck check does not hold the repository. |
 | `failing` | A required check finished with anything other than success. |
 | `batch` | None of the above. |
 | `conflict` | The merge into the batch branch returned 409. |
-| `refused` | The merge into the batch branch returned 422. |
+| `refused` | The merge into the batch branch returned 422 or 403. |
+| `landed` | The merge returned 204. The update is already on the default branch, so it is not a member. |
 
-A candidate named in the open batch's marker, with the same head SHA, keeps the recorded `batch`, `conflict`, or `refused` class. Its checks are not read again.
+A candidate named in the open batch's marker, with the same head SHA, keeps the recorded `batch`, `conflict`, `refused`, or `landed` class. Its checks are not read again.
+
+A new `batch` candidate does not close an open batch whose recorded members still match. It waits for the next batch, so the gates are not restarted. A batch whose required checks have no run makes `report` and `open` exit 1. `open` and `land` send the gate workflows again when `start-gates` is `dispatch`.
 
 ## Inputs
 
@@ -50,7 +53,11 @@ With one repository, `pull-request` is the batch pull request number, or empty, 
 
 `report` needs `contents: read`, `checks: read`, and `pull-requests: read`. `open` also needs `contents: write` and `pull-requests: write`. `start-gates: dispatch` needs `actions: write`. The runner needs `python3` and, unless `live-json` is set, `gh` on `PATH`. The current Ubuntu runners provide both. Do not add `setup-python`.
 
-`siblings` means `lx-software-ltd/actions`, `evolvesprouts`, `findingalpha`, `lx-software`, and `siutindei`. The product workflow opens a batch for the calling repository. This repository's workflow reports all five. `report` works with any token that can read public repositories.
+`siblings` means `lx-software-ltd/actions`, `evolvesprouts`, `findingalpha`, `lx-software`, and `siutindei`. The product workflow opens a batch for the calling repository. This repository's workflow reports all five. `land` skips `lx-software-ltd/actions`, because this repository does not open a batch of its own. `report` works with any token that can read public repositories.
+
+`land` checks whether the batch is behind the default branch before it waits for the gates. It polls every repository together, so one slow gate does not queue the others.
+
+A failed build deletes the batch branch it created. If the pull request was opened and the label step failed, that pull request is closed too.
 
 ## Three ways to run it
 

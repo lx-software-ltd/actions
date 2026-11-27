@@ -22,9 +22,9 @@ Nothing merges with `github.token`. A merge by that token starts no push workflo
 
 A major update stays a single pull request, unless the caller adds `major` to `update-types`. A pull request that changes a file under `.github/workflows/` stays a single pull request. The `actions-pin` group stays a single pull request: the default exclude is `lx-software-ltd/actions/*`, and `scripts/bump_pins.py` still runs on that branch before it merges.
 
-This repository does not open a batch of its own. Its Dependabot updates are `github-actions`. It runs `dependabot-batch.yml` in `report` mode for the five repositories.
+This repository does not open a batch of its own. Its Dependabot updates are `github-actions`. It runs `dependabot-batch.yml` in `report` mode for the five repositories. `land` skips this repository, including when the repository list is `siblings`.
 
-The five measurements — whether a dispatched gate satisfies the ruleset, whether a pull request that is waiting for approval stays mergeable, whether `POST /merges` accepts a member after `main` changes a workflow, whether a merge commit marks every member merged, and whether this repository's `github.token` can read the five-repository report — are taken on `findingalpha` after that repository runs the workflow. They are not recorded yet.
+The five measurements are taken on `findingalpha` after that repository runs the workflow. They are not recorded yet. The measurements are whether a dispatched gate satisfies the ruleset, whether a pull request that is waiting for approval stays mergeable, whether `POST /merges` accepts a member after `main` changes a workflow, whether a merge commit marks every member merged, and whether this repository's `github.token` can read the five-repository report.
 
 ## Rulesets
 

@@ -37,7 +37,7 @@ updated-dependencies:
 ...
 ```
 
-- Update branch adds a merge commit by the person who clicked. It has two parents, the committer is `web-flow`, and it is verified.
+- Update branch adds a merge commit by the person who clicked. It has two parents, the committer is `web-flow`, it is verified, and its second parent is a commit already on the default branch. A merge commit from the web editor has the same committer. It is not this exception unless that second parent is on the default branch.
 - `chore(deps)` is the prefix for npm, pip, and pub. `ci` is the prefix for `github-actions`. A `github-actions` group can hold a major bump. `siutindei` 997 moves `actions/download-artifact` from 7 to 8.
 - The `actions-pin` group needs `scripts/bump_pins.py` on the branch before it can merge. That stays as it is.
 
@@ -140,12 +140,12 @@ A candidate is an open pull request whose base is the default branch and whose h
 | --- | --- |
 | `foreign` | The author is not `dependabot[bot]` with id `49699333` and type `Bot`, or the head repository is not the base repository. |
 | `draft` | The pull request is a draft. |
-| `edited` | A commit is not authored by `dependabot[bot]`, or is not verified. One exception: a verified two-parent commit whose committer is `web-flow`, which is what Update branch writes. A commit with no linked author is not Dependabot's. |
+| `edited` | A commit is not authored by `dependabot[bot]`, or is not verified. One exception: a verified two-parent commit whose committer is `web-flow` and whose second parent is already on the default branch, which is what Update branch writes. A commit with no linked author is not Dependabot's. |
 | `unclassified` | No Dependabot commit carries an `updated-dependencies` block, or an entry has no `update-type`. |
 | `excluded` | A dependency name matches `exclude-dependencies`. |
 | `level` | An entry's level is not in `update-types`. A group with one major entry is `level`. |
 | `path` | A changed file matches `exclude-paths`. |
-| `running` | A required check on the head is queued or in progress. |
+| `running` | A required check on the head is queued or in progress, and it has not been in that state for `timeout-minutes`. A check that has been queued or in progress for at least that long is `unchecked` and does not hold the repository. |
 | `unchecked` | A required check has no run on the head. |
 | `failing` | A required check finished with anything other than success. |
 | `batch` | None of the above. |
@@ -154,7 +154,7 @@ Two more classes are set while building: `conflict` when the merge returns 409, 
 
 The `updated-dependencies` block is read with a line parser. It starts at the line `updated-dependencies:` and ends at the line `...`. An entry starts at `- dependency-name:`. A value may be double-quoted.
 
-A candidate named in the marker of the open batch pull request, with the same head SHA, is still put through the rules down to `path`. If it passes them, its checks are not read again and it keeps what the marker recorded: `batch` for a member, `conflict` or `refused` for one that was tried and left out.
+A candidate named in the marker of the open batch pull request, with the same head SHA, is still put through the rules down to `path`. If it passes them, its checks are not read again and it keeps what the marker recorded: `batch` for a member, `conflict` or `refused` for one that was tried and left out, and `landed` for one that was already on the default branch.
 
 To take an update out of a batch, mark its pull request as draft. The next run builds the batch without it.
 
@@ -166,19 +166,20 @@ Per repository:
 2. If any candidate is `running`, build nothing and report `waiting`. This stops a run that starts in the middle of Dependabot's own gates from building half a batch.
 3. Find the open batch pull request: head ref starts with `dependabot-batch/`, head repository is the base repository, and the body ends with a valid marker. A pull request without a valid marker is not touched.
 4. Compare the marker with the candidates now. The marker names the members and the candidates it tried and left out, each with its head SHA.
-   - The candidates that are `batch`, `conflict`, or `refused` now are exactly the ones the marker names, with the same head SHAs: keep it. Do not update the branch and do not start the gates again. If a required check on its head has failed, the run exits 1 so the owner is told.
-   - Anything else: comment on the old pull request that it is superseded, close it, delete its branch, and build a new one.
+   - Every candidate the marker names is still the same class, with the same head SHA: keep it. A new `batch` candidate that the marker does not name waits for the next batch. It does not close this pull request and it does not restart the gates.
+   - Do not update the branch. If a required check on its head has failed, the run exits 1. If a required check has no run, `report` exits 1, and `open` exits 1. When `start-gates` is `dispatch`, `open` and `land` send the gate workflows again before that.
+   - Anything else, including a recorded member that no longer matches: comment on the old pull request that it is superseded, close it, delete its branch, and build a new one.
    - No batch pull request and no `batch` candidate: nothing to do.
-5. Build. Create `refs/heads/dependabot-batch/<yyyymmdd>-<hhmmss>` (UTC) at the head SHA of the default branch. For each `batch` candidate in ascending pull request number, `POST /repos/{repo}/merges` with `base` the batch branch and `head` the candidate's head SHA. 201 and 204 make it a member. 409 is `conflict`. 422 is `refused`. If no member merged, delete the branch and stop.
+5. Build. Create `refs/heads/dependabot-batch/<yyyymmdd>-<hhmmss>` (UTC) at the head SHA of the default branch. For each `batch` candidate in ascending pull request number, `POST /repos/{repo}/merges` with `base` the batch branch and `head` the candidate's head SHA. 201 makes it a member, and the batch head becomes that merge commit. 204 means the update is already on the default branch: class `landed`, and leave it out of the members. 409 is `conflict`. 422 and 403 are `refused`. If no member merged, delete the branch and stop. If the build fails after the branch exists and before the pull request is labeled, delete the branch, and close the pull request when one was opened.
 6. Open the pull request. Title: `chore(deps): batch <n> Dependabot updates`. Label: `dependencies`. The body lists each member as `#<number>` with its title, lists every candidate that was left out with its class, says that each member passed the required checks on its own head, says to merge with a merge commit, and ends with the marker:
 
 ```text
-<!-- dependabot-batch {"members":{"<number>":"<head sha>"},"conflict":{"<number>":"<head sha>"},"refused":{"<number>":"<head sha>"}} -->
+<!-- dependabot-batch {"members":{"<number>":"<head sha>"},"conflict":{"<number>":"<head sha>"},"refused":{"<number>":"<head sha>"},"landed":{"<number>":"<head sha>"}} -->
 ```
 
 7. When `start-gates` is `dispatch`, send `workflow_dispatch` on the batch branch for each file in `gate-workflows`.
 
-The `conflict` and `refused` records are what stop a rebuild every run. A candidate that conflicts with the batch is still green on its own. Without the record it would look like a new member each time. Once the batch merges, that candidate conflicts with `main`, Dependabot rebases it, and the next batch picks it up.
+The `conflict`, `refused`, and `landed` records are what stop a rebuild every run. A candidate that conflicts with the batch is still green on its own. Without the record it would look like a new member each time. Once the batch merges, that candidate conflicts with `main`, Dependabot rebases it, and the next batch picks it up. A `landed` update is already on the default branch, so it is not a member.
 
 The action never updates a batch branch in `open`. When `main` moves, the owner clicks Update branch on the batch pull request. That click starts the gates as the owner, with no approval step.
 
@@ -186,13 +187,15 @@ The action never updates a batch branch in `open`. When `main` moves, the owner 
 
 `land` does everything `open` does, then:
 
-1. Waits until every required check on the batch head has finished, polling every 30 seconds, up to `timeout-minutes`.
-2. If the pull request is behind the default branch, calls `PUT /pulls/{n}/update-branch` with `expected_head_sha` and waits again. Three attempts.
+1. If the pull request is behind the default branch, calls `PUT /pulls/{n}/update-branch` with `expected_head_sha` and waits for the new head. Three attempts. This happens before the gates are waited on, so an update does not spend a gate run on a head that is about to change.
+2. Waits until every required check on the batch head has finished, polling every 30 seconds, up to `timeout-minutes`. Repositories are polled together, so the timeouts overlap.
 3. If a required check failed, stops and exits 1. The pull request stays open.
 4. Merges with `PUT /pulls/{n}/merge`, `merge_method: merge`, and `sha` set to the head it checked.
 5. Deletes the batch branch.
 
 `land` refuses to run when `token` equals `github.token`. The action passes `github.token` to the payload in a second variable so it can compare. The message says that a merge by `github.token` starts no push workflow, so nothing would deploy.
+
+`land` skips `lx-software-ltd/actions`. This repository does not open a batch of its own.
 
 `land` is for a checkout with `gh` signed in as the owner:
 
