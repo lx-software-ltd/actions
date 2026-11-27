@@ -168,10 +168,14 @@ class SyncProfileTest(unittest.TestCase):
             source = Path(tmp)
             self._tree(source)
             (source / "about.html").write_text("about", encoding="utf-8")
+            (source / "app.js").write_text("js", encoding="utf-8")
+            (source / "app.css").write_text("css", encoding="utf-8")
+            (source / "site.webmanifest").write_text("{}", encoding="utf-8")
             (source / "media").mkdir()
             (source / "media" / "clip.mp4").write_text("m", encoding="utf-8")
             (source / "images").mkdir()
             (source / "images" / "logo.png").write_text("p", encoding="utf-8")
+            (source / "images" / "widget.js").write_text("js", encoding="utf-8")
             s3_sync.deploy(
                 source=source,
                 bucket="site-bucket",
@@ -190,6 +194,41 @@ class SyncProfileTest(unittest.TestCase):
         self.assertEqual(len(asset_syncs), 2)
         self.assertNotIn("--delete", asset_syncs[0])
         self.assertIn("--delete", asset_syncs[1])
+        self.assertTrue(all("--content-type" not in call for call in asset_syncs))
+
+        def header(dest: str, name: str) -> str:
+            matches = [call for call in calls if call[1:3] == ["s3", "cp"] and call[4] == dest]
+            self.assertEqual(len(matches), 1, dest)
+            call = matches[0]
+            self.assertIn(name, call, dest)
+            return call[call.index(name) + 1]
+
+        self.assertEqual(
+            header("s3://site-bucket/app.js", "--content-type"),
+            "text/javascript; charset=utf-8",
+        )
+        self.assertEqual(header("s3://site-bucket/app.js", "--cache-control"), "no-cache")
+        self.assertEqual(
+            header("s3://site-bucket/app.css", "--content-type"),
+            "text/css; charset=utf-8",
+        )
+        self.assertEqual(header("s3://site-bucket/app.css", "--cache-control"), "no-cache")
+        self.assertEqual(
+            header("s3://site-bucket/images/widget.js", "--content-type"),
+            "text/javascript; charset=utf-8",
+        )
+        self.assertEqual(
+            header("s3://site-bucket/images/widget.js", "--cache-control"),
+            "no-cache",
+        )
+        self.assertEqual(
+            header("s3://site-bucket/site.webmanifest", "--content-type"),
+            "application/manifest+json",
+        )
+        self.assertEqual(
+            header("s3://site-bucket/favicon.ico", "--cache-control"),
+            s3_sync.IMMUTABLE,
+        )
         self.assertFalse(any(call[1] == "cloudfront" for call in calls))
 
     def test_a_missing_build_does_not_call_aws(self) -> None:

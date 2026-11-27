@@ -93,15 +93,15 @@ def _content_type_routes(path: str) -> str:
     name = path.lower()
     if name.endswith(".webmanifest"):
         return "application/manifest+json"
-    if name.endswith(".js") or name.endswith(".css"):
-        return "application/octet-stream"
     return _content_type_hashed(path)
 
 
 def _cache_routes(key: str) -> str:
     lower = key.lower()
+    # Root .js and .css names are not content hashes. An immutable year
+    # would keep a previous response after the bytes change.
     if (
-        lower.endswith((".html", ".txt", ".xml"))
+        lower.endswith((".html", ".txt", ".xml", ".js", ".css"))
         or lower.endswith("site.webmanifest")
         or "/" in key
     ):
