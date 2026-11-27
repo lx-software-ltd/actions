@@ -60,7 +60,7 @@ The workflow step that refuses `GitHubActionsRole` is not a security boundary. A
 
 `sync-labels/labels.json` is the shared catalogue for this repository and the four product repositories. It holds the GitHub defaults plus `dependencies`, `ci`, `infrastructure`, and `mobile`. `mobile` is colour `0e8a16` and description "Flutter app", the value already on `evolvesprouts` and `siutindei`. The action creates a missing label and updates colour, description, and letter case. A label that is not in the catalogue stays, so a product label such as `lambda` or `board-ready` remains on that product.
 
-This repository applies the catalogue with `github.token`. That token writes labels here. Applying it to a product repository needs a token that can write issues on that repository, or the product runs the action itself after the pin moves.
+This repository applies the catalogue to itself with `github.token`. The four product repositories run `sync-labels.yml` from the template after the pin moves. `github.token` writes the calling repository. `siblings` remains the local command when `gh` can write issues on each repository.
 
 ## Denylist
 

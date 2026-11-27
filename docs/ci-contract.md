@@ -17,6 +17,7 @@ These check and deploy workflows match `templates/workflows/`. The comparison ig
 | `semgrep.yml` | `semgrep` named `semgrep/ci` | `push` to `main`, `pull_request`, Monday 08:00 UTC, `workflow_dispatch`. Skips Dependabot |
 | `check-lockfiles.yml` | `node-lockfiles`, `python-requirements`. `flutter-lockfiles` when a `pubspec.yaml` exists. `ios-lockfiles` when a tracked `Podfile` exists (none today) | `pull_request`, `push` to `main`, `workflow_dispatch` |
 | `verify-rulesets.yml` | `verify-branch-protection` | Monday 09:00 UTC, `workflow_dispatch` |
+| `sync-labels.yml` | `sync` | `push` to `main`, Monday 08:00 UTC, `workflow_dispatch`. Applies the catalogue to the calling repository. Not a required check |
 | `dependency-submission.yml` | `check`, `submit` | `pull_request`, `push` to `main`, `workflow_dispatch` |
 | `cdk-bootstrap.yml` | `bootstrap` | `workflow_dispatch` only |
 | `security.yml` | `checkov`, `codeql`, `pii-denylist`, `secrets-scan`, `dependency-audit`, `bandit`, `npm-audit`, `security-summary` | `push` to `main`, `pull_request` with no path filter, Monday 08:00 UTC, `workflow_dispatch` |

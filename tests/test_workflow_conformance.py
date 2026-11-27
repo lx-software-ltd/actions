@@ -751,6 +751,30 @@ class TemplateComparisonTest(unittest.TestCase):
                 )
             )
 
+    def test_sync_labels_template_is_required(self) -> None:
+        template = (ROOT / "templates" / "workflows" / "sync-labels.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertFalse(template.startswith("# template:if-present"))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workflows = root / ".github" / "workflows"
+            workflows.mkdir(parents=True)
+            templates = root / "templates" / "workflows"
+            templates.mkdir(parents=True)
+            (templates / "sync-labels.yml").write_text(template, encoding="utf-8")
+            missing = checker.template_findings(root, templates)
+            self.assertEqual(
+                missing,
+                [".github/workflows/sync-labels.yml: missing the shared workflow"],
+            )
+            pinned = template.replace("ACTIONS_PIN", "a" * 40).replace(
+                "DATE", "2026-11-27"
+            )
+            (workflows / "sync-labels.yml").write_text(pinned, encoding="utf-8")
+            found = checker.template_findings(root, templates)
+            self.assertEqual(found, [], found)
+
     def test_an_indented_marker_is_a_marker(self) -> None:
         template = (
             "jobs:\n  step:\n    with:\n"
