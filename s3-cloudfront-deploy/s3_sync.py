@@ -98,8 +98,10 @@ def _content_type_routes(path: str) -> str:
 
 def _cache_routes(key: str) -> str:
     lower = key.lower()
+    # Root .js and .css names are not content hashes. An immutable year
+    # would keep a previous response after the bytes change.
     if (
-        lower.endswith((".html", ".txt", ".xml"))
+        lower.endswith((".html", ".txt", ".xml", ".js", ".css"))
         or lower.endswith("site.webmanifest")
         or "/" in key
     ):

@@ -196,19 +196,38 @@ class SyncProfileTest(unittest.TestCase):
         self.assertIn("--delete", asset_syncs[1])
         self.assertTrue(all("--content-type" not in call for call in asset_syncs))
 
-        def content_type(dest: str) -> str:
-            copied = next(call for call in calls if call[1:3] == ["s3", "cp"] and call[4] == dest)
-            return copied[copied.index("--content-type") + 1]
+        def header(dest: str, name: str) -> str:
+            matches = [call for call in calls if call[1:3] == ["s3", "cp"] and call[4] == dest]
+            self.assertEqual(len(matches), 1, dest)
+            call = matches[0]
+            self.assertIn(name, call, dest)
+            return call[call.index(name) + 1]
 
-        self.assertEqual(content_type("s3://site-bucket/app.js"), "text/javascript; charset=utf-8")
-        self.assertEqual(content_type("s3://site-bucket/app.css"), "text/css; charset=utf-8")
         self.assertEqual(
-            content_type("s3://site-bucket/images/widget.js"),
+            header("s3://site-bucket/app.js", "--content-type"),
+            "text/javascript; charset=utf-8",
+        )
+        self.assertEqual(header("s3://site-bucket/app.js", "--cache-control"), "no-cache")
+        self.assertEqual(
+            header("s3://site-bucket/app.css", "--content-type"),
+            "text/css; charset=utf-8",
+        )
+        self.assertEqual(header("s3://site-bucket/app.css", "--cache-control"), "no-cache")
+        self.assertEqual(
+            header("s3://site-bucket/images/widget.js", "--content-type"),
             "text/javascript; charset=utf-8",
         )
         self.assertEqual(
-            content_type("s3://site-bucket/site.webmanifest"),
+            header("s3://site-bucket/images/widget.js", "--cache-control"),
+            "no-cache",
+        )
+        self.assertEqual(
+            header("s3://site-bucket/site.webmanifest", "--content-type"),
             "application/manifest+json",
+        )
+        self.assertEqual(
+            header("s3://site-bucket/favicon.ico", "--cache-control"),
+            s3_sync.IMMUTABLE,
         )
         self.assertFalse(any(call[1] == "cloudfront" for call in calls))
 

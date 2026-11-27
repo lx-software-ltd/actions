@@ -8,7 +8,7 @@ Syncs a built site to a bucket and invalidates CloudFront. The job needs AWS cre
 | --- | --- |
 | `public-hashed` | Hashed `assets/` with `--delete`, root files with a content type, `index.html` last and `no-cache`, then delete retired root keys. |
 | `admin-hashed` | Hashed `assets/` with `--delete`. Other root files are immutable and have no content type. `index.html` is last and `no-cache`. Root keys are not pruned. |
-| `public-routes` | Assets, size-only `media/`, extensionless HTML routes, unhashed directories, then a second assets sync with `--delete`. `indexnow: true` pings IndexNow and does not fail the deploy. |
+| `public-routes` | Assets, size-only `media/`, extensionless HTML routes, unhashed directories, then a second assets sync with `--delete`. `.js` and `.css` use the hashed content types and `no-cache`, including at the site root. `indexnow: true` pings IndexNow and does not fail the deploy. |
 | `next-export` | `aws s3 sync --delete` of a Next.js `out/` directory, then an invalidation. |
 | `next-site` | `_next/static` with `public, max-age=31536000, immutable`, then the other files with `public, max-age=300, must-revalidate` and `--delete`. The document sync excludes `_next/static/*` and `releases/*`. |
 | `maintenance` | One sync with `no-store, max-age=0`, `--delete`, and `--exclude releases/*`. `maintenance-assets` syncs that directory first with its own cache, then excludes it. |
