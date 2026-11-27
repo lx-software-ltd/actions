@@ -155,6 +155,8 @@ class FixtureWorkflowTest(unittest.TestCase):
             "setup-python-fail:",
             "sync-labels-pass:",
             "sync-labels-fail:",
+            "dependabot-batch-pass:",
+            "dependabot-batch-fail:",
             "pii-denylist-pass:",
             "pii-denylist-fail:",
             "gitleaks-pass:",
@@ -210,8 +212,8 @@ class FixtureWorkflowTest(unittest.TestCase):
             "api-contract-fail:",
         ):
             self.assertIn(job, text)
-        self.assertEqual(text.count("continue-on-error: true"), 35)
-        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 34)
+        self.assertEqual(text.count("continue-on-error: true"), 36)
+        self.assertEqual(text.count('test "$OUTCOME" = "failure"'), 35)
 
 
 if __name__ == "__main__":

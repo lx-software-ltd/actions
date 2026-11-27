@@ -1,0 +1,35 @@
+{
+  "lx-software-ltd/findingalpha": {
+    "default_branch": "main",
+    "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "pull_requests": [
+      {
+        "number": 50,
+        "title": "chore(deps): batch 1 Dependabot updates",
+        "body": "Each member passed the required checks on its own head. Merge this pull request with a merge commit.\n\n## Members\n\n- #2 chore(deps): bump left-pad\n\n<!-- dependabot-batch {\"members\":{\"2\":\"cccccccccccccccccccccccccccccccccccccccc\"},\"conflict\":{},\"refused\":{}} -->\n",
+        "draft": false,
+        "author": {
+          "login": "github-actions[bot]",
+          "id": 41898282,
+          "type": "Bot"
+        },
+        "head": {
+          "ref": "dependabot-batch/20261127-030000",
+          "sha": "dddddddddddddddddddddddddddddddddddddddd",
+          "repo": "lx-software-ltd/findingalpha"
+        },
+        "base": {
+          "ref": "main",
+          "repo": "lx-software-ltd/findingalpha"
+        },
+        "commits": [],
+        "files": [],
+        "checks": {
+          "lint": "success",
+          "test": "failure",
+          "security-summary": "success"
+        }
+      }
+    ]
+  }
+}
