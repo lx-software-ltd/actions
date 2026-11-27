@@ -93,8 +93,6 @@ def _content_type_routes(path: str) -> str:
     name = path.lower()
     if name.endswith(".webmanifest"):
         return "application/manifest+json"
-    if name.endswith(".js") or name.endswith(".css"):
-        return "application/octet-stream"
     return _content_type_hashed(path)
 
 
