@@ -241,6 +241,70 @@ jobs:
       - name: Check workflows
         uses: lx-software-ltd/actions/workflow-conformance@8b75c2c3e18a96ffae1ac4f99e3dceb4821a1faf # main 2026-11-24
 
+  # template:optional mobile
+  flutter-lockfiles:
+    name: Check Flutter lockfiles
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check Flutter lockfile
+        uses: lx-software-ltd/actions/flutter-lockfiles@ACTIONS_PIN # main DATE
+        with:
+          # template:set
+          working-directory: apps/example_app
+          # template:end
+
+  # template:end
+  node-lockfiles:
+    name: Check Node.js lockfiles
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: lx-software-ltd/actions/setup-node@ACTIONS_PIN # main DATE
+
+      - name: Validate package-lock.json
+        uses: lx-software-ltd/actions/node-lockfiles@ACTIONS_PIN # main DATE
+        with:
+          # template:set
+          directories: |
+            apps/admin_web
+          # template:end
+
+  # template:optional ios-pods
+  ios-lockfiles:
+    name: Check iOS lockfiles
+    runs-on: macos-26
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate Podfile.lock
+        uses: lx-software-ltd/actions/pod-lockfiles@ACTIONS_PIN # main DATE
+        with:
+          # template:set
+          working-directory: apps/example_app/ios
+          # template:end
+
+  # template:end
+  python-requirements:
+    name: Check Python requirements
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check requirement pins
+        uses: lx-software-ltd/actions/python-requirements-pins@ACTIONS_PIN # main DATE
+        with:
+          # template:set
+          example-field: example-value
+          # template:end
+
   lint:
     name: lint
     runs-on: ubuntu-26.04

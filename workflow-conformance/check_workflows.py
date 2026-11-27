@@ -5,7 +5,9 @@
 Warn prints the findings and exits 0. The default is enforce.
 
 ``profile`` is ``producer`` or ``product``. The producer is this repository.
-Product repositories also need the target security jobs and ``semgrep/ci``.
+Product repositories also need the target security jobs, a ``semgrep``
+job named ``semgrep/ci`` in ``security.yml``, and the lint jobs
+``node-lockfiles`` and ``python-requirements``.
 
 ``alignment`` defaults to ``enforce``. ``templates`` defaults to ``enforce`` and
 compares product workflows with ``templates/workflows``. The producer skips both.
@@ -39,7 +41,12 @@ PRODUCT_SECURITY_JOBS = (
     "dependency-audit",
     "bandit",
     "npm-audit",
+    "semgrep",
     "security-summary",
+)
+PRODUCT_LINT_JOBS = (
+    "node-lockfiles",
+    "python-requirements",
 )
 _OPTIONAL = re.compile(r"^# template:optional ([a-z0-9-]+)$")
 _SET = re.compile(r"^# template:set$")
@@ -1178,6 +1185,11 @@ def findings(root: Path, profile: str = "product") -> list[str]:
         if path.name in PATH_FILTERED and _pull_request_has_path_filter(text):
             errors.append(f"{rel}: pull_request has a path filter")
         errors.extend(_path_filter_findings(root, rel, text))
+    for name in ("check-lockfiles.yml", "semgrep.yml"):
+        if (workflow_dir / name).is_file():
+            errors.append(
+                f".github/workflows/{name}: this check belongs under the lint or security gate"
+            )
     for filename, job in GATED.items():
         path = workflow_dir / filename
         if not path.is_file():
@@ -1197,17 +1209,17 @@ def findings(root: Path, profile: str = "product") -> list[str]:
             for job in PRODUCT_SECURITY_JOBS:
                 if job not in security_jobs:
                     errors.append(f".github/workflows/security.yml: missing job {job}")
-    if profile == "product":
-        semgrep = workflow_dir / "semgrep.yml"
-        if not semgrep.is_file():
-            errors.append(".github/workflows/semgrep.yml: missing the semgrep/ci job")
-        else:
-            semgrep_jobs = _jobs(semgrep.read_text(encoding="utf-8"))
-            names = {_job_name(job_id, body) for job_id, body in semgrep_jobs.items()}
-            if "semgrep/ci" not in semgrep_jobs and "semgrep/ci" not in names:
+            semgrep = security_jobs.get("semgrep")
+            if semgrep is not None and _job_name("semgrep", semgrep) != "semgrep/ci":
                 errors.append(
-                    ".github/workflows/semgrep.yml: missing the semgrep/ci job"
+                    ".github/workflows/security.yml: semgrep job must be named semgrep/ci"
                 )
+    if profile == "product":
+        lint = workflow_dir / "lint.yml"
+        lint_jobs = _jobs(lint.read_text(encoding="utf-8")) if lint.is_file() else {}
+        for job in PRODUCT_LINT_JOBS:
+            if job not in lint_jobs:
+                errors.append(f".github/workflows/lint.yml: missing job {job}")
     unique = sorted(set(pins))
     if len(unique) > 1:
         errors.append(

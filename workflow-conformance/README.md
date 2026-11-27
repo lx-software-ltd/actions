@@ -12,7 +12,7 @@ Checks the caller's workflows.
 - The repository uses one `lx-software-ltd/actions` commit, and that `uses` line has a `# main YYYY-MM-DD` comment.
 - A `.pre-commit-config.yaml` block for this repository has its own `rev`, and that `rev` equals that commit.
 
-`profile: product` also requires `security.yml` jobs `checkov`, `codeql`, `pii-denylist`, `secrets-scan`, `dependency-audit`, `bandit`, `npm-audit`, and `security-summary`, plus a `semgrep/ci` job. `profile: producer` is this repository.
+`profile: product` also requires `security.yml` jobs `checkov`, `codeql`, `pii-denylist`, `secrets-scan`, `dependency-audit`, `bandit`, `npm-audit`, `semgrep` named `semgrep/ci`, and `security-summary`, plus `lint.yml` jobs `node-lockfiles` and `python-requirements`. A `check-lockfiles.yml` or `semgrep.yml` file is a finding. `profile: producer` is this repository.
 
 `mode` is `enforce` or `warn`. Enforce exits 1 when there is a finding. Warn prints the findings and exits 0. The default is `enforce`.
 
