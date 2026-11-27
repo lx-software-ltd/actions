@@ -24,7 +24,17 @@ A major update stays a single pull request, unless the caller adds `major` to `u
 
 This repository does not open a batch of its own. Its Dependabot updates are `github-actions`. It runs `dependabot-batch.yml` in `report` mode for the five repositories. `land` skips this repository, including when the repository list is `siblings`.
 
-The five measurements are still open. On 2026-11-27 a local report of the five repositories found no pull request in class `batch` in `findingalpha`, `lx-software`, `siutindei`, or this repository. `evolvesprouts` had three ready candidates, #2346, #2351, and #2356. Dispatching `dependabot-batch.yml` on `evolvesprouts` and on this repository returned HTTP 403, so the workflow's `github.token` has not been exercised. The open questions are whether a dispatched gate satisfies `lint`, `test`, and `security-summary`, whether a pull request that is waiting for approval stays mergeable, whether `POST /merges` with `github.token` accepts a member after `main` changes a workflow, whether a merge commit marks every member merged, and whether this repository's `github.token` can read the five-repository report.
+The five measurements were taken on `evolvesprouts` on 2026-11-27. `findingalpha` had no pull request in class `batch`. `evolvesprouts` had three ready candidates, #2346, #2351, and #2356.
+
+`workflow_dispatch` of `lint.yml`, `test.yml`, and `security.yml` satisfied `lint`, `test`, and `security-summary` on #2360. `start-gates` stays `dispatch`.
+
+The `pull_request` runs of Lint, Test, Security Scanning, Lighthouse, and Dependency Submission stayed waiting for approval. The required checks stayed successful. #2360 stayed blocked until a person approved it, because the member merges are authored by `github-actions[bot]` and the ruleset requires an approval for unattributed changes.
+
+`POST /merges` with `github.token` accepted #2346, #2351, and #2356. None were `refused`. `main` already contained `.github/workflows/dependabot-batch.yml`.
+
+The owner merged #2360 with merge commit `efc3c175b9a45276db66f3f2f4cae8d0c811ac16`. GitHub then marked #2346, #2351, and #2356 merged.
+
+This repository's `github.token` read the five-repository report. That run exited 1 because #2360's `test` check did not exist yet. The workflow keeps reporting all five repositories.
 
 ## Rulesets
 
