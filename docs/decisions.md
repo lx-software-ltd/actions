@@ -26,6 +26,8 @@ Three organisation rulesets apply here and in the four product repositories.
 
 Gate jobs stay in the caller. The job ids are `lint`, `test`, and `security-summary`. A gate has `if: always()`, lists every other job in that file under `needs`, and fails unless those jobs succeeded. A skipped job is a failure. `require-jobs` has no skip allowance.
 
+Lockfile jobs are in `lint.yml` and the Semgrep job is in `security.yml`. The required check names stay `lint`, `test`, and `security-summary`. Semgrep does not skip Dependabot, because a skipped job fails the gate and the scan does not use a token.
+
 `workflow-conformance` defaults to `mode: enforce`, `alignment: enforce`, and `templates: enforce`. `profile: producer` skips alignment and the template comparison.
 
 ## Versions and credentials

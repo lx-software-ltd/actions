@@ -14,14 +14,12 @@ These check and deploy workflows match `templates/workflows/`. The comparison ig
 
 | File | Jobs | Triggers |
 | --- | --- | --- |
-| `semgrep.yml` | `semgrep` named `semgrep/ci` | `push` to `main`, `pull_request`, Monday 08:00 UTC, `workflow_dispatch`. Skips Dependabot |
-| `check-lockfiles.yml` | `node-lockfiles`, `python-requirements`. `flutter-lockfiles` when a `pubspec.yaml` exists. `ios-lockfiles` when a tracked `Podfile` exists (none today) | `pull_request`, `push` to `main`, `workflow_dispatch` |
 | `verify-rulesets.yml` | `verify-branch-protection` | Monday 09:00 UTC, `workflow_dispatch` |
 | `sync-labels.yml` | `sync` | `push` to `main`, Monday 08:00 UTC, `workflow_dispatch`. Applies the catalogue to the calling repository. Not a required check |
 | `dependency-submission.yml` | `check`, `submit` | `pull_request`, `push` to `main`, `workflow_dispatch` |
 | `cdk-bootstrap.yml` | `bootstrap` | `workflow_dispatch` only |
-| `security.yml` | `checkov`, `codeql`, `pii-denylist`, `secrets-scan`, `dependency-audit`, `bandit`, `npm-audit`, `security-summary` | `push` to `main`, `pull_request` with no path filter, Monday 08:00 UTC, `workflow_dispatch` |
-| `lint.yml` | `validate-agent-harness`, `repo-checks`, `lint-python`, one `lint-<app>` per Node app, `lint-cdk`, `type-check`, `workflow-conformance`, gate `lint`. Mobile repositories also `lint-openapi` and `lint-dart` | `pull_request` and `push` to `main`, neither with a path filter, plus `workflow_dispatch` |
+| `security.yml` | `checkov`, `codeql`, `pii-denylist`, `secrets-scan`, `dependency-audit`, `bandit`, `npm-audit`, `semgrep` named `semgrep/ci`, `security-summary` | `push` to `main`, `pull_request` with no path filter, Monday 08:00 UTC, `workflow_dispatch` |
+| `lint.yml` | `validate-agent-harness`, `repo-checks`, `lint-python`, one `lint-<app>` per Node app, `lint-cdk`, `type-check`, `workflow-conformance`, `node-lockfiles`, `python-requirements`, gate `lint`. Mobile repositories also `lint-openapi`, `lint-dart`, and `flutter-lockfiles`. `ios-lockfiles` when a tracked `Podfile` exists (none today) | `pull_request` and `push` to `main`, neither with a path filter, plus `workflow_dispatch` |
 | `test.yml` | `test-python`, one `test-<app>` per Node app, `test-infrastructure`, gate `test`. Playwright repositories also `e2e-<app>`. Mobile repositories also `test-flutter` and `build-android` | `pull_request` and `push` to `main`, neither with a path filter, plus `workflow_dispatch` |
 | `cdk-diff.yml` | `diff` (main, `environment: production`, `GitHubActionsRole`) and `pull-request` (read-only role) | Pull requests that touch infrastructure, `repository_dispatch`, `workflow_dispatch` |
 | `deploy-backend.yml` | `deploy` | `main` only, `environment: production` |
@@ -43,7 +41,7 @@ All four repositories run `cdk bootstrap` from a manual `cdk-bootstrap.yml`. `cd
 
 Web deploy is S3 and CloudFront. Public-site release is two profiles. The staged pair (`evolvesprouts`, `siutindei`) uses `deploy-public-www-staging.yml`, `smoke-public-www-staging.yml`, and `promote-public-www.yml`. The direct pair (`findingalpha`, `lx-software`) uses `deploy-public-www.yml`. Production deploy jobs set `if: github.ref == 'refs/heads/main'` and `environment: production`. Staging jobs do not add a main-branch guard, because siutindei deploys staging from the staging branch. Admin SPA settings come from stack outputs on the web pair and from repository variables on the mobile pair.
 
-A workflow that runs on pull requests or writes to AWS has a concurrency group. Semgrep uploads with category `semgrep`. `repository_dispatch` has been removed from the check workflows above. It remains on `cdk-diff.yml`, `deploy-*.yml`, and `promote-public-www.yml`, with the file stem as the event type.
+A workflow that runs on pull requests or writes to AWS has a concurrency group. Semgrep is the `semgrep` job in `security.yml`, named `semgrep/ci`, and uploads with category `semgrep`. It runs for every actor. A skip would fail `security-summary`. Lockfile jobs are in `lint.yml`: `node-lockfiles` and `python-requirements` in every product, `flutter-lockfiles` when `mobile` matches, and `ios-lockfiles` when `ios-pods` matches. `repository_dispatch` has been removed from the check workflows above. It remains on `cdk-diff.yml`, `deploy-*.yml`, and `promote-public-www.yml`, with the file stem as the event type.
 
 ## Gates
 
@@ -51,7 +49,7 @@ The gate job id is `lint` in `lint.yml`, `test` in `test.yml`, and `security-sum
 
 `pull_request` on `lint.yml`, `test.yml`, and `security.yml` has no path filter. A required workflow with a path filter never reports, and the ruleset then blocks the merge. `push` to `main` on `lint.yml` and `test.yml` has no path filter either. The checker rejects a `pull_request` path filter. A `push` path filter is not part of that check yet.
 
-`main-protection` requires `lint`, `test`, and `security-summary`.
+`main-protection` requires `lint`, `test`, and `security-summary`. `lint` needs every lockfile job present in `lint.yml`. `security-summary` needs `semgrep`. `check-lockfiles.yml` and `semgrep.yml` are not workflows.
 
 ## Runners
 
@@ -125,7 +123,7 @@ These are not workflow text. A block that exists only in some repositories is a 
 | Yes | Linux jobs use `ubuntu-26.04`. |
 | Yes | Gate jobs use `if: always()`, list every other job in that file, and fail unless those jobs succeeded. |
 | Yes | `pull_request` on `lint.yml`, `test.yml`, and `security.yml` has no path filter. |
-| No | `check-lockfiles.yml`, `semgrep.yml`, `verify-rulesets.yml`, `cdk-diff.yml`, deploy workflows, and the product job ids (`checkov`, `bandit`, `validate-agent-harness`, and the rest). |
+| No | `verify-rulesets.yml`, `cdk-diff.yml`, deploy workflows, and the product job ids (`checkov`, `bandit`, `semgrep`, `node-lockfiles`, `validate-agent-harness`, and the rest). |
 | No | A `v*` tag. Organization admin can create one through the `release-tags-create` bypass. Update and deletion stay blocked. Callers pin commit SHAs. |
 
 Workflows and jobs:
@@ -154,7 +152,7 @@ CodeQL scans Python and GitHub Actions. The Actions language is the one that cov
 
 The action checks the pin, runner, permission, image-digest, gate, path-filter, one-commit, `# main YYYY-MM-DD` comment, and pre-commit `rev` rules above. A `pull_request` `paths-ignore` is a path filter. A gate job has `if: always()`, lists every other job in that file under `needs`, and pins `require-jobs` by commit SHA. `security-summary` is that gate in `security.yml`. `lint.yml`, `test.yml`, and `security.yml` must exist, and none of them may filter `pull_request` by path. Top-level permissions are `contents: read`. Container and service images are pinned by digest.
 
-`profile: product` also requires the `security.yml` job ids in the table above and a `semgrep/ci` job. `profile: producer` is this repository, which does not have those product job ids. `mode: enforce` exits 1 when there is a finding. `mode: warn` prints findings and exits 0. The default mode is `enforce`.
+`profile: product` also requires the `security.yml` job ids in the table above, including `semgrep` named `semgrep/ci`, and the `lint.yml` jobs `node-lockfiles` and `python-requirements`. A `check-lockfiles.yml` or `semgrep.yml` file is a finding. `profile: producer` is this repository, which does not have those product job ids. `mode: enforce` exits 1 when there is a finding. `mode: warn` prints findings and exits 0. The default mode is `enforce`.
 
 Three product checks follow `alignment`. The default is `enforce`. `warn` prints `::warning::` and does not fail.
 

@@ -13,7 +13,9 @@ inputs:
     required: false
     default: ""
   profile:
-    description: product requires the target security jobs and semgrep/ci. producer is this repository.
+    description: >-
+      product requires the security jobs, semgrep/ci in security.yml,
+      and the lint lockfile jobs. producer is this repository.
     required: false
     default: product
   alignment:

@@ -295,7 +295,75 @@ class WorkflowConformanceTest(unittest.TestCase):
             _valid(root)
             found = checker.findings(root, "product")
             self.assertTrue(any("missing job checkov" in item for item in found), found)
-            self.assertTrue(any("semgrep/ci" in item for item in found), found)
+            self.assertTrue(any("missing job semgrep" in item for item in found), found)
+            self.assertTrue(
+                any("missing job node-lockfiles" in item for item in found), found
+            )
+            self.assertTrue(
+                any("missing job python-requirements" in item for item in found), found
+            )
+
+    def test_a_separate_semgrep_workflow_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _valid(root)
+            (root / ".github" / "workflows" / "semgrep.yml").write_text(
+                "name: Semgrep\non:\n  pull_request:\npermissions:\n  contents: read\njobs:\n"
+                "  semgrep:\n    runs-on: ubuntu-26.04\n    steps:\n      - run: 'true'\n",
+                encoding="utf-8",
+            )
+            found = checker.findings(root, "producer")
+            self.assertTrue(
+                any("semgrep.yml" in item and "gate" in item for item in found),
+                found,
+            )
+
+    def test_semgrep_must_keep_the_display_name(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _valid(root)
+            workflows = root / ".github" / "workflows"
+            _write_product_security(
+                workflows / "security.yml",
+                [
+                    "checkov",
+                    "codeql",
+                    "pii-denylist",
+                    "secrets-scan",
+                    "dependency-audit",
+                    "bandit",
+                    "npm-audit",
+                    "semgrep",
+                ],
+            )
+            text = (workflows / "security.yml").read_text(encoding="utf-8")
+            (workflows / "security.yml").write_text(
+                text.replace("name: semgrep/ci\n", "name: other\n"),
+                encoding="utf-8",
+            )
+            _add_lockfile_jobs(workflows / "lint.yml")
+            found = checker.findings(root, "product")
+            self.assertTrue(
+                any("must be named semgrep/ci" in item for item in found), found
+            )
+
+    def test_templates_fold_lockfiles_and_semgrep_under_the_gates(self) -> None:
+        workflows = ROOT / "templates" / "workflows"
+        self.assertFalse((workflows / "semgrep.yml").is_file())
+        self.assertFalse((workflows / "check-lockfiles.yml").is_file())
+        security = (workflows / "security.yml").read_text(encoding="utf-8")
+        self.assertNotIn("dependabot[bot]", security)
+        jobs = checker._jobs(security)
+        self.assertEqual(checker._job_name("semgrep", jobs["semgrep"]), "semgrep/ci")
+        self.assertIn("semgrep", checker._needs(jobs["security-summary"]))
+        lint_jobs = checker._jobs((workflows / "lint.yml").read_text(encoding="utf-8"))
+        for job in (
+            "node-lockfiles",
+            "python-requirements",
+            "flutter-lockfiles",
+            "ios-lockfiles",
+        ):
+            self.assertIn(job, lint_jobs)
 
     def test_alignment_checks_warn_and_do_not_fail_enforce(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -311,26 +379,10 @@ class WorkflowConformanceTest(unittest.TestCase):
                 "dependency-audit",
                 "bandit",
                 "npm-audit",
+                "semgrep",
             ]
-            needs = "\n".join(f"      - {job}" for job in jobs)
-            bodies = "\n".join(
-                f"  {job}:\n    runs-on: ubuntu-26.04\n    steps:\n      - run: 'true'"
-                for job in jobs
-            )
-            (workflows / "security.yml").write_text(
-                "name: Security\non:\n  pull_request:\npermissions:\n  contents: read\njobs:\n"
-                + bodies
-                + "\n  security-summary:\n    runs-on: ubuntu-26.04\n    needs:\n"
-                + needs
-                + "\n    if: always()\n    steps:\n"
-                + f"      - uses: lx-software-ltd/actions/require-jobs@{REQUIRE} # main 2026-11-20\n",
-                encoding="utf-8",
-            )
-            (workflows / "semgrep.yml").write_text(
-                "name: Semgrep\non:\n  pull_request:\npermissions:\n  contents: read\njobs:\n"
-                "  semgrep:\n    name: semgrep/ci\n    runs-on: ubuntu-26.04\n    steps:\n      - run: 'true'\n",
-                encoding="utf-8",
-            )
+            _write_product_security(workflows / "security.yml", jobs)
+            _add_lockfile_jobs(workflows / "lint.yml")
             (workflows / "deploy-backend.yml").write_text(
                 "name: Deploy\non:\n  workflow_dispatch:\npermissions:\n  contents: read\njobs:\n"
                 "  deploy:\n    runs-on: ubuntu-26.04\n    steps:\n"
@@ -630,27 +682,10 @@ class TemplateComparisonTest(unittest.TestCase):
                 "dependency-audit",
                 "bandit",
                 "npm-audit",
+                "semgrep",
             ]
-            needs = "\n".join(f"      - {job}" for job in jobs)
-            bodies = "\n".join(
-                f"  {job}:\n    runs-on: ubuntu-26.04\n    steps:\n      - run: 'true'"
-                for job in jobs
-            )
-            (workflows / "security.yml").write_text(
-                "name: Security\non:\n  pull_request:\npermissions:\n  contents: read\njobs:\n"
-                + bodies
-                + "\n  security-summary:\n    runs-on: ubuntu-26.04\n    needs:\n"
-                + needs
-                + "\n    if: always()\n    steps:\n"
-                + f"      - uses: lx-software-ltd/actions/require-jobs@{REQUIRE} # main 2026-11-20\n",
-                encoding="utf-8",
-            )
-            (workflows / "semgrep.yml").write_text(
-                "name: Semgrep\non:\n  pull_request:\npermissions:\n  contents: read\njobs:\n"
-                "  semgrep:\n    name: semgrep/ci\n    runs-on: ubuntu-26.04\n    steps:\n"
-                "      - run: 'true'\n",
-                encoding="utf-8",
-            )
+            _write_product_security(workflows / "security.yml", jobs)
+            _add_lockfile_jobs(workflows / "lint.yml")
             templates = root / "templates"
             templates.mkdir()
             (templates / "extra.yml").write_text("name: Extra\n", encoding="utf-8")
@@ -1134,6 +1169,49 @@ def _valid(directory: Path) -> None:
     )
     workflows.joinpath("security.yml").write_text(
         _gated("Security", "security-summary", "secrets-scan"),
+        encoding="utf-8",
+    )
+
+
+def _security_job(job: str) -> str:
+    name = "\n    name: semgrep/ci" if job == "semgrep" else ""
+    return f"  {job}:{name}\n    runs-on: ubuntu-26.04\n    steps:\n      - run: 'true'"
+
+
+def _write_product_security(path: Path, jobs: list[str]) -> None:
+    needs = "\n".join(f"      - {job}" for job in jobs)
+    bodies = "\n".join(_security_job(job) for job in jobs)
+    path.write_text(
+        "name: Security\non:\n  pull_request:\npermissions:\n  contents: read\njobs:\n"
+        + bodies
+        + "\n  security-summary:\n    runs-on: ubuntu-26.04\n    needs:\n"
+        + needs
+        + "\n    if: always()\n    steps:\n"
+        + f"      - uses: lx-software-ltd/actions/require-jobs@{REQUIRE} # main 2026-11-20\n",
+        encoding="utf-8",
+    )
+
+
+def _add_lockfile_jobs(path: Path) -> None:
+    text = path.read_text(encoding="utf-8")
+    path.write_text(
+        text.replace(
+            "  lint-python:\n",
+            "  node-lockfiles:\n"
+            "    runs-on: ubuntu-26.04\n"
+            "    steps:\n"
+            '      - run: "true"\n'
+            "  python-requirements:\n"
+            "    runs-on: ubuntu-26.04\n"
+            "    steps:\n"
+            '      - run: "true"\n'
+            "  lint-python:\n",
+        ).replace(
+            "      - lint-python\n",
+            "      - lint-python\n"
+            "      - node-lockfiles\n"
+            "      - python-requirements\n",
+        ),
         encoding="utf-8",
     )
 
