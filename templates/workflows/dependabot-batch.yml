@@ -1,0 +1,30 @@
+# template:if-present
+name: Dependabot Batch
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 */2 * * 1-5"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependabot-batch
+  cancel-in-progress: false
+
+jobs:
+  batch:
+    name: Batch Dependabot updates
+    runs-on: ubuntu-26.04
+    permissions:
+      actions: write
+      checks: read
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Open the batch pull request
+        uses: lx-software-ltd/actions/dependabot-batch@ACTIONS_PIN # main DATE
+        with:
+          mode: open
+          start-gates: dispatch

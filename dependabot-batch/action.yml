@@ -1,0 +1,95 @@
+name: Dependabot batch
+description: >-
+  Read open Dependabot pull requests and, in open mode, land the routine
+  ones as one pull request. report does not write. land also merges, and
+  refuses github.token because that merge would not deploy.
+
+inputs:
+  token:
+    description: >-
+      Token for gh. Defaults to github.token. Ignored when live-json is set.
+      land refuses to run when this is github.token.
+    required: false
+    default: ${{ github.token }}
+  mode:
+    description: report reads. open builds the batch pull request. land also merges.
+    required: false
+    default: report
+  repositories:
+    description: >-
+      Space-separated owner/repo list. siblings is this repository and
+      the four product repositories. Empty uses the calling repository.
+    required: false
+    default: ""
+  update-types:
+    description: Semver levels that may be batched.
+    required: false
+    default: patch minor
+  exclude-dependencies:
+    description: >-
+      Space-separated name globs. A match keeps the pull request out.
+    required: false
+    default: lx-software-ltd/actions/*
+  exclude-paths:
+    description: >-
+      Space-separated path globs. A changed file that matches keeps the
+      pull request out. Empty batches every path.
+    required: false
+    default: .github/workflows/*
+  required-checks:
+    description: Check names that must have succeeded on a member's head.
+    required: false
+    default: lint test security-summary
+  start-gates:
+    description: >-
+      dispatch sends workflow_dispatch for gate-workflows on the batch
+      branch. none leaves the gates to the pull_request event.
+    required: false
+    default: none
+  gate-workflows:
+    description: Workflow files for start-gates dispatch.
+    required: false
+    default: lint.yml test.yml security.yml
+  timeout-minutes:
+    description: land only. How long to wait for the gates.
+    required: false
+    default: "60"
+  live-json:
+    description: >-
+      A snapshot for a fixture, keyed by owner/repo. report only. The
+      action does not call GitHub.
+    required: false
+    default: ""
+
+outputs:
+  pull-request:
+    description: >-
+      The batch pull request number, or empty. Empty when more than one
+      repository is listed.
+    value: ${{ steps.batch.outputs.pull-request }}
+  batched:
+    description: >-
+      The member count, or in report the number of candidates whose class
+      is batch. Empty when more than one repository is listed.
+    value: ${{ steps.batch.outputs.batched }}
+
+runs:
+  using: composite
+  steps:
+    - name: Batch Dependabot updates
+      id: batch
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        DEPENDABOT_BATCH_GITHUB_TOKEN: ${{ github.token }}
+        DEPENDABOT_BATCH_MODE: ${{ inputs.mode }}
+        DEPENDABOT_BATCH_REPOSITORIES: ${{ inputs.repositories }}
+        DEPENDABOT_BATCH_UPDATE_TYPES: ${{ inputs.update-types }}
+        DEPENDABOT_BATCH_EXCLUDE_DEPENDENCIES: ${{ inputs.exclude-dependencies }}
+        DEPENDABOT_BATCH_EXCLUDE_PATHS: ${{ inputs.exclude-paths }}
+        DEPENDABOT_BATCH_REQUIRED_CHECKS: ${{ inputs.required-checks }}
+        DEPENDABOT_BATCH_START_GATES: ${{ inputs.start-gates }}
+        DEPENDABOT_BATCH_GATE_WORKFLOWS: ${{ inputs.gate-workflows }}
+        DEPENDABOT_BATCH_TIMEOUT_MINUTES: ${{ inputs.timeout-minutes }}
+        DEPENDABOT_BATCH_LIVE_JSON: ${{ inputs.live-json }}
+      run: python3 "$GITHUB_ACTION_PATH/batch.py"

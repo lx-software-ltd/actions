@@ -290,6 +290,65 @@ jobs:
           OUTCOME: ${{ steps.sync.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  dependabot-batch-pass:
+    name: Dependabot batch pass fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Load the batch snapshot
+        id: pass
+        run: |
+          {
+            echo "live-json<<EOF"
+            cat fixtures/dependabot-batch/pass/live.json
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Report the batch candidates
+        id: batch
+        uses: ./dependabot-batch
+        with:
+          mode: report
+          repositories: lx-software-ltd/findingalpha
+          live-json: ${{ steps.pass.outputs.live-json }}
+
+      - name: Expect two batch candidates
+        env:
+          BATCHED: ${{ steps.batch.outputs.batched }}
+        run: test "$BATCHED" = "2"
+
+  dependabot-batch-fail:
+    name: Dependabot batch fail fixture
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Load the failed batch snapshot
+        id: fail
+        run: |
+          {
+            echo "live-json<<EOF"
+            cat fixtures/dependabot-batch/fail/live.json
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Report the failed batch
+        id: batch
+        continue-on-error: true
+        uses: ./dependabot-batch
+        with:
+          mode: report
+          repositories: lx-software-ltd/findingalpha
+          live-json: ${{ steps.fail.outputs.live-json }}
+
+      - name: Expect the action to fail
+        env:
+          OUTCOME: ${{ steps.batch.outcome }}
+        run: test "$OUTCOME" = "failure"
+
   pii-denylist-pass:
     name: PII denylist pass fixture
     runs-on: ubuntu-26.04
@@ -1783,6 +1842,8 @@ jobs:
       - verify-rulesets-fail
       - sync-labels-pass
       - sync-labels-fail
+      - dependabot-batch-pass
+      - dependabot-batch-fail
       - pii-denylist-pass
       - pii-denylist-fail
       - gitleaks-pass

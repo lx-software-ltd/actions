@@ -16,6 +16,7 @@ These check and deploy workflows match `templates/workflows/`. The comparison ig
 | --- | --- | --- |
 | `verify-rulesets.yml` | `verify-branch-protection` | Monday 09:00 UTC, `workflow_dispatch` |
 | `sync-labels.yml` | `sync` | `push` to `main`, Monday 08:00 UTC, `workflow_dispatch`. Applies the catalogue to the calling repository. Not a required check |
+| `dependabot-batch.yml` | `batch` | `workflow_dispatch` and `15 */2 * * 1-5`. Opens one batch pull request. Not a required check |
 | `dependency-submission.yml` | `check`, `submit` | `pull_request`, `push` to `main`, `workflow_dispatch` |
 | `cdk-bootstrap.yml` | `bootstrap` | `workflow_dispatch` only |
 | `security.yml` | `checkov`, `codeql`, `pii-denylist`, `secrets-scan`, `dependency-audit`, `bandit`, `npm-audit`, `semgrep` named `semgrep/ci`, `security-summary` | `push` to `main`, `pull_request` with no path filter, Monday 08:00 UTC, `workflow_dispatch` |
@@ -32,6 +33,8 @@ These check and deploy workflows match `templates/workflows/`. The comparison ig
 | `promote-public-www.yml` | `prepare`, `promote` | `main` only, `environment: production`. siutindei also runs at 04:00 Hong Kong time |
 | `deploy-ios.yml` | `build-and-deploy` | `main` only, `macos-26`, `environment: production` |
 | `deploy-mobile.yml` | `build-and-deploy` | `main` only, `environment: production` |
+
+The `batch` job sets `actions: write`, `contents: write`, and `pull-requests: write` at job level.
 
 `templates/workflows/` holds that canonical text. `scripts/ci/` and `scripts/deploy/` are the per-repository seam. Gate jobs call `scripts/ci/`. Deploy jobs call `scripts/deploy/`. `lint-python` runs `scripts/ci/mypy.sh` after pre-commit. findingalpha and lx-software type-check each Lambda directory, `scripts`, and `.cursor/hooks` with mypy 1.8.0. evolvesprouts and siutindei run mypy 1.8.0 on the directories that pass and list the rest in a `# mypy pending:` comment.
 
@@ -135,10 +138,13 @@ Workflows and jobs:
 | `security.yml` | `pii-denylist`, `secrets-scan`, `codeql` (languages `python` and `actions`), gate `security-summary` |
 | `dependency-submission.yml` | `check`, `submit` |
 | `sync-labels.yml` | `sync` |
+| `dependabot-batch.yml` | `report` |
 
 `dependency-submission.yml` is named Dependency Submission. `check` runs unless the event is a push to `main`. `submit` runs on a push to `main` and sets `contents: write`. The display name keeps this workflow apart from GitHub's Dependency Graph entry.
 
 `sync-labels.yml` applies `sync-labels/labels.json` to this repository on a push to `main`, every Monday, and `workflow_dispatch`. The catalogue includes `mobile`. The job sets `issues: write`. It is not a required check. `github.token` writes labels on this repository.
+
+`dependabot-batch.yml` reports the five repositories on `workflow_dispatch` and `15 */2 * * 1-5`. The `report` job sets `checks: read` and `pull-requests: read`. It does not write. It is not a required check.
 
 The `lint`, `test`, and `security-summary` gates pin `lx-software-ltd/actions/require-jobs@1a3cca7c38163f8164c262323601c34a4df5b7a4` (`# main 2026-11-20`). They must not use `uses: ./require-jobs`. A local action is loaded from the pull request, so a change that always exits 0 would turn the required check green while the fail fixture goes red. Fixture jobs may use `uses: ./require-jobs` to test the pull request's copy. The layout check rejects a local action on a gate job. The calling job needs `python3` on `PATH`.
 

@@ -14,6 +14,18 @@ No `v*` tag is created by a pull request in this repository. `release-tags` bloc
 
 The four product `github-actions` entries keep `cooldown.default-days` at 7 and exclude `lx-software-ltd/actions/*`. Dependabot job 1733975152 on `lx-software-ltd/findingalpha`, on 2026-11-27, loaded that cooldown and that exclude. `v0.3.0` (`1084e78870f94997b8c317e2f89895e749e8c242`) had been published the same day. The job logged `Days since release` against cooldown days 7 for `actions/checkout`, `docker/setup-qemu-action`, and `actions/upload-artifact`. For each `lx-software-ltd/actions/*` dependency it logged `Initializing cooldown filter` and then `Latest version is 0.3.0`, and the days-since-release lines stayed on those three third-party actions. dependabot-core writes that line only after the cooldown include check passes. The job created each change in the group `actions-pin`, logged `No dependencies were filtered out`, and opened https://github.com/lx-software-ltd/findingalpha/pull/128, moving the pin from `133492f777ad088cdd0ef2e3d133843f79c13e93` (`v0.2.0`) to `1084e78870f94997b8c317e2f89895e749e8c242` (`v0.3.0`). `GroupDependencySelector` logged that `Dependabot::GithubActions::Version` could not determine the update type for `0.2.0 -> 0.3.0` and left every dependency in the group. This repository's `github-actions` entry sets no cooldown. dependabot-core treats a missing cooldown as 0 days. The product configs, and this repository, put `lx-software-ltd/actions/*` in the group `actions-pin`. The third-party group excludes that pattern, so the pin bump is its own pull request. Dependabot rewrites the workflow SHA and leaves the date comment and the pre-commit `rev` alone. `scripts/bump_pins.py` rewrites those on that pull request before it merges. The same pull request updates the gate SHA named in `AGENTS.md`, `docs/ci-contract.md`, `docs/decisions.md`, and `require-jobs/README.md`.
 
+## Dependabot
+
+Routine Dependabot updates land as one batch pull request per product. `dependabot-batch` reads the open Dependabot pull requests, keeps the ones that are safe to land together, and merges their head commits onto one branch cut from `main`. The gates run once, on that pull request. The owner merges it with a merge commit. That merge is what starts the deploys.
+
+Nothing merges with `github.token`. A merge by that token starts no push workflow, so nothing would deploy.
+
+A major update stays a single pull request, unless the caller adds `major` to `update-types`. A pull request that changes a file under `.github/workflows/` stays a single pull request. The `actions-pin` group stays a single pull request: the default exclude is `lx-software-ltd/actions/*`, and `scripts/bump_pins.py` still runs on that branch before it merges.
+
+This repository does not open a batch of its own. Its Dependabot updates are `github-actions`. It runs `dependabot-batch.yml` in `report` mode for the five repositories. `land` skips this repository, including when the repository list is `siblings`.
+
+The five measurements are taken on `findingalpha` after that repository runs the workflow. They are not recorded yet. The measurements are whether a dispatched gate satisfies the ruleset, whether a pull request that is waiting for approval stays mergeable, whether `POST /merges` accepts a member after `main` changes a workflow, whether a merge commit marks every member merged, and whether this repository's `github.token` can read the five-repository report.
+
 ## Rulesets
 
 Three organisation rulesets apply here and in the four product repositories.

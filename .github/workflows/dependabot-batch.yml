@@ -1,0 +1,30 @@
+name: Dependabot Batch
+
+# Reads the five repositories. github.token can read public pull requests
+# and check runs. The job does not open or merge anything.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 */2 * * 1-5"
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    name: Report Dependabot batches
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      checks: read
+      pull-requests: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Report the five repositories
+        uses: ./dependabot-batch
+        with:
+          mode: report
+          repositories: siblings
