@@ -1,6 +1,6 @@
 # Public-site release
 
-`evolvesprouts` `scripts/deploy/deploy-public-www.sh` and `siutindei` `scripts/deploy/deploy-public-www.sh` are the release. The staged workflows and `promote-public-www.yml` run them. The direct pair deploys from `deploy-public-www.yml` without that script. This note is the design. It does not move the scripts.
+`evolvesprouts` `scripts/deploy/deploy-public-www.sh` and `siutindei` `scripts/deploy/deploy-public-www.sh` are the release. Staging uploads with `s3-cloudfront-deploy` profile `next-site` and an empty distribution, then the script finishes the release. `promote-public-www.yml` still runs the script for the upload. The direct pair deploys from `deploy-public-www.yml` without that script. This note is the design. Production promotion stays on the script until the dry-run in `docs/plans/103-production-public-site-promotion.md` is recorded.
 
 ## What the scripts do
 
@@ -15,7 +15,7 @@ Shared steps:
 5. Build a maintenance page from a partial and contact settings (`prepare_maintenance_build_dir` and the inject helpers) and sync it when maintenance mode is on (`sync_maintenance_artifacts`).
 6. Force a staging `robots.txt` (`enforce_staging_robots_txt`).
 
-`evolvesprouts` also removes production fixtures before a production sync. Cache-Control is three policies: immutable assets, a short document cache, and `no-store`.
+`siutindei` deletes `fixtures/` on production after the `_next/static` sync and before the document sync, and excludes `fixtures/*` from that sync. `s3-cloudfront-deploy` `delete-prefix` is that delete. The promote workflow does not pass it yet. `evolvesprouts` excludes `landing-pages-manifest.json`. Cache-Control is three policies: immutable assets, a short document cache, and `no-store`.
 
 `siutindei` adds the catalogue snapshot the promote workflow fetches, and the same maintenance and release layout. The two scripts are the same shape with different stack names and a few extra files.
 
@@ -24,4 +24,5 @@ Shared steps:
 - The workflow still assumes the role, selects the environment, and builds the site.
 - Release id, promote id, maintenance flag, and contact values stay inputs. An action cannot read `vars` or `secrets`.
 - Stack names stay inputs. `evolvesprouts` defaults to `evolvesprouts-public-www`. `siutindei` names its own stack.
+- `s3-cloudfront-deploy` profile `next-site` is the staged upload: immutable `_next/static`, the document cache, a release copy, and `delete-prefix` between those syncs. Production promotion still calls the script.
 - `s3-cloudfront-deploy` profile `next-export` is a plain `aws s3 sync --delete`. It does not do release copies, maintenance pages, or the three cache policies. It is not this release.

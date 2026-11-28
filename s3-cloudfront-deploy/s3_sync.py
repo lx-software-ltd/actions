@@ -328,6 +328,13 @@ def _parse_s3_uri(value: str) -> tuple[str, str]:
     return bucket, prefix
 
 
+def _remove_prefix(run_aws: Runner, dest: str, name: str) -> None:
+    """Delete one directory on the destination before the document sync."""
+    result = run_aws(["aws", "s3", "rm", f"{dest.rstrip('/')}/{name}", "--recursive"])
+    if result.returncode != 0:
+        raise SyncError(_redact(result.stderr or result.stdout or "s3 rm failed"))
+
+
 def _sync_next_site(
     run_aws: Runner,
     *,
@@ -337,6 +344,7 @@ def _sync_next_site(
     extra_excludes: list[str],
     asset_cache: str,
     document_cache: str,
+    delete_prefix: str,
 ) -> None:
     """Match the public-www scripts: immutable hashed assets, then documents."""
     excludes = _exclude_args(extra_excludes)
@@ -358,6 +366,8 @@ def _sync_next_site(
                 f"{dest}/_next/static",
                 ["--cache-control", asset_cache],
             )
+    if delete_prefix:
+        _remove_prefix(run_aws, dest, delete_prefix)
     document = [*excludes, "--cache-control", document_cache, "--delete"]
     if source is not None:
         _sync(run_aws, source, dest, document)
@@ -413,12 +423,12 @@ def _staging_robots(run_aws: Runner, bucket: str) -> None:
         path.unlink(missing_ok=True)
 
 
-def _path_segment(value: str) -> str:
+def _path_segment(value: str, label: str = "maintenance-assets") -> str:
     chosen = value.strip().strip("/")
     if not chosen:
         return ""
     if "/" in chosen or "\\" in chosen or chosen in {".", ".."}:
-        raise SyncError("maintenance-assets must be one directory name")
+        raise SyncError(f"{label} must be one directory name")
     return chosen
 
 
@@ -575,12 +585,14 @@ def deploy(
     marker_content_type: str = "",
     maintenance_assets: str = "",
     maintenance_asset_cache: str = "public, max-age=3600, must-revalidate",
+    delete_prefix: str = "",
 ) -> None:
     bucket = _require_bucket(bucket)
     distribution = _distribution(distribution)
     chosen_release = _check_release_id(release_id)
     promote = promote_from.strip()
     excludes = [item.strip() for item in (sync_exclude or []) if item.strip()]
+    prefix_name = _path_segment(delete_prefix, "delete-prefix")
     if release_marker and not chosen_release:
         raise SyncError("release-marker requires release-id")
     if chosen_release and profile == "maintenance":
@@ -589,6 +601,8 @@ def deploy(
         raise SyncError("promote-from requires profile next-site")
     if promote and chosen_release:
         raise SyncError("promote-from and release-id are mutually exclusive")
+    if prefix_name and profile != "next-site":
+        raise SyncError("delete-prefix requires profile next-site")
     if dry_run:
         print("Dry run: every s3 command uses --dryrun and CloudFront is not invalidated.")
         run_aws = _dry_run_runner(run_aws)
@@ -632,6 +646,7 @@ def deploy(
                 extra_excludes=excludes,
                 asset_cache=asset_cache,
                 document_cache=document_cache,
+                delete_prefix=prefix_name,
             )
         else:
             if not source.is_dir():
@@ -645,6 +660,7 @@ def deploy(
                 extra_excludes=excludes,
                 asset_cache=asset_cache,
                 document_cache=document_cache,
+                delete_prefix=prefix_name,
             )
             if chosen_release:
                 print(f"Saving immutable release at releases/{chosen_release}/")
@@ -656,6 +672,7 @@ def deploy(
                     extra_excludes=excludes,
                     asset_cache=asset_cache,
                     document_cache=document_cache,
+                    delete_prefix=prefix_name,
                 )
                 if release_marker:
                     _write_release_marker(
@@ -784,6 +801,7 @@ def main(run_aws: Runner = _run_aws) -> int:
             maintenance_assets=os.environ.get("MAINTENANCE_ASSETS", ""),
             maintenance_asset_cache=os.environ.get("MAINTENANCE_ASSET_CACHE", "")
             or "public, max-age=3600, must-revalidate",
+            delete_prefix=os.environ.get("DELETE_PREFIX", ""),
         )
     except SyncError as error:
         print(str(error), file=sys.stderr)
