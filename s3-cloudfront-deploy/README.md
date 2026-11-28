@@ -36,7 +36,7 @@ An empty `distribution-id` skips the invalidation. A missing distribution output
 | `staging-robots` | no | `false` | Upload a deny-all `robots.txt` with `no-store`. |
 | `promote-from` | no | empty | Copy `s3://bucket/releases/<id>` with the `next-site` rules. |
 | `sync-exclude` | no | empty | Extra `--exclude` patterns for `next-site`, comma-separated. |
-| `delete-prefix` | no | empty | One directory removed after the `next-site` asset sync and before the document sync. |
+| `delete-prefix` | no | empty | One directory removed after the `next-site` asset sync and before the document sync. Refuses `releases`, `_next`, and the `maintenance-assets` name. |
 | `asset-cache` | no | `public, max-age=31536000, immutable` | Cache-Control for `_next/static`. |
 | `document-cache` | no | `public, max-age=300, must-revalidate` | Cache-Control for the other `next-site` files. |
 | `marker-cache` | no | empty | Cache-Control for the release marker. Empty omits it. |
@@ -50,7 +50,7 @@ The action invalidates `/*` at the end of the sync. evolvesprouts switches the `
 
 evolvesprouts passes `sync-exclude: landing-pages-manifest.json` on the site sync and the release copy. The action does not exclude that file.
 
-siutindei passes `document-cache` `public, max-age=300, must-revalidate, stale-while-revalidate=60`, a no-store marker with `text/plain; charset=utf-8`, and `maintenance-assets: images`. Its production sync deletes `fixtures/` after the asset sync and before the document sync, and excludes `fixtures/*`. Pass `delete-prefix: fixtures` with `sync-exclude: fixtures/*`. The promote workflow still calls the script.
+siutindei passes `document-cache` `public, max-age=300, must-revalidate, stale-while-revalidate=60`, a no-store marker with `text/plain; charset=utf-8`, and `maintenance-assets: images`. Its production sync deletes `fixtures/` after the asset sync and before the document sync, and excludes `fixtures/*`. Pass `delete-prefix: fixtures`. The action also excludes `fixtures/*` when `sync-exclude` omits it, and the remove URI is `s3://<bucket>/fixtures/`. `releases` and `_next` are refused, and so is the `maintenance-assets` directory. With `release-id`, the same delete runs under `releases/<id>/`, which is what `sync_site_artifacts` does on that copy. The promote workflow still calls the script.
 
 ## Example
 

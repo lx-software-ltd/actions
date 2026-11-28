@@ -596,8 +596,8 @@ class SyncProfileTest(unittest.TestCase):
         self.assertEqual(
             removals,
             [
-                ["aws", "s3", "rm", "s3://site-bucket/fixtures", "--recursive"],
-                ["aws", "s3", "rm", "s3://site-bucket/releases/2026.11.24/fixtures", "--recursive"],
+                ["aws", "s3", "rm", "s3://site-bucket/fixtures/", "--recursive"],
+                ["aws", "s3", "rm", "s3://site-bucket/releases/2026.11.24/fixtures/", "--recursive"],
             ],
         )
         for call in calls:
@@ -607,7 +607,7 @@ class SyncProfileTest(unittest.TestCase):
             self.assertTrue(calls[index - 1][4].endswith("/_next/static"))
             document = calls[index + 1]
             self.assertEqual(document[1:3], ["s3", "sync"])
-            self.assertIn("fixtures/*", document)
+            self.assertEqual(document.count("fixtures/*"), 1)
             self.assertIn("--delete", document)
 
     def test_promote_deletes_the_prefix_on_the_destination(self) -> None:
@@ -640,9 +640,10 @@ class SyncProfileTest(unittest.TestCase):
                 ("s3", "sync"),
             ],
         )
-        self.assertEqual(calls[3], ["aws", "s3", "rm", "s3://site-bucket/fixtures", "--recursive"])
-        self.assertTrue(calls[2][3].endswith("/_next/static"))
-        self.assertIn("fixtures/*", calls[4])
+        self.assertEqual(calls[3], ["aws", "s3", "rm", "s3://site-bucket/fixtures/", "--recursive"])
+        self.assertEqual(calls[2][3], "s3://staging-bucket/releases/2026.11.24/_next/static")
+        self.assertEqual(calls[2][4], "s3://site-bucket/_next/static")
+        self.assertEqual(calls[4].count("fixtures/*"), 1)
         self.assertIn("--delete", calls[4])
 
     def test_delete_prefix_runs_without_hashed_assets(self) -> None:
@@ -664,8 +665,9 @@ class SyncProfileTest(unittest.TestCase):
                 run_aws=run_aws,
                 delete_prefix="fixtures",
             )
-        self.assertEqual(calls[0], ["aws", "s3", "rm", "s3://site-bucket/fixtures", "--recursive"])
+        self.assertEqual(calls[0], ["aws", "s3", "rm", "s3://site-bucket/fixtures/", "--recursive"])
         self.assertEqual(calls[1][1:3], ["s3", "sync"])
+        self.assertEqual(calls[1].count("fixtures/*"), 1)
 
     def test_an_empty_delete_prefix_issues_no_remove(self) -> None:
         calls: list[list[str]] = []
@@ -689,6 +691,34 @@ class SyncProfileTest(unittest.TestCase):
                 run_aws=run_aws,
             )
         self.assertFalse(any(call[1:3] == ["s3", "rm"] for call in calls))
+
+    def test_delete_prefix_refuses_kept_directories(self) -> None:
+        for name in ("releases", "_next"):
+            with self.assertRaises(s3_sync.SyncError) as caught:
+                s3_sync.deploy(
+                    source=Path("."),
+                    bucket="site-bucket",
+                    distribution="",
+                    profile="next-site",
+                    indexnow=False,
+                    run_aws=lambda command: _ok(),
+                    delete_prefix=name,
+                )
+            self.assertIn("cannot remove releases or _next", str(caught.exception))
+
+    def test_delete_prefix_refuses_the_maintenance_assets_directory(self) -> None:
+        with self.assertRaises(s3_sync.SyncError) as caught:
+            s3_sync.deploy(
+                source=Path("."),
+                bucket="site-bucket",
+                distribution="",
+                profile="next-site",
+                indexnow=False,
+                run_aws=lambda command: _ok(),
+                delete_prefix="images",
+                maintenance_assets="images",
+            )
+        self.assertIn("maintenance-assets", str(caught.exception))
 
     def test_delete_prefix_requires_next_site(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -742,7 +772,7 @@ class SyncProfileTest(unittest.TestCase):
         removal = [call for call in calls if call[2] == "rm"]
         self.assertEqual(
             removal,
-            [["aws", "s3", "rm", "--dryrun", "s3://site-bucket/fixtures", "--recursive"]],
+            [["aws", "s3", "rm", "--dryrun", "s3://site-bucket/fixtures/", "--recursive"]],
         )
 
     def test_a_failed_prefix_delete_fails_the_deploy(self) -> None:
@@ -799,5 +829,5 @@ class SyncProfileTest(unittest.TestCase):
             }
             with mock.patch.dict(os.environ, env, clear=False):
                 self.assertEqual(s3_sync.main(run_aws), 0)
-        self.assertEqual(calls[0], ["aws", "s3", "rm", "s3://site-bucket/fixtures", "--recursive"])
+        self.assertEqual(calls[0], ["aws", "s3", "rm", "s3://site-bucket/fixtures/", "--recursive"])
         self.assertIn("fixtures/*", calls[1])

@@ -28,6 +28,9 @@ ASSET_CACHE = "public, max-age=31536000, immutable"
 DOCUMENT_CACHE = "public, max-age=300, must-revalidate"
 NO_STORE = "no-store, max-age=0"
 RELEASE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
+# The document sync already excludes these. Deleting them removes the release
+# copy or the hashed assets the asset sync just wrote.
+KEPT_DELETE_PREFIXES = frozenset({"releases", "_next"})
 ACCOUNT_ID = re.compile(r"\b\d{12}\b")
 
 Runner = Callable[[list[str]], subprocess.CompletedProcess[str]]
@@ -329,10 +332,37 @@ def _parse_s3_uri(value: str) -> tuple[str, str]:
 
 
 def _remove_prefix(run_aws: Runner, dest: str, name: str) -> None:
-    """Delete one directory on the destination before the document sync."""
-    result = run_aws(["aws", "s3", "rm", f"{dest.rstrip('/')}/{name}", "--recursive"])
+    """Delete one directory on the destination before the document sync.
+
+    The trailing slash keeps the match on ``name/`` so a key such as
+    ``name-old`` or ``name.json`` stays.
+    """
+    result = run_aws(["aws", "s3", "rm", f"{dest.rstrip('/')}/{name}/", "--recursive"])
     if result.returncode != 0:
         raise SyncError(_redact(result.stderr or result.stdout or "s3 rm failed"))
+
+
+def _guard_delete_prefix(name: str, maintenance_assets: str) -> str:
+    """Return the directory to delete. Empty means skip the delete."""
+    chosen = _path_segment(name, "delete-prefix")
+    if not chosen:
+        return ""
+    if chosen in KEPT_DELETE_PREFIXES:
+        raise SyncError("delete-prefix cannot remove releases or _next")
+    asset_name = _path_segment(maintenance_assets)
+    if asset_name and chosen == asset_name:
+        raise SyncError("delete-prefix cannot remove the maintenance-assets directory")
+    return chosen
+
+
+def _with_delete_exclude(excludes: list[str], name: str) -> list[str]:
+    """Keep the deleted directory out of the document sync that follows."""
+    if not name:
+        return excludes
+    pattern = f"{name}/*"
+    if pattern in excludes:
+        return excludes
+    return [*excludes, pattern]
 
 
 def _sync_next_site(
@@ -592,7 +622,8 @@ def deploy(
     chosen_release = _check_release_id(release_id)
     promote = promote_from.strip()
     excludes = [item.strip() for item in (sync_exclude or []) if item.strip()]
-    prefix_name = _path_segment(delete_prefix, "delete-prefix")
+    prefix_name = _guard_delete_prefix(delete_prefix, maintenance_assets)
+    excludes = _with_delete_exclude(excludes, prefix_name)
     if release_marker and not chosen_release:
         raise SyncError("release-marker requires release-id")
     if chosen_release and profile == "maintenance":

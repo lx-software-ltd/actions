@@ -92,7 +92,9 @@ inputs:
   delete-prefix:
     description: >-
       One directory removed with aws s3 rm --recursive after the next-site
-      asset sync and before the document sync. Empty skips it. siutindei
+      asset sync and before the document sync. The key ends with a slash.
+      The document sync excludes that directory. Refuses releases, _next,
+      and the maintenance-assets directory. Empty skips it. siutindei
       production passes fixtures. Requires profile next-site.
     required: false
     default: ""

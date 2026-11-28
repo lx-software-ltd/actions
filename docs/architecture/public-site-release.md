@@ -15,7 +15,7 @@ Shared steps:
 5. Build a maintenance page from a partial and contact settings (`prepare_maintenance_build_dir` and the inject helpers) and sync it when maintenance mode is on (`sync_maintenance_artifacts`).
 6. Force a staging `robots.txt` (`enforce_staging_robots_txt`).
 
-`siutindei` deletes `fixtures/` on production after the `_next/static` sync and before the document sync, and excludes `fixtures/*` from that sync. `s3-cloudfront-deploy` `delete-prefix` is that delete. The promote workflow does not pass it yet. `evolvesprouts` excludes `landing-pages-manifest.json`. Cache-Control is three policies: immutable assets, a short document cache, and `no-store`.
+`siutindei` deletes `fixtures/` on production after the `_next/static` sync and before the document sync, and excludes `fixtures/*` from that sync. `sync_site_artifacts` repeats that delete on the release copy when a release id is set. `s3-cloudfront-deploy` `delete-prefix` is that delete. It refuses `releases`, `_next`, and the `maintenance-assets` directory, adds `<name>/*` to the document exclude, and removes `s3://<bucket>/<name>/` so the prefix match stops at that directory. The promote workflow does not pass it yet. `evolvesprouts` excludes `landing-pages-manifest.json`. Cache-Control is three policies: immutable assets, a short document cache, and `no-store`.
 
 `siutindei` adds the catalogue snapshot the promote workflow fetches, and the same maintenance and release layout. The two scripts are the same shape with different stack names and a few extra files.
 
