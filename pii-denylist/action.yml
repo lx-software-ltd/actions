@@ -1,13 +1,14 @@
 name: PII denylist
 description: >-
-  Fail when tracked source matches a SHA-256 denylist of personal data.
+  Fail when tracked source matches the organisation SHA-256 denylist,
+  plus any extra digests the caller supplies.
   A hit is a path and line number. The matched text is not printed.
 
 inputs:
   denylist-path:
     description: >-
-      Hash list, relative to root unless absolute. Default
-      scripts/pii-denylist.sha256.
+      Extra digests, added to the organisation list. Relative to root
+      unless absolute. The default scripts/pii-denylist.sha256 is optional.
     required: false
     default: scripts/pii-denylist.sha256
   root:

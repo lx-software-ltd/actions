@@ -10,9 +10,9 @@ Autonomy follows blast radius. The map is `docs/architecture/zones.md`. The stri
 
 ## What this repository is
 
-Composite actions and the hooks the product repositories share. An action cannot read `secrets` or `vars`. Callers pass those as inputs. Payload is `"$GITHUB_ACTION_PATH/..."`. Shared payload is `"$GITHUB_ACTION_PATH/../lib/..."`. An action does not call another action in this repository.
+Composite actions and the hooks the product repositories share. An action cannot read `secrets` or `vars`. Callers pass those as inputs. Payload is `"$GITHUB_ACTION_PATH/..."`. Shared payload is `"$GITHUB_ACTION_PATH/../lib/..."`. The organisation denylist is the exception: it stays at `scripts/pii-denylist.sha256`, and the checker reads that file from its own checkout. An action does not call another action in this repository.
 
-Nothing private goes in this repository: no secret, account id, internal hostname, or personal data. A product's own further denylist entries stay in that product. `scripts/pii-denylist.sha256` holds the 31 organisation digests the owner approved on 20 Nov 2026. They are the same digests as in `findingalpha`, `evolvesprouts`, and `siutindei`. `lx-software` holds 30 of them on purpose. No plaintext.
+Nothing private goes in this repository: no secret, account id, internal hostname, or personal data. A product's own further denylist entries stay in that product, in `scripts/pii-denylist.sha256`, and are added to the organisation list. A missing product file adds nothing. `scripts/pii-denylist.sha256` in this repository holds the 31 organisation digests the owner approved on 20 Nov 2026. The checker applies them in all five repositories, including `lx-software`. The published owner name in `lx-software` stays in `site.json`. `.json` is not scanned. No plaintext.
 
 No workflow here requests `id-token: write` or calls AWS.
 

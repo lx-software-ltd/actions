@@ -90,7 +90,7 @@ This repository and the four product repositories each run `sync-labels.yml` and
 
 ## Denylist
 
-`scripts/pii-denylist.sha256` holds the 31 organisation digests approved on 20 Nov 2026. No plaintext. `lx-software` holds 30 of them. That omission was deliberate: the copy decision does not add the missing digest there. Holding the organisation list only in this repository would apply that digest to `lx-software`, so the five copies stay until a new approval.
+`scripts/pii-denylist.sha256` is the organisation list. It holds the 31 digests approved on 20 Nov 2026. No plaintext. The checker loads that file from its own checkout and applies it in all five repositories, including `lx-software`. A product may add digests in its own `scripts/pii-denylist.sha256`. A missing product file adds nothing. The published owner name in `lx-software` stays in `apps/public_www/src/content/site.json`. `.json` is not scanned, which is why that name stays allowed.
 
 ## API
 

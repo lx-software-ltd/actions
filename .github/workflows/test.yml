@@ -382,6 +382,18 @@ jobs:
           OUTCOME: ${{ steps.scan.outcome }}
         run: test "$OUTCOME" = "failure"
 
+  pii-denylist-org-only:
+    name: PII denylist organisation list only
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Scan a tree that has no denylist file
+        uses: ./pii-denylist
+        with:
+          root: fixtures/pii-denylist/org-only
+
   gitleaks-pass:
     name: Gitleaks pass fixture
     runs-on: ubuntu-26.04
@@ -1846,6 +1858,7 @@ jobs:
       - dependabot-batch-fail
       - pii-denylist-pass
       - pii-denylist-fail
+      - pii-denylist-org-only
       - gitleaks-pass
       - gitleaks-fail
       - checkov-skip

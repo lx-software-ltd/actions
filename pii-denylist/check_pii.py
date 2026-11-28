@@ -4,6 +4,14 @@
 The denylist stores SHA-256 hex digests only. A hit is reported as a path
 and line number, without the matched text.
 
+The organisation list is ``scripts/pii-denylist.sha256`` beside this
+checkout (``Path(__file__).parents[1]``). A missing organisation file
+fails. An empty organisation file passes and checks nothing.
+
+``PII_DENYLIST`` adds the caller's digests. Empty, or the default
+``scripts/pii-denylist.sha256``, is optional: a missing file adds nothing.
+Any other path must exist. Digests from both files are one set.
+
 Normalization, applied to each line and to each pair of consecutive lines:
 
 - lowercase
@@ -16,8 +24,7 @@ Normalization, applied to each line and to each pair of consecutive lines:
   2- to 6-token window
 
 ``PII_ROOT`` is the directory to scan. Empty uses ``GITHUB_WORKSPACE``, then
-the working directory. ``PII_DENYLIST`` is the hash list. A relative path is
-resolved from ``PII_ROOT``. Empty uses ``scripts/pii-denylist.sha256``.
+the working directory.
 """
 
 from __future__ import annotations
@@ -48,6 +55,7 @@ SCAN_SUFFIXES = {
 EMAIL_RE = re.compile(r"[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}")
 PHONE_RE = re.compile(r"\d[\d\s().+\-]{6,}\d")
 TOKEN_RE = re.compile(r"[^a-z0-9.+@]+")
+_DEFAULT_CALLER_LIST = "scripts/pii-denylist.sha256"
 
 
 def _digest(value: str) -> str:
@@ -64,14 +72,19 @@ def _root() -> Path:
     return Path.cwd().resolve()
 
 
-def _denylist_path(root: Path) -> Path:
+def _organisation_path() -> Path:
+    return Path(__file__).resolve().parents[1] / "scripts" / "pii-denylist.sha256"
+
+
+def _caller_list(root: Path) -> tuple[Path, bool]:
+    """Return the caller list path and whether a missing file fails."""
     raw = os.environ.get("PII_DENYLIST", "").strip()
-    if not raw:
-        return root / "scripts" / "pii-denylist.sha256"
+    if not raw or raw == _DEFAULT_CALLER_LIST:
+        return root / _DEFAULT_CALLER_LIST, False
     path = Path(raw)
-    if path.is_absolute():
-        return path
-    return root / path
+    if not path.is_absolute():
+        path = root / path
+    return path, True
 
 
 def _load_denylist(path: Path) -> set[str]:
@@ -161,17 +174,23 @@ def _matching_lines(path: Path, denied: set[str]) -> list[int]:
 
 def main() -> int:
     root = _root()
-    denylist_path = _denylist_path(root)
-    if not denylist_path.is_file():
-        print(f"missing denylist: {denylist_path}", file=sys.stderr)
+    organisation = _organisation_path()
+    if not organisation.is_file():
+        print(f"missing denylist: {organisation}", file=sys.stderr)
         return 1
-    denied = _load_denylist(denylist_path)
+    denied = _load_denylist(organisation)
     if not denied:
         print(
-            f"pii check passed: {denylist_path} has no digests, "
+            f"pii check passed: {organisation} has no digests, "
             "so this run checks nothing"
         )
         return 0
+    caller, required = _caller_list(root)
+    if caller.is_file():
+        denied.update(_load_denylist(caller))
+    elif required:
+        print(f"missing denylist: {caller}", file=sys.stderr)
+        return 1
     failures = 0
     for path in _tracked_files(root):
         try:

@@ -1,6 +1,6 @@
 # PII denylist
 
-Fails when tracked source matches a SHA-256 denylist of personal data. A hit is printed as a path and line number. The matched text is not printed.
+Fails when tracked source matches the organisation SHA-256 denylist, plus any extra digests the caller supplies. A hit is printed as a path and line number. The matched text is not printed.
 
 The calling job needs `python3` on `PATH` and a checkout. The action does not install Python. `ubuntu-26.04` provides it.
 
@@ -8,10 +8,10 @@ The calling job needs `python3` on `PATH` and a checkout. The action does not in
 
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
-| `denylist-path` | no | `scripts/pii-denylist.sha256` | Hash list. Relative paths are resolved from `root`. |
+| `denylist-path` | no | `scripts/pii-denylist.sha256` | Extra digests, added to the organisation list. Relative paths are resolved from `root`. The default path is optional. Any other path must exist. |
 | `root` | no | the workspace | Directory whose tracked files are scanned. |
 
-An empty hash list passes and checks nothing. A missing file fails.
+The organisation list is `scripts/pii-denylist.sha256` in this action's checkout. A missing organisation file fails. An empty organisation file passes and checks nothing. A missing default product file adds nothing.
 
 ## Permissions
 
