@@ -83,7 +83,7 @@ Product repositories call [`dependency-submission`](dependency-submission/README
 | [`sync-labels`](sync-labels/README.md) | Create and update the shared issue labels, including `mobile`. Other labels stay. | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [`dependabot-batch`](dependabot-batch/README.md) | Open one pull request that batches routine Dependabot updates. | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [`agent-harness`](agent-harness/README.md) | Check agent rules, file length, and test focus from `.github/harness.json`. | | ✅ | ✅ | ✅ | ✅ |
-| [`pii-denylist`](pii-denylist/README.md) | Fail when tracked source matches a SHA-256 denylist. The match text is not printed. | ✅ | ✅ | ✅ | ✅ | ✅ |
+| [`pii-denylist`](pii-denylist/README.md) | Fail when tracked source matches the organisation SHA-256 list from this repository. A product file adds digests. The match text is not printed. | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [`gitleaks`](gitleaks/README.md) | Secret scan with the gitleaks CLI. | ✅ | ✅ | ✅ | ✅ | ✅ |
 | [`checkov-cloudformation`](checkov-cloudformation/README.md) | Checkov on synthesised CloudFormation, then a SARIF upload. | | ✅ | ✅ | ✅ | ✅ |
 | [`codeql`](codeql/README.md) | CodeQL init and analyze. | ✅ | ✅ | ✅ | ✅ | ✅ |

@@ -57,6 +57,9 @@ class CheckPiiTest(unittest.TestCase):
             }
             <= check_pii.SCAN_SUFFIXES
         )
+        # site.json in lx-software holds a published owner name. Adding .json
+        # here would start failing that tree.
+        self.assertNotIn(".json", check_pii.SCAN_SUFFIXES)
 
     def test_phone_digits_are_candidates_without_separators(self) -> None:
         candidates = check_pii._candidates("Call +852 5111 1111.")
@@ -99,6 +102,102 @@ class CheckPiiTest(unittest.TestCase):
                     os.environ.pop("PII_DENYLIST", None)
                 else:
                     os.environ["PII_DENYLIST"] = previous_list
+
+
+    def _with_env(self, root: Path, denylist: str | None, organisation: Path | None):
+        import os
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _context():
+            previous_root = os.environ.get("PII_ROOT")
+            previous_list = os.environ.get("PII_DENYLIST")
+            globals_ = check_pii.main.__globals__
+            previous_org = globals_["_organisation_path"]
+            os.environ["PII_ROOT"] = str(root)
+            if denylist is None:
+                os.environ.pop("PII_DENYLIST", None)
+            else:
+                os.environ["PII_DENYLIST"] = denylist
+            if organisation is not None:
+                globals_["_organisation_path"] = lambda path=organisation: path
+            try:
+                yield
+            finally:
+                if previous_root is None:
+                    os.environ.pop("PII_ROOT", None)
+                else:
+                    os.environ["PII_ROOT"] = previous_root
+                if previous_list is None:
+                    os.environ.pop("PII_DENYLIST", None)
+                else:
+                    os.environ["PII_DENYLIST"] = previous_list
+                globals_["_organisation_path"] = previous_org
+
+        return _context()
+
+    def test_organisation_list_applies_when_the_caller_has_no_list(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            note = root / "note.md"
+            note.write_text("Meet fixturepii tokenalpha today.\n", encoding="utf-8")
+            organisation = root / "org.sha256"
+            organisation.write_text(check_pii._digest("fixturepii tokenalpha") + "\n", encoding="utf-8")
+            with self._with_env(root, None, organisation):
+                self.assertEqual(check_pii.main(), 1)
+            note.write_text("Nothing personal here.\n", encoding="utf-8")
+            with self._with_env(root, None, organisation):
+                self.assertEqual(check_pii.main(), 0)
+
+    def test_organisation_list_applies_alongside_the_caller_list(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            note = root / "note.md"
+            organisation = root / "org.sha256"
+            organisation.write_text(check_pii._digest("org fixture token") + "\n", encoding="utf-8")
+            caller = root / "caller.sha256"
+            caller.write_text(check_pii._digest("caller fixture token") + "\n", encoding="utf-8")
+            note.write_text("See caller fixture token today.\n", encoding="utf-8")
+            with self._with_env(root, "caller.sha256", organisation):
+                self.assertEqual(check_pii.main(), 1)
+            note.write_text("See org fixture token today.\n", encoding="utf-8")
+            with self._with_env(root, "caller.sha256", organisation):
+                self.assertEqual(check_pii.main(), 1)
+            note.write_text("Nothing personal here.\n", encoding="utf-8")
+            with self._with_env(root, "caller.sha256", organisation):
+                self.assertEqual(check_pii.main(), 0)
+
+    def test_explicit_missing_denylist_fails(self) -> None:
+        import io
+        from contextlib import redirect_stderr
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "note.md").write_text("Nothing personal here.\n", encoding="utf-8")
+            errors = io.StringIO()
+            with self._with_env(root, "missing-denylist.sha256", None), redirect_stderr(errors):
+                status = check_pii.main()
+            self.assertEqual(status, 1)
+            self.assertIn("missing denylist:", errors.getvalue())
+            self.assertIn("missing-denylist.sha256", errors.getvalue())
+
+    def test_missing_default_caller_list_is_optional(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "note.md").write_text("Nothing personal here.\n", encoding="utf-8")
+            with self._with_env(root, "scripts/pii-denylist.sha256", None):
+                self.assertEqual(check_pii.main(), 0)
+
+    def test_empty_organisation_file_checks_nothing(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "note.md").write_text("Meet fixturepii tokenalpha today.\n", encoding="utf-8")
+            organisation = root / "org.sha256"
+            organisation.write_text("# no digests\n", encoding="utf-8")
+            caller = root / "caller.sha256"
+            caller.write_text(check_pii._digest("fixturepii tokenalpha") + "\n", encoding="utf-8")
+            with self._with_env(root, "caller.sha256", organisation):
+                self.assertEqual(check_pii.main(), 0)
 
 
 if __name__ == "__main__":

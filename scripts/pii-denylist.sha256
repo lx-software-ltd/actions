@@ -1,7 +1,7 @@
-# SHA-256 digests only. No plaintext personal data.
-# Organisation list copied 20 Nov 2026, with the owner's approval.
-# Same 31 digests as evolvesprouts and siutindei scripts/pii-denylist.sha256.
-# lx-software has 30 of these 31. findingalpha gets the same copy.
+# Digests only. SHA-256 hex, no plaintext personal data.
+# Organisation list for all five repositories, including lx-software.
+# Approved 20 Nov 2026. These 31 digests are the whole organisation list.
+# The published owner name stays in lx-software site.json. .json is not scanned.
 f6511406f3083e021a235808a957dc283acf199853ce03fe83b36791e4436e5a
 66fc3fdbfa58f88ec06c6f13f45ec36063e6373e567582c41bc4bcd89a8e246c
 4b68e863263bb942b3634e663284af518900b641dda2697288de5e43fe01bb80
