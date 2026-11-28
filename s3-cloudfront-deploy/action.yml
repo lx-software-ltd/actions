@@ -89,6 +89,15 @@ inputs:
       _next/static/* and releases/* are always excluded from the document sync.
     required: false
     default: ""
+  delete-prefix:
+    description: >-
+      One directory removed with aws s3 rm --recursive after the next-site
+      asset sync and before the document sync. The key ends with a slash.
+      The document sync excludes that directory. Refuses releases, _next,
+      and the maintenance-assets directory. Empty skips it. siutindei
+      production passes fixtures. Requires profile next-site.
+    required: false
+    default: ""
   asset-cache:
     description: >-
       Cache-Control for _next/static. The default matches the public-www
@@ -143,6 +152,7 @@ runs:
         STAGING_ROBOTS: ${{ inputs.staging-robots }}
         PROMOTE_FROM: ${{ inputs.promote-from }}
         SYNC_EXCLUDE: ${{ inputs.sync-exclude }}
+        DELETE_PREFIX: ${{ inputs.delete-prefix }}
         ASSET_CACHE: ${{ inputs.asset-cache }}
         DOCUMENT_CACHE: ${{ inputs.document-cache }}
         MARKER_CACHE: ${{ inputs.marker-cache }}

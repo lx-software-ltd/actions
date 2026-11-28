@@ -567,3 +567,267 @@ class SyncProfileTest(unittest.TestCase):
                     run_aws=lambda command: _ok(),
                     release_id="bad id",
                 )
+
+    def test_delete_prefix_runs_between_the_asset_sync_and_the_document_sync(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            return _ok()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            static = source / "_next" / "static"
+            static.mkdir(parents=True)
+            (static / "app.js").write_text("js", encoding="utf-8")
+            (source / "index.html").write_text("<html>", encoding="utf-8")
+            s3_sync.deploy(
+                source=source,
+                bucket="site-bucket",
+                distribution="",
+                profile="next-site",
+                indexnow=False,
+                run_aws=run_aws,
+                release_id="2026.11.24",
+                sync_exclude=["fixtures/*"],
+                delete_prefix="fixtures",
+            )
+        removals = [call for call in calls if call[1:3] == ["s3", "rm"]]
+        self.assertEqual(
+            removals,
+            [
+                ["aws", "s3", "rm", "s3://site-bucket/fixtures/", "--recursive"],
+                ["aws", "s3", "rm", "s3://site-bucket/releases/2026.11.24/fixtures/", "--recursive"],
+            ],
+        )
+        for call in calls:
+            if call[1:3] != ["s3", "rm"]:
+                continue
+            index = calls.index(call)
+            self.assertTrue(calls[index - 1][4].endswith("/_next/static"))
+            document = calls[index + 1]
+            self.assertEqual(document[1:3], ["s3", "sync"])
+            self.assertEqual(document.count("fixtures/*"), 1)
+            self.assertIn("--delete", document)
+
+    def test_promote_deletes_the_prefix_on_the_destination(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            if command[1:3] == ["s3api", "list-objects-v2"]:
+                return _ok("1\n")
+            return _ok()
+
+        s3_sync.deploy(
+            source=Path("."),
+            bucket="site-bucket",
+            distribution="",
+            profile="next-site",
+            indexnow=False,
+            run_aws=run_aws,
+            promote_from="s3://staging-bucket/releases/2026.11.24",
+            sync_exclude=["fixtures/*"],
+            delete_prefix="fixtures",
+        )
+        self.assertEqual(
+            [(call[1], call[2]) for call in calls],
+            [
+                ("s3api", "list-objects-v2"),
+                ("s3api", "list-objects-v2"),
+                ("s3", "sync"),
+                ("s3", "rm"),
+                ("s3", "sync"),
+            ],
+        )
+        self.assertEqual(calls[3], ["aws", "s3", "rm", "s3://site-bucket/fixtures/", "--recursive"])
+        self.assertEqual(calls[2][3], "s3://staging-bucket/releases/2026.11.24/_next/static")
+        self.assertEqual(calls[2][4], "s3://site-bucket/_next/static")
+        self.assertEqual(calls[4].count("fixtures/*"), 1)
+        self.assertIn("--delete", calls[4])
+
+    def test_delete_prefix_runs_without_hashed_assets(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            return _ok()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            (source / "index.html").write_text("<html>", encoding="utf-8")
+            s3_sync.deploy(
+                source=source,
+                bucket="site-bucket",
+                distribution="",
+                profile="next-site",
+                indexnow=False,
+                run_aws=run_aws,
+                delete_prefix="fixtures",
+            )
+        self.assertEqual(calls[0], ["aws", "s3", "rm", "s3://site-bucket/fixtures/", "--recursive"])
+        self.assertEqual(calls[1][1:3], ["s3", "sync"])
+        self.assertEqual(calls[1].count("fixtures/*"), 1)
+
+    def test_an_empty_delete_prefix_issues_no_remove(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            return _ok()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            static = source / "_next" / "static"
+            static.mkdir(parents=True)
+            (static / "app.js").write_text("js", encoding="utf-8")
+            (source / "index.html").write_text("<html>", encoding="utf-8")
+            s3_sync.deploy(
+                source=source,
+                bucket="site-bucket",
+                distribution="",
+                profile="next-site",
+                indexnow=False,
+                run_aws=run_aws,
+            )
+        self.assertFalse(any(call[1:3] == ["s3", "rm"] for call in calls))
+
+    def test_delete_prefix_refuses_kept_directories(self) -> None:
+        for name in ("releases", "_next"):
+            with self.assertRaises(s3_sync.SyncError) as caught:
+                s3_sync.deploy(
+                    source=Path("."),
+                    bucket="site-bucket",
+                    distribution="",
+                    profile="next-site",
+                    indexnow=False,
+                    run_aws=lambda command: _ok(),
+                    delete_prefix=name,
+                )
+            self.assertIn("cannot remove releases or _next", str(caught.exception))
+
+    def test_delete_prefix_refuses_the_maintenance_assets_directory(self) -> None:
+        with self.assertRaises(s3_sync.SyncError) as caught:
+            s3_sync.deploy(
+                source=Path("."),
+                bucket="site-bucket",
+                distribution="",
+                profile="next-site",
+                indexnow=False,
+                run_aws=lambda command: _ok(),
+                delete_prefix="images",
+                maintenance_assets="images",
+            )
+        self.assertIn("maintenance-assets", str(caught.exception))
+
+    def test_delete_prefix_requires_next_site(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            self._tree(source)
+            with self.assertRaises(s3_sync.SyncError) as caught:
+                s3_sync.deploy(
+                    source=source,
+                    bucket="site-bucket",
+                    distribution="",
+                    profile="public-hashed",
+                    indexnow=False,
+                    run_aws=lambda command: _ok(),
+                    delete_prefix="fixtures",
+                )
+        self.assertIn("delete-prefix requires profile next-site", str(caught.exception))
+
+    def test_delete_prefix_is_one_directory_name(self) -> None:
+        with self.assertRaises(s3_sync.SyncError) as caught:
+            s3_sync.deploy(
+                source=Path("."),
+                bucket="site-bucket",
+                distribution="",
+                profile="next-site",
+                indexnow=False,
+                run_aws=lambda command: _ok(),
+                delete_prefix="fixtures/other",
+            )
+        self.assertIn("delete-prefix must be one directory name", str(caught.exception))
+
+    def test_dry_run_plans_the_prefix_delete(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            return _ok("(dryrun) delete: s3://site-bucket/fixtures/index.html\n")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            (source / "index.html").write_text("<html>", encoding="utf-8")
+            s3_sync.deploy(
+                source=source,
+                bucket="site-bucket",
+                distribution="",
+                profile="next-site",
+                indexnow=False,
+                dry_run=True,
+                run_aws=run_aws,
+                delete_prefix="fixtures",
+            )
+        removal = [call for call in calls if call[2] == "rm"]
+        self.assertEqual(
+            removal,
+            [["aws", "s3", "rm", "--dryrun", "s3://site-bucket/fixtures/", "--recursive"]],
+        )
+
+    def test_a_failed_prefix_delete_fails_the_deploy(self) -> None:
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            if command[1:3] == ["s3", "rm"]:
+                return subprocess.CompletedProcess(
+                    args=command,
+                    returncode=1,
+                    stdout="",
+                    stderr="AccessDenied for 123456789012",
+                )
+            return _ok()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            (source / "index.html").write_text("<html>", encoding="utf-8")
+            with self.assertRaises(s3_sync.SyncError) as caught:
+                s3_sync.deploy(
+                    source=source,
+                    bucket="site-bucket",
+                    distribution="",
+                    profile="next-site",
+                    indexnow=False,
+                    run_aws=run_aws,
+                    delete_prefix="fixtures",
+                )
+        self.assertNotIn("123456789012", str(caught.exception))
+        self.assertIn("************", str(caught.exception))
+
+    def test_main_reads_delete_prefix(self) -> None:
+        calls: list[list[str]] = []
+
+        def run_aws(command: list[str]) -> subprocess.CompletedProcess[str]:
+            calls.append(command)
+            return _ok()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp)
+            (source / "index.html").write_text("<html>", encoding="utf-8")
+            env = {
+                "SOURCE": str(source),
+                "BUCKET": "site-bucket",
+                "DISTRIBUTION_ID": "",
+                "STACK": "",
+                "PROFILE": "next-site",
+                "DELETE_PREFIX": "fixtures",
+                "SYNC_EXCLUDE": "fixtures/*",
+                "DRY_RUN": "false",
+                "INDEXNOW": "false",
+                "PROMOTE_FROM": "",
+                "RELEASE_ID": "",
+                "RELEASE_MARKER": "false",
+                "STAGING_ROBOTS": "false",
+            }
+            with mock.patch.dict(os.environ, env, clear=False):
+                self.assertEqual(s3_sync.main(run_aws), 0)
+        self.assertEqual(calls[0], ["aws", "s3", "rm", "s3://site-bucket/fixtures/", "--recursive"])
+        self.assertIn("fixtures/*", calls[1])
